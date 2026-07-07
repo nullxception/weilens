@@ -1,6 +1,7 @@
 import { X } from "lucide-react"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
+import { proxyImage } from "@/lib/proxy"
 
 export interface CheckedProfile {
   uid: string
@@ -58,7 +59,7 @@ export function HistoryPanel({
               >
                 {profile.profileImageUrl ? (
                   <img
-                    src={`http://localhost:18327/?url=${encodeURIComponent(profile.profileImageUrl)}`}
+                    src={proxyImage(profile.profileImageUrl)}
                     alt={profile.screenName}
                     className="h-7 w-7 rounded-full border border-border object-cover shadow-sm transition-transform duration-200 group-hover:scale-105"
                   />

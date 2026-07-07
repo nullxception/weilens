@@ -15,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "./ui/dropdown-menu"
+import { proxyImage } from "@/lib/proxy"
 
 interface BlogCardProps {
   blog: WeiPost
@@ -178,7 +179,7 @@ export function BlogCard({
           <div className="flex items-center gap-3">
             {blog.user?.profile_image_url && (
               <img
-                src={`http://localhost:18327/?url=${encodeURIComponent(blog.user.profile_image_url)}`}
+                src={proxyImage(blog.user.profile_image_url)}
                 alt={blog.user.screen_name}
                 className="h-8 w-8 rounded-full border border-border"
               />
@@ -220,7 +221,7 @@ export function BlogCard({
                 return picUrl ? (
                   <div key={picId} className="relative w-full">
                     <img
-                      src={`http://localhost:18327/?url=${encodeURIComponent(noWatermarkPic ?? "")}`}
+                      src={proxyImage(noWatermarkPic ?? "")}
                       alt=""
                       style={{ aspectRatio }}
                       className="w-full rounded-md border border-border object-contain"

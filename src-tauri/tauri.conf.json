@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' http://localhost:18327 blob: data:;"
+      "csp": "default-src 'self'; img-src 'self' img-proxy: http://img-proxy.localhost https: data:;"
     }
   },
   "bundle": {
