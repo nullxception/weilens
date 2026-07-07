@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::OnceLock;
 
+use tauri::Manager;
 use tokio::sync::Semaphore;
 
 use crate::dates::{get_date_folder, parse_date};
@@ -40,14 +40,7 @@ pub async fn download_post(
     let mut saved_paths = Vec::new();
     let total = items.len();
 
-    static SHARED_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-    let client = SHARED_CLIENT
-        .get_or_init(|| {
-            reqwest::Client::builder()
-                .build()
-                .expect("failed to build reqwest client")
-        })
-        .clone();
+    let client = app_handle.state::<reqwest::Client>().inner().clone();
     let semaphore = Arc::new(Semaphore::new(16));
 
     let mut hosts: HashSet<String> = HashSet::new();

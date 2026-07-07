@@ -124,6 +124,7 @@ pub fn run() {
         .unwrap();
 
     tauri::Builder::default()
+        .manage(http_client.clone())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_http::init())
         .plugin(
