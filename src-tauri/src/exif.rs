@@ -1,7 +1,7 @@
 use crate::types::GpsData;
 use little_exif::exif_tag::ExifTag;
 use little_exif::metadata::Metadata;
-use little_exif::rational::uR64;
+use little_exif::rational::{iR64, uR64};
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy)] // Required for .copied()
@@ -17,43 +17,43 @@ fn get_iphone_model(exif_date_str: &str) -> IPhoneExif {
         IPhoneExif {
             shortname: "A11PM",
             name: "iPhone 11 Pro Max",
-            lens_model: "iPhone 11 Pro Max back triple camera 4.25mm f/1.8",
+            lens_model: "back triple camera 4.25mm f/1.8",
             release_date: "2019:09:20",
         },
         IPhoneExif {
             shortname: "A12PM",
             name: "iPhone 12 Pro Max",
-            lens_model: "iPhone 12 Pro Max back camera 5.1mm f/1.6",
+            lens_model: "back camera 5.1mm f/1.6",
             release_date: "2020:11:13",
         },
         IPhoneExif {
             shortname: "A13PM",
             name: "iPhone 13 Pro Max",
-            lens_model: "iPhone 13 Pro Max back triple camera 5.7mm f/1.5",
+            lens_model: "back triple camera 5.7mm f/1.5",
             release_date: "2021:09:24",
         },
         IPhoneExif {
             shortname: "A14PM",
             name: "iPhone 14 Pro Max",
-            lens_model: "iPhone 14 Pro Max back triple camera 6.86mm f/1.78",
+            lens_model: "back triple camera 6.86mm f/1.78",
             release_date: "2022:09:16",
         },
         IPhoneExif {
             shortname: "A15PM",
             name: "iPhone 15 Pro Max",
-            lens_model: "iPhone 15 Pro Max back triple camera 6.86mm f/1.78",
+            lens_model: "back triple camera 6.86mm f/1.78",
             release_date: "2023:09:22",
         },
         IPhoneExif {
             shortname: "A16PM",
             name: "iPhone 16 Pro Max",
-            lens_model: "iPhone 16 Pro Max back triple camera 6.86mm f/1.78",
+            lens_model: "back triple camera 6.86mm f/1.78",
             release_date: "2024:09:20",
         },
         IPhoneExif {
             shortname: "A17PM",
             name: "iPhone 17 Pro Max",
-            lens_model: "iPhone 17 Pro Max back triple camera 6.86mm f/1.78",
+            lens_model: "back triple camera 6.86mm f/1.78",
             release_date: "2025:09:19",
         },
     ];
@@ -93,22 +93,35 @@ pub fn write_exif(
     // Phone and lens information
     metadata.set_tag(ExifTag::Make("Apple".into()));
     metadata.set_tag(ExifTag::Model(phone_model.name.into()));
+    metadata.set_tag(ExifTag::Software(("26.5.0").into()));
     metadata.set_tag(ExifTag::LensMake("Apple".into()));
-    metadata.set_tag(ExifTag::LensModel(phone_model.lens_model.into()));
+    metadata.set_tag(ExifTag::LensModel(format!(
+        "{} {}",
+        phone_model.name, phone_model.lens_model
+    )));
     metadata.set_tag(ExifTag::ImageUniqueID(format!(
         "{}00000000000000000",
         phone_model.shortname
     )));
+    metadata.set_tag(ExifTag::ExifVersion(vec![0232]));
+    metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
 
     // Exposure
-    metadata.set_tag(ExifTag::ExposureTime(vec![uR64::from(1), uR64::from(120)])); // 1/120
-    metadata.set_tag(ExifTag::FNumber(vec![uR64::from(18), uR64::from(10)])); // f/1.8
+    metadata.set_tag(ExifTag::ExposureTime(vec![uR64 {
+        nominator: 1,
+        denominator: 120,
+    }])); // 1/120
+    metadata.set_tag(ExifTag::FNumber(vec![uR64::from(1.8)])); // f/1.8
     metadata.set_tag(ExifTag::ISO(vec![50]));
     metadata.set_tag(ExifTag::ExposureProgram(vec![2])); // Program AE
     metadata.set_tag(ExifTag::MeteringMode(vec![5])); // Multi-segment
     metadata.set_tag(ExifTag::Flash(vec![16])); // Flash did not fire
-    metadata.set_tag(ExifTag::FocalLength(vec![uR64::from(69), uR64::from(10)])); // 6.9 mm
+    metadata.set_tag(ExifTag::FocalLength(vec![uR64::from(6.9)])); // 6.9 mm
     metadata.set_tag(ExifTag::FocalLengthIn35mmFormat(vec![24])); // 24 mm equivalent
+    metadata.set_tag(ExifTag::ExposureCompensation(vec![iR64 {
+        nominator: -1,
+        denominator: 1,
+    }]));
 
     // White balance
     metadata.set_tag(ExifTag::WhiteBalance(vec![0])); // Auto
@@ -118,13 +131,10 @@ pub fn write_exif(
 
     metadata.set_tag(ExifTag::Orientation(vec![1])); // Normal
     metadata.set_tag(ExifTag::ResolutionUnit(vec![2])); // Inches
-    metadata.set_tag(ExifTag::XResolution(vec![uR64::from(72), uR64::from(1)]));
-    metadata.set_tag(ExifTag::YResolution(vec![uR64::from(72), uR64::from(1)]));
+    metadata.set_tag(ExifTag::XResolution(vec![uR64::from(72)]));
+    metadata.set_tag(ExifTag::YResolution(vec![uR64::from(72)]));
     metadata.set_tag(ExifTag::SceneCaptureType(vec![0])); // Standard
-    metadata.set_tag(ExifTag::DigitalZoomRatio(vec![
-        uR64::from(1),
-        uR64::from(1),
-    ])); // 1×
+    metadata.set_tag(ExifTag::DigitalZoomRatio(vec![uR64::from(1)])); // 1×
 
     if let Some(gps) = location {
         let lat_ref = if gps.lat >= 0.0 { "N" } else { "S" };
