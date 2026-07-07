@@ -1,4 +1,3 @@
-mod commands;
 mod dates;
 mod download;
 mod exif;
@@ -6,7 +5,7 @@ mod image;
 mod types;
 mod util;
 
-use crate::commands::{choose_download_folder, download_post};
+use crate::download::{choose_download_folder, download_post};
 use log::LevelFilter;
 use tauri::{
     http::header::REFERER, http::Request, http::Response, webview::PageLoadEvent,
