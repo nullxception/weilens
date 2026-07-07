@@ -6,7 +6,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "./ui/dialog"
 import { Input } from "./ui/input"
 import { Button } from "./ui/button"
@@ -18,6 +17,7 @@ import type { GPSData } from "../shared/gps"
 import type { NominatimResult } from "../types/gps"
 import { NominatimSearchSchema } from "../types/gps"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
+import { LoaderCircle, SearchIcon } from "lucide-react"
 
 function parseCoordinateInput(input: string): GPSData | null {
   const trimmed = input.trim()
@@ -39,7 +39,7 @@ function parseCoordinateInput(input: string): GPSData | null {
 
 async function searchNominatim(
   q: string,
-  limit = 3
+  limit = 10
 ): Promise<NominatimResult[]> {
   if (!q) return []
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=${limit}`
@@ -113,9 +113,9 @@ export default function LocationDialog({
           <Button>Find location</Button>
         </DialogTrigger>
       )}
-      <DialogContent>
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Search location</DialogTitle>
+          <DialogTitle>Search Location</DialogTitle>
         </DialogHeader>
 
         {suggestedLocation && !isFetching && (
@@ -123,7 +123,7 @@ export default function LocationDialog({
             className="rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground"
             onClick={() => {
               setQuery(suggestedLocation)
-              void doSearch()
+              doSearch()
             }}
           >
             Post location:{" "}
@@ -144,7 +144,11 @@ export default function LocationDialog({
             }}
           />
           <Button onClick={doSearch} disabled={isFetching}>
-            {isFetching ? "Searching..." : "Search"}
+            {isFetching ? (
+              <LoaderCircle className="animate-spin" />
+            ) : (
+              <SearchIcon />
+            )}
           </Button>
         </div>
 
@@ -168,11 +172,11 @@ export default function LocationDialog({
                 Clear
               </Button>
             </div>
-            <ScrollArea className="h-36">
+            <ScrollArea className="h-96 rounded-md border border-border">
               {recentPlaces.map((rp) => (
                 <div
                   key={`${rp.lat}-${rp.lon}-${String(rp.display_name).slice(0, 30)}`}
-                  className="cursor-pointer p-2 hover:bg-muted/50"
+                  className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
                   onClick={() => {
                     onSelect?.({ lat: rp.lat, lon: rp.lon })
                     onOpenChange?.(false)
@@ -188,11 +192,11 @@ export default function LocationDialog({
           </div>
         ) : (
           <>
-            <ScrollArea className="h-56">
+            <ScrollArea className="h-96 rounded-md border border-border">
               {results.map((p) => (
                 <div
                   key={`${p.lat}-${p.lon}-${String(p.display_name).slice(0, 30)}`}
-                  className="cursor-pointer p-2 hover:bg-muted/50"
+                  className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
                   onClick={() => {
                     addRecentPlace(p)
                     onSelect?.({ lat: p.lat, lon: p.lon })
@@ -208,8 +212,6 @@ export default function LocationDialog({
             </ScrollArea>
           </>
         )}
-
-        <DialogFooter showCloseButton />
       </DialogContent>
     </Dialog>
   )

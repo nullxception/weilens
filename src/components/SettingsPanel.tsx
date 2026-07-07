@@ -55,6 +55,18 @@ export function SettingsPanel({
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="weicookie">Cookie</Label>
+          <span className="text-xs text-muted-foreground">
+            Tip: Use{" "}
+            <a
+              href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Get cookies.txt locally
+            </a>{" "}
+            to get cookie from weibo.
+          </span>
           <Textarea
             id="weicookie"
             rows={6}

@@ -8,6 +8,14 @@ export interface CheckedProfile {
   timestamp: number;
 }
 
+export interface PostDownloadState {
+  postId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  items: Record<number, "downloading" | "completed" | "failed">;
+}
+
 export interface AppState {
   /** Raw cookie string as entered by the user. */
   cookie: string;
@@ -33,6 +41,15 @@ export interface AppState {
   ) => void;
   removeFromHistory: (uid: string) => void;
   clearHistory: () => void;
+  downloads: Record<string, PostDownloadState>;
+  startDownload: (postId: string, total: number) => void;
+  updateDownloadProgress: (
+    postId: string,
+    index: number,
+    status: "downloading" | "completed" | "failed",
+  ) => void;
+  clearDownload: (postId: string) => void;
+  clearDownloads: () => void;
   recentPlaces: NominatimResult[];
   addRecentPlace: (place: NominatimResult) => void;
   removeRecentPlace: (index: number) => void;
@@ -156,6 +173,58 @@ export const useAppStore = create<AppState>((set) => ({
   parsedCookie: toHttpCookieHeader(readCookieFromStorage()),
   downloadLocation: readDownloadLocationFromStorage(),
   history: readHistoryFromStorage(),
+  downloads: {},
+  startDownload: (postId: string, total: number) =>
+    set((state: AppState) => {
+      const items: Record<number, "downloading" | "completed" | "failed"> = {};
+      for (let i = 0; i < total; i++) {
+        items[i] = "downloading";
+      }
+      return {
+        downloads: {
+          ...state.downloads,
+          [postId]: {
+            postId,
+            total,
+            completed: 0,
+            failed: 0,
+            items,
+          },
+        },
+      };
+    }),
+  updateDownloadProgress: (postId: string, index: number, status: "downloading" | "completed" | "failed") =>
+    set((state: AppState) => {
+      const postDownload = state.downloads[postId];
+      if (!postDownload) return {};
+
+      const items = { ...postDownload.items, [index]: status };
+      let completed = 0;
+      let failed = 0;
+      Object.values(items).forEach((s) => {
+        if (s === "completed") completed++;
+        if (s === "failed") failed++;
+      });
+
+      return {
+        downloads: {
+          ...state.downloads,
+          [postId]: {
+            ...postDownload,
+            completed,
+            failed,
+            items,
+          },
+        },
+      };
+    }),
+  clearDownload: (postId: string) =>
+    set((state: AppState) => {
+      const next = { ...state.downloads };
+      delete next[postId];
+      return { downloads: next };
+    }),
+  clearDownloads: () => set({ downloads: {} }),
   recentPlaces: readRecentPlacesFromStorage(),
   activeView: "search",
   isSidebarOpen: false,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { type DownloadProgressStatus, type DownloadItem } from "../shared/rpc"
+import { type DownloadItem } from "../shared/rpc"
 import type { WeiPost } from "../shared/WeiSchema"
 import { getNoWatermarkUrl } from "../shared/WeiTricks"
 import { useAppStore, type AppState } from "../stores/appStore"
@@ -16,6 +16,8 @@ import {
   DropdownMenuItem,
 } from "./ui/dropdown-menu"
 import { proxyImage } from "@/lib/proxy"
+import Masonry, { ResponsiveMasonry } from "react-responsive-masonry"
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 
 interface BlogCardProps {
   blog: WeiPost
@@ -23,18 +25,25 @@ interface BlogCardProps {
   activeDisplayName?: string
 }
 
-function getPreferredImageUrl(
+function getPreferredImage(
   picInfo: NonNullable<WeiPost["pic_infos"]>[string] | undefined
 ) {
   // largest > original > large > mw2000 > bmiddle > thumbnail
-  return (
-    picInfo?.largest?.url ??
-    picInfo?.original?.url ??
-    picInfo?.large?.url ??
-    picInfo?.mw2000?.url ??
-    picInfo?.bmiddle?.url ??
-    picInfo?.thumbnail?.url
-  )
+  const info =
+    picInfo?.largest ??
+    picInfo?.original ??
+    picInfo?.large ??
+    picInfo?.mw2000 ??
+    picInfo?.bmiddle ??
+    picInfo?.thumbnail
+  return {
+    url: info?.url ?? "",
+    videoUrl:
+      picInfo?.type === "livephoto" && picInfo?.video ? picInfo?.video : null,
+    aspectRatio:
+      info?.width && info?.height ? `${info.width} / ${info.height}` : "1 / 1",
+    picId: picInfo?.pic_id,
+  }
 }
 
 export function BlogCard({
@@ -45,14 +54,20 @@ export function BlogCard({
   const downloadLocation = useAppStore(
     (state: AppState) => state.downloadLocation
   )
+  const startDownload = useAppStore((state: AppState) => state.startDownload)
+  const updateDownloadProgress = useAppStore(
+    (state: AppState) => state.updateDownloadProgress
+  )
+  const clearDownload = useAppStore((state: AppState) => state.clearDownload)
+  const downloadProgress = useAppStore(
+    (state: AppState) => state.downloads[blog.idstr] ?? null
+  )
 
   const downloadItems = (blog.pic_ids ?? [])
     .map((picId) => {
       const picData = blog.pic_infos?.[picId]
-      const url = getPreferredImageUrl(picData)
-      const videoUrl =
-        picData?.type === "livephoto" && picData?.video ? picData.video : null
-      return url ? { url, videoUrl } : null
+      const info = getPreferredImage(picData)
+      return info ? { url: info.url, videoUrl: info.videoUrl } : null
     })
     .filter((item): item is DownloadItem => item !== null)
 
@@ -60,15 +75,6 @@ export function BlogCard({
     (tag) => tag.otype === "place"
   )?.tag_name
 
-  const [downloadProgress, setDownloadProgress] = useState<{
-    total: number
-    items: DownloadProgressStatus[]
-  } | null>(null)
-  const clearProgressLater = () => {
-    setTimeout(() => {
-      setDownloadProgress(null)
-    }, 3000)
-  }
   useEffect(() => {
     let mounted = true
     const setup = async () => {
@@ -76,27 +82,22 @@ export function BlogCard({
         if (!mounted) return
         if (payload.postId !== blog.idstr) return
 
-        setDownloadProgress((prev) => {
-          if (!prev) return prev
+        updateDownloadProgress(payload.postId, payload.index, payload.status)
 
-          const items = [...prev.items]
-          items[payload.index] = payload.status
-
-          const next = {
-            ...prev,
-            items,
+        // Auto-clear after all items finish
+        const updatedProgress = useAppStore.getState().downloads[payload.postId]
+        if (updatedProgress) {
+          const allFinished =
+            updatedProgress.completed + updatedProgress.failed ===
+            updatedProgress.total
+          if (allFinished) {
+            setTimeout(
+              () => useAppStore.getState().clearDownload(payload.postId),
+              3000
+            )
           }
-
-          const allFinished = items.every(
-            (s) => s === "completed" || s === "failed"
-          )
-
-          if (allFinished) clearProgressLater()
-
-          return next
-        })
+        }
       })
-
       return unlisten
     }
 
@@ -107,17 +108,18 @@ export function BlogCard({
       mounted = false
       if (unlistenFn) unlistenFn()
     }
-  }, [blog.idstr])
+  }, [blog.idstr, updateDownloadProgress])
 
   const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
 
+  const clearProgressLater = () => {
+    setTimeout(() => clearDownload(blog.idstr), 3000)
+  }
+
   const handleDownloadWithLocation = async (loc?: GPSData | null) => {
     if (loc) setGpsLocation(loc)
-    setDownloadProgress({
-      total: downloadItems.length,
-      items: Array(downloadItems.length).fill("downloading"),
-    })
+    startDownload(blog.idstr, downloadItems.length)
 
     try {
       await downloadPost({
@@ -130,33 +132,16 @@ export function BlogCard({
       })
     } catch (error) {
       console.error("Failed to start download", error)
-
-      setDownloadProgress((prev) => {
-        if (!prev) return prev
-
-        return {
-          ...prev,
-          items: prev.items.map((status) =>
-            status === "downloading" ? "failed" : status
-          ),
-        }
-      })
-
       clearProgressLater()
     }
   }
 
-  const completed =
-    downloadProgress?.items.filter((s) => s === "completed").length ?? 0
-
-  const failed =
-    downloadProgress?.items.filter((s) => s === "failed").length ?? 0
-
-  const downloading =
-    downloadProgress?.items.filter((s) => s === "downloading").length ?? 0
-
+  const completed = downloadProgress?.completed ?? 0
+  const failed = downloadProgress?.failed ?? 0
+  const downloading = downloadProgress
+    ? downloadProgress.total - completed - failed
+    : 0
   const finished = completed + failed
-
   const progressPercent = downloadProgress
     ? Math.round((finished / downloadProgress.total) * 100)
     : 0
@@ -177,13 +162,15 @@ export function BlogCard({
         <CardContent className="flex flex-col gap-2">
           {/* Author row */}
           <div className="flex items-center gap-3">
-            {blog.user?.profile_image_url && (
-              <img
-                src={proxyImage(blog.user.profile_image_url)}
-                alt={blog.user.screen_name}
-                className="h-8 w-8 rounded-full border border-border"
+            <Avatar>
+              <AvatarImage
+                src={proxyImage(blog.user?.profile_image_url ?? "")}
               />
-            )}
+              <AvatarFallback>
+                {blog.user?.screen_name?.charAt(0) ?? "U"}
+              </AvatarFallback>
+            </Avatar>
+
             <div>
               <p className="text-sm font-semibold text-foreground">
                 {blog.user?.screen_name || "Unknown User"}
@@ -202,42 +189,48 @@ export function BlogCard({
           />
 
           {/* Images grid */}
-          {blog.pic_ids && blog.pic_ids.length > 0 && blog.pic_infos && (
-            <div className="grid grid-cols-3 gap-1.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {blog.pic_ids.map((picId) => {
-                const picData = blog.pic_infos?.[picId]
-                const picUrl = getPreferredImageUrl(picData)
-                const noWatermarkPic = picUrl
-                  ? getNoWatermarkUrl(picUrl)
-                  : picUrl
-                const aspectRatio =
-                  picData?.original?.width && picData?.original?.height
-                    ? `${picData.original.width} / ${picData.original.height}`
-                    : picData?.large?.width && picData?.large?.height
-                      ? `${picData.large.width} / ${picData.large.height}`
-                      : picData?.bmiddle?.width && picData?.bmiddle?.height
-                        ? `${picData.bmiddle.width} / ${picData.bmiddle.height}`
-                        : undefined
-                return picUrl ? (
-                  <div key={picId} className="relative w-full">
-                    <img
-                      src={proxyImage(noWatermarkPic ?? "")}
-                      alt=""
-                      style={{ aspectRatio }}
-                      className="w-full rounded-md border border-border object-contain"
-                    />
-                    {picData?.type === "livephoto" &&
-                      picData?.video != null && (
-                        <div className="pointer-events-none absolute top-1.5 left-1.5 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-[2px] select-none">
-                          <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
-                          Live Photo
-                        </div>
-                      )}
-                  </div>
-                ) : null
-              })}
-            </div>
-          )}
+          <ResponsiveMasonry
+            columnsCountBreakPoints={{
+              350: 3,
+              750: 4,
+              900: 5,
+              1200: 6,
+              1500: 7,
+            }}
+          >
+            <Masonry gutter="16px">
+              {blog.pic_ids &&
+                blog.pic_ids.length > 0 &&
+                blog.pic_infos &&
+                blog.pic_ids.map((picId) => {
+                  const picData = blog.pic_infos?.[picId]
+                  const info = getPreferredImage(picData)
+                  const noWatermarkPic = info.url
+                    ? getNoWatermarkUrl(info.url)
+                    : info.url
+                  return info.url ? (
+                    <div
+                      key={picId}
+                      className="relative w-full overflow-hidden rounded-md border border-border"
+                    >
+                      <img
+                        src={proxyImage(noWatermarkPic)}
+                        alt=""
+                        style={{ aspectRatio: info.aspectRatio }}
+                        className="w-full object-contain"
+                      />
+                      {picData?.type === "livephoto" &&
+                        picData?.video != null && (
+                          <div className="pointer-events-none absolute top-1.5 left-1.5 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-[2px] select-none">
+                            <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+                            Live Photo
+                          </div>
+                        )}
+                    </div>
+                  ) : null
+                })}
+            </Masonry>
+          </ResponsiveMasonry>
 
           {/* Footer: stats + download */}
           <div className="flex items-center justify-between gap-6 border-t border-border pt-1.5 text-xs font-medium text-muted-foreground">
