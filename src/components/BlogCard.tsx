@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { type DownloadItem } from "../shared/rpc"
-import type { WeiPost } from "../shared/WeiSchema"
+import type { PicDimension, PicInfo, WeiPost } from "../shared/WeiSchema"
 import { useAppStore, type AppState } from "../stores/appStore"
 import type { GPSData } from "../shared/gps"
 import { Card, CardContent } from "./ui/card"
@@ -23,9 +23,12 @@ interface BlogCardProps {
   activeDisplayName?: string
 }
 
-function getPreferredImage(
-  info: NonNullable<WeiPost["pic_infos"]>[string] | undefined
-) {
+function getAspectRatio(pdm: PicDimension | undefined): string {
+  if (!pdm || !pdm.width || !pdm.height) return "1 / 1"
+  return `${pdm.width} / ${pdm.height}`
+}
+
+function getPreferredImage(info: PicInfo | undefined) {
   // largest > mw2000/original > large >
   const pic = info?.largest ?? info?.mw2000 ?? info?.original ?? info?.large
   // largecover > bmiddle > thumbnail
@@ -33,10 +36,8 @@ function getPreferredImage(
 
   return {
     url: pic?.url ?? "",
-    thumb: thumb?.url ?? "",
+    thumb: thumb,
     videoUrl: info?.type === "livephoto" && info?.video ? info?.video : null,
-    aspectRatio:
-      pic?.width && pic?.height ? `${pic.width} / ${pic.height}` : "1 / 1",
     picId: info?.pic_id,
   }
 }
@@ -197,15 +198,15 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                 blog.pic_ids.map((picId) => {
                   const picData = blog.pic_infos?.[picId]
                   const info = getPreferredImage(picData)
-                  return info.url ? (
+                  return info.thumb ? (
                     <div
                       key={picId}
                       className="relative w-full overflow-hidden rounded-md border border-border"
                     >
                       <img
-                        src={proxyImage(info.thumb)}
+                        src={proxyImage(info.thumb.url)}
                         alt=""
-                        style={{ aspectRatio: info.aspectRatio }}
+                        style={{ aspectRatio: getAspectRatio(info.thumb) }}
                         className="w-full object-contain"
                       />
                       {picData?.type === "livephoto" &&
