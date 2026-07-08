@@ -5,31 +5,26 @@ import { Textarea } from "./ui/textarea"
 import { Button } from "./ui/button"
 import { Label } from "./ui/label"
 import { chooseDownloadFolder } from "../shared/api"
+import { useAppStore, type AppState } from "../stores/appStore"
 
-interface SettingsPanelProps {
-  cookie: string
-  onCookieChange: (value: string) => void
-  downloadLocation: string
-  onDownloadLocationChange: (value: string) => void
-  onSave: () => void
-  onBack: () => void
-  savedMessage: string
-}
+export function SettingsPanel() {
+  const cookie = useAppStore((state: AppState) => state.cookie)
+  const setCookie = useAppStore((state: AppState) => state.setCookie)
+  const downloadLocation = useAppStore(
+    (state: AppState) => state.downloadLocation
+  )
+  const setDownloadLocation = useAppStore(
+    (state: AppState) => state.setDownloadLocation
+  )
+  const onBack = useAppStore((state: AppState) => state.closeSettings)
+  const savedMessage = useAppStore((state: AppState) => state.savedMessage)
+  const saveCookie = useAppStore((state: AppState) => state.saveCookie)
 
-export function SettingsPanel({
-  cookie,
-  onCookieChange,
-  downloadLocation,
-  onDownloadLocationChange,
-  onSave,
-  onBack,
-  savedMessage,
-}: SettingsPanelProps) {
   const handleChooseDownloadFolder = async () => {
     const selectedPath = await chooseDownloadFolder(downloadLocation)
 
     if (selectedPath.length > 0) {
-      onDownloadLocationChange(selectedPath)
+      setDownloadLocation(selectedPath)
     }
   }
 
@@ -71,12 +66,12 @@ export function SettingsPanel({
             id="weicookie"
             rows={6}
             value={cookie}
-            onChange={(event) => onCookieChange(event.target.value)}
+            onChange={(event) => setCookie(event.target.value)}
             placeholder="Paste your full cookie string here"
           />
         </div>
 
-        <Button type="button" onClick={onSave} className="w-full">
+        <Button type="button" onClick={saveCookie} className="w-full">
           Save Cookie
         </Button>
 

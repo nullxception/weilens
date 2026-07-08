@@ -1,28 +1,19 @@
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import type { WeiPost } from "../shared/WeiSchema";
-import { BlogCard } from "./BlogCard";
-import { HistoryPanel } from "./HistoryPanel";
-import { Card, CardContent } from "./ui/card";
-import { Button } from "./ui/button";
+import { useState } from "react"
+import { ChevronDown } from "lucide-react"
+import type { WeiPost } from "../shared/WeiSchema"
+import { useAppStore, type AppState } from "../stores/appStore"
+import { BlogCard } from "./BlogCard"
+import { HistoryPanel } from "./HistoryPanel"
+import { Card, CardContent } from "./ui/card"
+import { Button } from "./ui/button"
 
 interface BlogFeedProps {
-  blogs: WeiPost[];
-  result: string;
-  error: string;
-  isLoading: boolean;
-  onLoadMore: () => void;
-  history: {
-    uid: string;
-    screenName: string;
-    profileImageUrl: string;
-    timestamp: number;
-  }[];
-  activeUid: string;
-  activeDisplayName?: string;
-  onHistoryClick: (uid: string) => void;
-  onRemoveFromHistory: (uid: string) => void;
-  onClearHistory: () => void;
+  blogs: WeiPost[]
+  result: string
+  error: string
+  isLoading: boolean
+  onLoadMore: () => void
+  activeDisplayName?: string
 }
 
 export function BlogFeed({
@@ -31,31 +22,35 @@ export function BlogFeed({
   error,
   isLoading,
   onLoadMore,
-  history,
-  activeUid,
   activeDisplayName,
-  onHistoryClick,
-  onRemoveFromHistory,
-  onClearHistory,
 }: BlogFeedProps) {
-  const [showReposted, setShowReposted] = useState(true);
+  const [showReposted, setShowReposted] = useState(true)
+  const activeUid = useAppStore((state: AppState) => state.activeUid)
+  const history = useAppStore((state: AppState) => state.history)
+  const onHistoryClick = useAppStore(
+    (state: AppState) => state.openHistoryProfile
+  )
+  const onRemoveFromHistory = useAppStore(
+    (state: AppState) => state.removeFromHistory
+  )
+  const onClearHistory = useAppStore((state: AppState) => state.clearHistory)
 
   const visibleBlogs = showReposted
     ? blogs
     : blogs.filter((blog) => {
-        const authorId = blog.user?.idstr;
-        return !authorId || authorId === activeUid;
-      });
+        const authorId = blog.user?.idstr
+        return !authorId || authorId === activeUid
+      })
 
   const repostCount = blogs.filter((blog) => {
-    const authorId = blog.user?.idstr;
-    return Boolean(authorId && authorId !== activeUid);
-  }).length;
+    const authorId = blog.user?.idstr
+    return Boolean(authorId && authorId !== activeUid)
+  }).length
 
   return (
     <>
       {error ? (
-        <pre className="whitespace-pre-wrap rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <pre className="rounded-lg bg-destructive/10 px-4 py-3 text-sm whitespace-pre-wrap text-destructive">
           {error}
         </pre>
       ) : isLoading && blogs.length === 0 ? (
@@ -95,7 +90,6 @@ export function BlogFeed({
               <BlogCard
                 key={blog.idstr}
                 blog={blog}
-                activeUid={activeUid}
                 activeDisplayName={activeDisplayName}
               />
             ))}
@@ -114,13 +108,12 @@ export function BlogFeed({
           </div>
         </>
       ) : result ? (
-        <pre className="min-h-64 whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 text-sm text-foreground">
+        <pre className="min-h-64 rounded-lg bg-muted px-4 py-3 text-sm whitespace-pre-wrap text-foreground">
           {result}
         </pre>
       ) : history.length > 0 ? (
         <HistoryPanel
           history={history}
-          activeUid={activeUid}
           onProfileClick={onHistoryClick}
           onRemove={onRemoveFromHistory}
           onClear={onClearHistory}
@@ -138,5 +131,5 @@ export function BlogFeed({
         </Card>
       )}
     </>
-  );
+  )
 }

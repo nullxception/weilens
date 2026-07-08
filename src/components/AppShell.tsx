@@ -15,31 +15,14 @@ import {
 import { TooltipProvider } from "./ui/tooltip"
 import { SettingsIcon } from "lucide-react"
 import { DownloadProgressPanel } from "./DownloadProgressPanel"
+import { useAppStore, type AppState } from "../stores/appStore"
 
 interface AppShellProps {
   uid: string
   isLoading: boolean
   onUidChange: (uid: string) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
-  onHistoryClick: (uid: string) => void
-  onRemoveFromHistory: (uid: string) => void
-  onClearHistory: () => void
   onOpenSettings: () => void
-  onCloseSidebar: () => void
-  activeView: "search" | "settings"
-  cookie: string
-  onCookieChange: (value: string) => void
-  downloadLocation: string
-  onDownloadLocationChange: (value: string) => void
-  onSaveCookie: () => void
-  onBackToSearch: () => void
-  savedMessage: string
-  history: {
-    uid: string
-    screenName: string
-    profileImageUrl: string
-    timestamp: number
-  }[]
   historyOnSidebar: boolean
   children: ReactNode
 }
@@ -52,9 +35,6 @@ function SidebarInner({
   onOpenSettings,
   showHistory,
   history,
-  onHistoryClick,
-  onRemoveFromHistory,
-  onClearHistory,
 }: {
   uid: string
   isLoading: boolean
@@ -62,16 +42,32 @@ function SidebarInner({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   onOpenSettings: () => void
   showHistory: boolean
-  history: AppShellProps["history"]
-  onHistoryClick: (uid: string) => void
-  onRemoveFromHistory: (uid: string) => void
-  onClearHistory: () => void
+  history: AppShellProps["historyOnSidebar"] extends never
+    ? never
+    : {
+        uid: string
+        screenName: string
+        profileImageUrl: string
+        timestamp: number
+      }[]
 }) {
   const { isMobile, setOpenMobile } = useSidebar()
+  const onHistoryClick = useAppStore(
+    (state: AppState) => state.openHistoryProfile
+  )
+  const onRemoveFromHistory = useAppStore(
+    (state: AppState) => state.removeFromHistory
+  )
+  const onClearHistory = useAppStore((state: AppState) => state.clearHistory)
   const closeSidebar = () => {
     if (isMobile) {
       setOpenMobile(false)
     }
+  }
+
+  const handleOpenSettings = () => {
+    onOpenSettings()
+    closeSidebar()
   }
 
   return (
@@ -91,7 +87,6 @@ function SidebarInner({
         {showHistory && (
           <HistoryPanel
             history={history}
-            activeUid={uid}
             onProfileClick={(profileUid) => {
               onHistoryClick(profileUid)
               closeSidebar()
@@ -106,10 +101,7 @@ function SidebarInner({
         <Button
           type="button"
           variant="outline"
-          onClick={() => {
-            onOpenSettings()
-            closeSidebar()
-          }}
+          onClick={handleOpenSettings}
           className="w-full"
         >
           <SettingsIcon />
@@ -125,39 +117,19 @@ export function AppShell({
   isLoading,
   onUidChange,
   onSubmit,
-  onHistoryClick,
-  onRemoveFromHistory,
-  onClearHistory,
   onOpenSettings,
-  activeView,
-  cookie,
-  onCookieChange,
-  downloadLocation,
-  onDownloadLocationChange,
-  onSaveCookie,
-  onBackToSearch,
-  savedMessage,
-  history,
   historyOnSidebar,
   children,
 }: AppShellProps) {
+  const activeView = useAppStore((state: AppState) => state.activeView)
+  const history = useAppStore((state: AppState) => state.history)
   const showHistory = history.length > 0 && historyOnSidebar
 
   return (
     <TooltipProvider>
       <SidebarProvider>
         <div className="flex min-h-screen w-full bg-background text-foreground">
-          {activeView === "settings" && (
-            <SettingsModal
-              cookie={cookie}
-              onCookieChange={onCookieChange}
-              downloadLocation={downloadLocation}
-              onDownloadLocationChange={onDownloadLocationChange}
-              onSave={onSaveCookie}
-              onBack={onBackToSearch}
-              savedMessage={savedMessage}
-            />
-          )}
+          {activeView === "settings" && <SettingsModal />}
 
           <Sidebar>
             <SidebarInner
@@ -168,9 +140,6 @@ export function AppShell({
               onOpenSettings={onOpenSettings}
               showHistory={showHistory}
               history={history}
-              onHistoryClick={onHistoryClick}
-              onRemoveFromHistory={onRemoveFromHistory}
-              onClearHistory={onClearHistory}
             />
           </Sidebar>
 

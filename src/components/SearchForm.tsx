@@ -2,6 +2,7 @@ import { Input } from "./ui/input"
 import { Button } from "./ui/button"
 import { Label } from "./ui/label"
 import { LoaderCircle, SearchIcon } from "lucide-react"
+import { useAppStore, type AppState } from "../stores/appStore"
 
 interface SearchFormProps {
   uid: string
@@ -26,15 +27,27 @@ export function SearchForm({
   onUidChange,
   onSubmit,
 }: SearchFormProps) {
+  const setActiveUid = useAppStore((state: AppState) => state.setActiveUid)
+
+  const handleUidChange = (value: string) => {
+    onUidChange(extractUid(value))
+  }
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const nextUid = extractUid(uid)
+    setActiveUid(nextUid)
+    onSubmit(event)
+  }
+
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       <Label htmlFor="uid">Wei UID or URL</Label>
       <div className="flex gap-2">
         <Input
           id="uid"
           type="text"
           value={uid}
-          onChange={(event) => onUidChange(extractUid(event.target.value))}
+          onChange={(event) => handleUidChange(event.target.value)}
           placeholder="UID or weibo.com/u/… URL"
           className="min-w-0 flex-1"
         />

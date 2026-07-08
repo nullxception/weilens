@@ -2,6 +2,7 @@ import { X } from "lucide-react"
 import { Button } from "./ui/button"
 import { proxyImage } from "@/lib/proxy"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
+import { useAppStore, type AppState } from "../stores/appStore"
 
 export interface CheckedProfile {
   uid: string
@@ -12,7 +13,6 @@ export interface CheckedProfile {
 
 interface HistoryPanelProps {
   history: CheckedProfile[]
-  activeUid: string
   onProfileClick: (uid: string) => void
   onRemove: (uid: string) => void
   onClear: () => void
@@ -20,11 +20,12 @@ interface HistoryPanelProps {
 
 export function HistoryPanel({
   history,
-  activeUid,
   onProfileClick,
   onRemove,
   onClear,
 }: HistoryPanelProps) {
+  const activeUid = useAppStore((state: AppState) => state.activeUid)
+
   if (history.length === 0) return null
 
   return (

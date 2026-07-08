@@ -21,7 +21,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 
 interface BlogCardProps {
   blog: WeiPost
-  activeUid?: string
   activeDisplayName?: string
 }
 
@@ -46,14 +45,11 @@ function getPreferredImage(
   }
 }
 
-export function BlogCard({
-  blog,
-  activeUid,
-  activeDisplayName,
-}: BlogCardProps) {
+export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const downloadLocation = useAppStore(
     (state: AppState) => state.downloadLocation
   )
+  const activeUid = useAppStore((state: AppState) => state.activeUid)
   const startDownload = useAppStore((state: AppState) => state.startDownload)
   const updateDownloadProgress = useAppStore(
     (state: AppState) => state.updateDownloadProgress
