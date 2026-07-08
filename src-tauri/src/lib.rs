@@ -5,7 +5,7 @@ mod image;
 mod types;
 mod util;
 
-use crate::download::{choose_download_folder, download_post};
+use crate::download::{choose_download_dir, default_download_dir, download_post};
 use log::LevelFilter;
 use tauri::{
     http::header::REFERER, http::Request, http::Response, webview::PageLoadEvent,
@@ -140,7 +140,8 @@ pub fn run() {
         .plugin(external_navigation_plugin())
         .invoke_handler(tauri::generate_handler![
             download_post,
-            choose_download_folder
+            choose_download_dir,
+            default_download_dir,
         ])
         .on_page_load(|webview, payload| {
             if webview.label() == "main" && matches!(payload.event(), PageLoadEvent::Finished) {

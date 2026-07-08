@@ -4,9 +4,25 @@ import { Input } from "./ui/input"
 import { Textarea } from "./ui/textarea"
 import { Button } from "./ui/button"
 import { Label } from "./ui/label"
-import { chooseDownloadFolder } from "../shared/api"
+import { chooseDownloadDir, defaultDownloadDir } from "../shared/api"
 import { useAppStore, type AppState } from "../stores/appStore"
 import { ButtonGroup } from "./ui/button-group"
+import { Suspense, use } from "react"
+
+const systemDownloadDir = defaultDownloadDir()
+
+function DownloadPathInput({ savedLocation }: { savedLocation: string }) {
+  const dir = use(systemDownloadDir)
+  return (
+    <Input
+      type="text"
+      value={savedLocation}
+      readOnly
+      placeholder={dir}
+      className="min-w-0 flex-1"
+    />
+  )
+}
 
 export function SettingsPanel() {
   const cookie = useAppStore((state: AppState) => state.cookie)
@@ -22,7 +38,7 @@ export function SettingsPanel() {
   const saveCookie = useAppStore((state: AppState) => state.saveCookie)
 
   const handleChooseDownloadFolder = async () => {
-    const selectedPath = await chooseDownloadFolder(downloadLocation)
+    const selectedPath = await chooseDownloadDir(downloadLocation)
 
     if (selectedPath.length > 0) {
       setDownloadLocation(selectedPath)
@@ -92,14 +108,19 @@ export function SettingsPanel() {
 
         <div className="flex flex-col gap-1.5">
           <Label>Download Folder</Label>
-          <ButtonGroup className="w-full">
-            <Input
-              type="text"
-              value={downloadLocation || ""}
-              readOnly
-              placeholder="Using default Downloads/WeiLens folder"
-              className="min-w-0 flex-1"
-            />
+          <ButtonGroup className="w-full" onClick={handleChooseDownloadFolder}>
+            <Suspense
+              fallback={
+                <Input
+                  type="text"
+                  value={downloadLocation}
+                  readOnly
+                  className="min-w-0 flex-1"
+                />
+              }
+            >
+              <DownloadPathInput savedLocation={downloadLocation} />
+            </Suspense>
             <Button
               type="button"
               variant="outline"

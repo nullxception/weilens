@@ -161,7 +161,7 @@ pub async fn download_post(
 }
 
 #[tauri::command]
-pub async fn choose_download_folder(starting_folder: Option<String>) -> Result<String, String> {
+pub async fn choose_download_dir(starting_folder: Option<String>) -> Result<String, String> {
     let mut dialog = rfd::FileDialog::new();
     if let Some(ref folder) = starting_folder {
         if !folder.is_empty() {
@@ -172,6 +172,14 @@ pub async fn choose_download_folder(starting_folder: Option<String>) -> Result<S
     Ok(result
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn default_download_dir() -> String {
+    DownloadConfig::default()
+        .effective_download_root(None)
+        .to_string_lossy()
+        .into()
 }
 
 pub async fn download_item(
