@@ -2,6 +2,7 @@ use crate::types::GpsData;
 use little_exif::exif_tag::ExifTag;
 use little_exif::metadata::Metadata;
 use little_exif::rational::{iR64, uR64};
+use rand::Rng;
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy)] // Required for .copied()
@@ -105,18 +106,22 @@ pub fn write_exif(
     )));
     metadata.set_tag(ExifTag::ExifVersion(vec![0232]));
     metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
-
+    let mut rng = rand::rng();
     // Exposure
     metadata.set_tag(ExifTag::ExposureTime(vec![uR64 {
         nominator: 1,
-        denominator: 120,
-    }])); // 1/120
+        denominator: rng.random_range(100..=200),
+    }])); // 1/(100-200) sec
+    metadata.set_tag(ExifTag::ISO(vec![rng.random_range(60..=99)])); //60-99
+    metadata.set_tag(ExifTag::FocalLength(vec![uR64 {
+        nominator: rng.random_range(686..=693),
+        denominator: 100,
+    }])); // 6.86-6.93
     metadata.set_tag(ExifTag::FNumber(vec![uR64::from(1.8)])); // f/1.8
-    metadata.set_tag(ExifTag::ISO(vec![50]));
     metadata.set_tag(ExifTag::ExposureProgram(vec![2])); // Program AE
     metadata.set_tag(ExifTag::MeteringMode(vec![5])); // Multi-segment
     metadata.set_tag(ExifTag::Flash(vec![16])); // Flash did not fire
-    metadata.set_tag(ExifTag::FocalLength(vec![uR64::from(6.9)])); // 6.9 mm
+
     metadata.set_tag(ExifTag::FocalLengthIn35mmFormat(vec![24])); // 24 mm equivalent
     metadata.set_tag(ExifTag::ExposureCompensation(vec![iR64 {
         nominator: -1,
