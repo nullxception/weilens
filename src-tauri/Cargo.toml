@@ -32,6 +32,7 @@ rfd = "0.15"
 dirs = "6.0"
 tokio = { version = "1", features = ["full"] }
 url = "2"
+thiserror = "2"
 tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 tauri-plugin-os = "2"
 

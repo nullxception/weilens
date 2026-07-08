@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::Emitter;
 use tauri::Manager;
@@ -15,7 +14,7 @@ use crate::dates::{get_date_folder, parse_date};
 use crate::dates::{get_exif_date_string, get_formatted_date};
 use crate::exif::write_exif;
 use crate::image::merge_bottom_three_percent;
-use crate::types::{DownloadItem, DownloadProgressPayload, GpsData};
+use crate::types::{DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData};
 use crate::util::get_no_watermark_url;
 
 #[tauri::command]
@@ -28,12 +27,8 @@ pub async fn download_post(
     download_dir: Option<String>,
     location: Option<GpsData>,
 ) -> Result<serde_json::Value, String> {
-    let base_dir = match download_dir {
-        Some(dir) if !dir.trim().is_empty() => PathBuf::from(dir),
-        _ => dirs::download_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("WeiLens"),
-    };
+    let config = DownloadConfig::default();
+    let base_dir = config.effective_download_root(download_dir);
 
     let uid_segment = if uid.trim().is_empty() {
         "unknown_user"
@@ -45,13 +40,15 @@ pub async fn download_post(
     let date_segment = get_date_folder(&created_at_dt);
 
     let resolved_download_dir = base_dir.join(uid_segment).join(date_segment);
-    std::fs::create_dir_all(&resolved_download_dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&resolved_download_dir)
+        .map_err(|e| DownloadError::CreateDir(e.to_string()))
+        .map_err(|e| e.to_string())?;
 
     let mut saved_paths = Vec::new();
     let total = items.len();
 
     let client = app_handle.state::<reqwest::Client>().inner().clone();
-    let semaphore = Arc::new(Semaphore::new(16));
+    let semaphore = Arc::new(Semaphore::new(config.effective_max_concurrency()));
 
     let mut hosts: HashSet<String> = HashSet::new();
     for it in items.iter() {
@@ -75,6 +72,7 @@ pub async fn download_post(
         let location_clone = location.clone();
         let client_clone = client.clone();
         let sem = semaphore.clone();
+        let config_clone = config.clone();
 
         let item_url = item.url.clone();
         let item_video = item.video_url.clone();
@@ -82,7 +80,6 @@ pub async fn download_post(
         let handle = tokio::spawn(async move {
             let _permit = sem.acquire().await;
 
-            const MAX_RETRIES: u32 = 6;
             let mut attempt = 0u32;
             loop {
                 match download_item(
@@ -96,20 +93,24 @@ pub async fn download_post(
                     &resolved_dir,
                     location_clone.as_ref(),
                     client_clone.clone(),
+                    config_clone.clone(),
                 )
                 .await
                 {
                     Ok(paths) => break Ok(paths),
-                    Err(e) if attempt < MAX_RETRIES => {
+                    Err(e) if attempt < config_clone.max_retries => {
                         attempt += 1;
-                        let delay_ms = 150u64 * (1u64 << attempt.min(10));
+                        let delay_ms = config_clone
+                            .retry_base_delay_ms
+                            .saturating_mul(1u64 << attempt.min(10))
+                            .min(config_clone.retry_max_delay_ms);
                         log::warn!(
                             "[{}/{}] Post {} - Attempt {}/{} failed ({}). Retrying in {}ms…",
                             index + 1,
                             total,
                             &post_id_clone,
                             attempt,
-                            MAX_RETRIES,
+                            config_clone.max_retries,
                             e,
                             delay_ms
                         );
@@ -121,7 +122,7 @@ pub async fn download_post(
                             index + 1,
                             total,
                             &post_id_clone,
-                            MAX_RETRIES,
+                            config_clone.max_retries,
                             e
                         );
                         // Emit failed only after all retries done
@@ -184,6 +185,7 @@ pub async fn download_item(
     resolved_download_dir: &Path,
     location: Option<&GpsData>,
     client: reqwest::Client,
+    config: DownloadConfig,
 ) -> Result<Vec<String>, String> {
     let mut saved_paths = Vec::new();
     let is_live_photo = item_video_url.is_some();
@@ -211,15 +213,17 @@ pub async fn download_item(
 
     let req = client
         .get(&item_url)
-        .header("Referer", "https://weibo.com/");
+        .timeout(Duration::from_secs(config.request_timeout_secs))
+        .header("Referer", &config.referer)
+        .header("User-Agent", &config.user_agent);
     let response = req.send().await.map_err(|e| {
-        let err = format!("Request failed: {}", e);
+        let err = DownloadError::Request(format!("Request failed: {}", e)).to_string();
         log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
         err
     })?;
 
     if !response.status().is_success() {
-        let err = format!("HTTP error: {}", response.status());
+        let err = DownloadError::Http(format!("HTTP error: {}", response.status())).to_string();
         log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
         return Err(err);
     }
@@ -228,7 +232,8 @@ pub async fn download_item(
         .bytes()
         .await
         .map_err(|e| {
-            let err = format!("Failed to read response bytes: {}", e);
+            let err =
+                DownloadError::Request(format!("Failed to read response bytes: {}", e)).to_string();
             log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
             err
         })?
@@ -238,7 +243,9 @@ pub async fn download_item(
         if no_wm_url != &item_url && !is_live_photo {
             let req_no_wm = client
                 .get(no_wm_url)
-                .header("Referer", "https://weibo.com/");
+                .timeout(Duration::from_secs(config.request_timeout_secs))
+                .header("Referer", &config.referer)
+                .header("User-Agent", &config.user_agent);
             if let Ok(res_no_wm) = req_no_wm.send().await {
                 if res_no_wm.status().is_success() {
                     if let Ok(no_wm_bytes) = res_no_wm.bytes().await {
@@ -284,12 +291,12 @@ pub async fn download_item(
     let target_path = resolved_download_dir.join(&image_filename);
 
     let mut file = File::create(&target_path).map_err(|e| {
-        let err = format!("Failed to create file: {}", e);
+        let err = DownloadError::Io(e).to_string();
         log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
         err
     })?;
     file.write_all(&buffer).map_err(|e| {
-        let err = format!("Failed to write file: {}", e);
+        let err = DownloadError::Io(e).to_string();
         log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
         err
     })?;
@@ -325,7 +332,9 @@ pub async fn download_item(
         );
         let req_video = client
             .get(video_url)
-            .header("Referer", "https://weibo.com/");
+            .timeout(Duration::from_secs(config.request_timeout_secs))
+            .header("Referer", &config.referer)
+            .header("User-Agent", &config.user_agent);
         if let Ok(res_video) = req_video.send().await {
             if res_video.status().is_success() {
                 if let Ok(video_bytes) = res_video.bytes().await {

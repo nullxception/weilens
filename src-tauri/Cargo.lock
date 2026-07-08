@@ -4797,6 +4797,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-opener",
  "tauri-plugin-os",
+ "thiserror 2.0.18",
  "tokio",
  "url",
 ]
