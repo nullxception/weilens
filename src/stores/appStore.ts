@@ -297,7 +297,7 @@ export const useAppStore = create<AppState>((set) => ({
           timestamp: Date.now(),
         },
         ...filtered,
-      ].slice(0, 6)
+      ]
 
       writeHistoryToStorage(nextHistory)
 
@@ -326,7 +326,7 @@ export const useAppStore = create<AppState>((set) => ({
       const filtered = state.recentPlaces.filter(
         (p: NominatimResult) => `${p.lat}_${p.lon}_${p.display_name}` !== key
       )
-      const next = [place, ...filtered].slice(0, 10)
+      const next = [place, ...filtered]
       writeRecentPlacesToStorage(next)
       return { recentPlaces: next }
     }),
