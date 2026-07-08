@@ -30,7 +30,9 @@ pub async fn download_post(
 ) -> Result<serde_json::Value, String> {
     let base_dir = match download_dir {
         Some(dir) if !dir.trim().is_empty() => PathBuf::from(dir),
-        _ => dirs::download_dir().unwrap_or_else(|| PathBuf::from("WeiLens")),
+        _ => dirs::download_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("WeiLens"),
     };
 
     let uid_segment = if uid.trim().is_empty() {
