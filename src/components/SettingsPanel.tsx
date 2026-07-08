@@ -6,6 +6,7 @@ import { Button } from "./ui/button"
 import { Label } from "./ui/label"
 import { chooseDownloadFolder } from "../shared/api"
 import { useAppStore, type AppState } from "../stores/appStore"
+import { ButtonGroup } from "./ui/button-group"
 
 export function SettingsPanel() {
   const cookie = useAppStore((state: AppState) => state.cookie)
@@ -30,14 +31,14 @@ export function SettingsPanel() {
 
   return (
     <Card size="sm">
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
           Settings
         </CardTitle>
         <CardAction>
           <Button
             type="button"
-            variant="ghost"
+            variant="destructive"
             size="icon-sm"
             onClick={onBack}
             aria-label="Close settings"
@@ -71,7 +72,12 @@ export function SettingsPanel() {
           />
         </div>
 
-        <Button type="button" onClick={saveCookie} className="w-full">
+        <Button
+          type="button"
+          onClick={saveCookie}
+          className="w-full"
+          variant="outline"
+        >
           Save Cookie
         </Button>
 
@@ -86,7 +92,7 @@ export function SettingsPanel() {
 
         <div className="flex flex-col gap-1.5">
           <Label>Download Folder</Label>
-          <div className="flex gap-2">
+          <ButtonGroup className="w-full">
             <Input
               type="text"
               value={downloadLocation || ""}
@@ -97,13 +103,11 @@ export function SettingsPanel() {
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={handleChooseDownloadFolder}
-              className="shrink-0"
             >
               Choose folder
             </Button>
-          </div>
+          </ButtonGroup>
         </div>
       </CardContent>
     </Card>

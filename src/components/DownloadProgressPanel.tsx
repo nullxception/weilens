@@ -1,9 +1,47 @@
 import { useAppStore, type AppState } from "@/stores/appStore"
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { Progress } from "./ui/progress"
+import { useEffect } from "react"
+import { listen } from "@tauri-apps/api/event"
+import type { DownloadProgressPayload } from "@/shared/rpc"
 
 export function DownloadProgressPanel() {
   const downloads = useAppStore((state: AppState) => state.downloads)
+  const updateDownloadProgress = useAppStore(
+    (state: AppState) => state.updateDownloadProgress
+  )
+
+  useEffect(() => {
+    const unlistenPromise = listen<DownloadProgressPayload>(
+      "download-progress",
+      (ev) => {
+        updateDownloadProgress(
+          ev.payload.postId,
+          ev.payload.index,
+          ev.payload.status
+        )
+
+        // Auto-clear after all items finish
+        const updatedProgress =
+          useAppStore.getState().downloads[ev.payload.postId]
+        if (updatedProgress) {
+          const allFinished =
+            updatedProgress.completed + updatedProgress.failed ===
+            updatedProgress.total
+          if (allFinished) {
+            setTimeout(
+              () => useAppStore.getState().clearDownload(ev.payload.postId),
+              3000
+            )
+          }
+        }
+      }
+    )
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten())
+    }
+  }, [])
+
   const entries = Object.values(downloads)
   if (entries.length === 0) return null
 

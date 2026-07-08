@@ -1,4 +1,4 @@
-import { X } from "lucide-react"
+import { TrashIcon, X } from "lucide-react"
 import { Button } from "./ui/button"
 import { proxyImage } from "@/lib/proxy"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
@@ -32,10 +32,11 @@ export function HistoryPanel({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-          Recently viewed
+          Recently
         </h2>
         <Button type="button" variant="destructive" size="xs" onClick={onClear}>
-          Clear All
+          <TrashIcon />
+          Clear
         </Button>
       </div>
 

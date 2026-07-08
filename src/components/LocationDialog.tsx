@@ -17,7 +17,8 @@ import type { GPSData } from "../shared/gps"
 import type { NominatimResult } from "../types/gps"
 import { NominatimSearchSchema } from "../types/gps"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
-import { LoaderCircle, SearchIcon } from "lucide-react"
+import { LoaderCircle, SearchIcon, TrashIcon } from "lucide-react"
+import { ButtonGroup } from "./ui/button-group"
 
 function parseCoordinateInput(input: string): GPSData | null {
   const trimmed = input.trim()
@@ -115,15 +116,17 @@ export default function LocationDialog({
       )}
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Search Location</DialogTitle>
+          <DialogTitle className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+            Find Location
+          </DialogTitle>
         </DialogHeader>
 
         {suggestedLocation && !isFetching && (
           <div
-            className="rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground"
+            className="cursor-pointer rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground"
             onClick={() => {
               setQuery(suggestedLocation)
-              doSearch()
+              void doSearch()
             }}
           >
             Post location:{" "}
@@ -134,7 +137,7 @@ export default function LocationDialog({
           </div>
         )}
 
-        <div className="flex gap-2">
+        <ButtonGroup className="w-full">
           <Input
             placeholder="Singapore"
             value={query}
@@ -143,14 +146,14 @@ export default function LocationDialog({
               if (e.key === "Enter") doSearch()
             }}
           />
-          <Button onClick={doSearch} disabled={isFetching}>
+          <Button onClick={doSearch} disabled={isFetching} variant="outline">
             {isFetching ? (
               <LoaderCircle className="animate-spin" />
             ) : (
               <SearchIcon />
             )}
           </Button>
-        </div>
+        </ButtonGroup>
 
         {queryError && (
           <div className="mt-2 text-destructive">{String(queryError)}</div>
@@ -160,19 +163,21 @@ export default function LocationDialog({
         recentPlaces &&
         recentPlaces.length > 0 &&
         results.length === 0 ? (
-          <div>
+          <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-muted-foreground">
-              <span className="ml-2">Recent searches</span>
+              <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                Recently
+              </span>
               <Button
                 variant="destructive"
-                size="lg"
                 className="text-destructive"
                 onClick={() => clearRecentPlaces()}
               >
+                <TrashIcon />
                 Clear
               </Button>
             </div>
-            <ScrollArea className="h-96 rounded-md border border-border">
+            <ScrollArea className="h-96 rounded-md border border-border bg-background/60">
               {recentPlaces.map((rp) => (
                 <div
                   key={`${rp.lat}-${rp.lon}-${String(rp.display_name).slice(0, 30)}`}

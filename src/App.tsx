@@ -68,7 +68,7 @@ function App() {
     setPendingLookupUid(null)
   }, [pendingLookupUid, setActiveUid, setPendingLookupUid, setUid, checkUid])
 
-  function handleCheck(event: React.FormEvent<HTMLFormElement>) {
+  function handleCheck(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextUid = uid || ""
     setActiveView("search")

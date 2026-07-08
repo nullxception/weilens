@@ -1,7 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
-import { listen } from "@tauri-apps/api/event"
-import type { UnlistenFn } from "@tauri-apps/api/event"
-import type { DownloadItem, DownloadProgressPayload } from "./rpc"
+import type { DownloadItem } from "./rpc"
 import type { GPSData } from "./gps"
 
 export async function chooseDownloadFolder(
@@ -22,16 +20,4 @@ export async function downloadPost(params: {
     savedPaths: string[]
     count: number
   }>
-}
-
-export async function onDownloadProgress(
-  cb: (payload: DownloadProgressPayload) => void
-): Promise<UnlistenFn> {
-  const unlisten = await listen<DownloadProgressPayload>(
-    "download-progress",
-    (event) => {
-      cb(event.payload)
-    }
-  )
-  return unlisten
 }

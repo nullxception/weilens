@@ -1,4 +1,4 @@
-import type { FormEvent, ReactNode } from "react"
+import type { ReactNode } from "react"
 import { HistoryPanel } from "./HistoryPanel"
 import { SearchForm } from "./SearchForm"
 import { SettingsModal } from "./SettingsModal"
@@ -21,7 +21,7 @@ interface AppShellProps {
   uid: string
   isLoading: boolean
   onUidChange: (uid: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void
   onOpenSettings: () => void
   historyOnSidebar: boolean
   children: ReactNode
@@ -39,7 +39,7 @@ function SidebarInner({
   uid: string
   isLoading: boolean
   onUidChange: (uid: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void
   onOpenSettings: () => void
   showHistory: boolean
   history: AppShellProps["historyOnSidebar"] extends never

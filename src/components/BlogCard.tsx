@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { type DownloadItem } from "../shared/rpc"
 import type { PicDimension, PicInfo, WeiPost } from "../shared/WeiSchema"
 import { useAppStore, type AppState } from "../stores/appStore"
@@ -6,7 +6,7 @@ import type { GPSData } from "../shared/gps"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
 import { Progress, ProgressLabel, ProgressValue } from "./ui/progress"
-import { downloadPost, onDownloadProgress } from "../shared/api"
+import { downloadPost } from "../shared/api"
 import LocationDialog from "./LocationDialog"
 import {
   DropdownMenu,
@@ -17,6 +17,12 @@ import {
 import { proxyImage } from "@/lib/proxy"
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
+import {
+  DownloadIcon,
+  MessageSquareQuoteIcon,
+  RotateCwIcon,
+  ThumbsUpIcon,
+} from "lucide-react"
 
 interface BlogCardProps {
   blog: WeiPost
@@ -48,9 +54,6 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   )
   const activeUid = useAppStore((state: AppState) => state.activeUid)
   const startDownload = useAppStore((state: AppState) => state.startDownload)
-  const updateDownloadProgress = useAppStore(
-    (state: AppState) => state.updateDownloadProgress
-  )
   const clearDownload = useAppStore((state: AppState) => state.clearDownload)
   const downloadProgress = useAppStore(
     (state: AppState) => state.downloads[blog.idstr] ?? null
@@ -67,41 +70,6 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const locationTag = blog.tag_struct?.find(
     (tag) => tag.otype === "place"
   )?.tag_name
-
-  useEffect(() => {
-    let mounted = true
-    const setup = async () => {
-      const unlisten = await onDownloadProgress((payload) => {
-        if (!mounted) return
-        if (payload.postId !== blog.idstr) return
-
-        updateDownloadProgress(payload.postId, payload.index, payload.status)
-
-        // Auto-clear after all items finish
-        const updatedProgress = useAppStore.getState().downloads[payload.postId]
-        if (updatedProgress) {
-          const allFinished =
-            updatedProgress.completed + updatedProgress.failed ===
-            updatedProgress.total
-          if (allFinished) {
-            setTimeout(
-              () => useAppStore.getState().clearDownload(payload.postId),
-              3000
-            )
-          }
-        }
-      })
-      return unlisten
-    }
-
-    let unlistenFn: (() => void) | undefined
-    setup().then((u) => (unlistenFn = u))
-
-    return () => {
-      mounted = false
-      if (unlistenFn) unlistenFn()
-    }
-  }, [blog.idstr, updateDownloadProgress])
 
   const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
@@ -145,13 +113,12 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
 
   return (
     <div className="flex flex-col gap-1">
-      {isReposted && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-          Reposted by {activeDisplayName || activeUid || "this user"}
-        </div>
-      )}
-
       <Card size="sm">
+        {isReposted && (
+          <div className="bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+            {activeDisplayName || activeUid || "this user"} reposted
+          </div>
+        )}
         <CardContent className="flex flex-col gap-2">
           {/* Author row */}
           <div className="flex items-center gap-3">
@@ -223,14 +190,20 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
           </ResponsiveMasonry>
 
           {/* Footer: stats + download */}
-          <div className="flex items-center justify-between gap-6 border-t border-border pt-1.5 text-xs font-medium text-muted-foreground">
-            <div className="flex gap-6">
-              <span>Reposts: {blog.reposts_count ?? 0}</span>
-              <span>Comments: {blog.comments_count ?? 0}</span>
-              <span>Likes: {blog.attitudes_count ?? 0}</span>
-              {downloadItems.length > 0 && (
-                <span>Images: {downloadItems.length}</span>
-              )}
+          <div className="flex items-center justify-between gap-6 pt-2 text-xs font-medium text-muted-foreground">
+            <div className="flex gap-4">
+              <span>
+                <ThumbsUpIcon className="inline h-4" />{" "}
+                {blog.attitudes_count ?? 0}
+              </span>
+              <span>
+                <MessageSquareQuoteIcon className="inline h-4" />{" "}
+                {blog.comments_count ?? 0}
+              </span>
+              <span>
+                <RotateCwIcon className="inline h-4" />{" "}
+                {blog.reposts_count ?? 0}
+              </span>
             </div>
             {downloadItems.length > 0 && (
               <div>
@@ -248,8 +221,12 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                   <div className="flex items-center gap-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger>
-                        <Button type="button" variant="outline" size="xs">
-                          Download images
+                        <Button type="button" variant="outline" size="sm">
+                          <DownloadIcon className="inline h-4" />
+                          Download
+                          {downloadItems.length > 0
+                            ? ` ${downloadItems.length} images`
+                            : "image"}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-42">
