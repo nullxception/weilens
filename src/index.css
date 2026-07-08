@@ -189,3 +189,13 @@ body {
     background-color: var(--color-slate-400);
   }
 }
+
+.post-display {
+  img {
+    display: inline-block;
+    margin: 0.1em;
+    max-width: 1.5em;
+    max-height: 1.5em;
+    vertical-align: middle;
+  }
+}

@@ -176,7 +176,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
 
           {/* Post text */}
           <p
-            className="text-sm leading-relaxed whitespace-pre-wrap text-foreground"
+            className="post-display text-sm leading-relaxed whitespace-pre-wrap text-foreground"
             dangerouslySetInnerHTML={{ __html: blog.text }}
           />
 
