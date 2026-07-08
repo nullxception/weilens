@@ -14,6 +14,7 @@ use crate::dates::{get_date_folder, parse_date};
 use crate::dates::{get_exif_date_string, get_formatted_date};
 use crate::exif::write_exif;
 use crate::image::merge_bottom_three_percent;
+use crate::motion::create_motion_photo;
 use crate::types::{DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData};
 use crate::util::get_no_watermark_url;
 
@@ -348,33 +349,28 @@ pub async fn download_item(
                 if let Ok(video_bytes) = res_video.bytes().await {
                     let parsed = Url::parse(video_url).unwrap();
                     let path = parsed.path();
-                    let video_extension = Path::new(path)
+                    let video_ext = Path::new(path)
                         .extension()
                         .and_then(|e| e.to_str())
-                        .map(|ext| format!(".{}", ext))
-                        .unwrap_or_else(|| ".mov".to_string());
-                    let video_filename = format!("{}{}", formatted_date, video_extension);
-                    let video_target_path = resolved_download_dir.join(&video_filename);
-                    if let Ok(mut video_file) = File::create(&video_target_path) {
-                        if video_file.write_all(&video_bytes).is_ok() {
-                            saved_paths.push(video_target_path.to_string_lossy().to_string());
-                        } else {
+                        .unwrap_or_else(|| "mov")
+                        .to_string();
+                    log::info!(
+                        "[{}/{}] Post {} - muxing video into to {}",
+                        index + 1,
+                        total,
+                        post_id,
+                        target_path.display()
+                    );
+                    let _ =
+                        create_motion_photo(&target_path, &video_bytes, &video_ext).map_err(|e| {
                             log::error!(
-                                "[{}/{}] Post {} - Failed to write video file data",
+                                "[{}/{}] Post {} - Failed to mux video: {}",
                                 index + 1,
                                 total,
-                                post_id
+                                post_id,
+                                e
                             );
-                        }
-                    } else {
-                        log::error!(
-                            "[{}/{}] Post {} - Failed to create video file: {:?}",
-                            index + 1,
-                            total,
-                            post_id,
-                            video_target_path
-                        );
-                    }
+                        });
                 }
             } else {
                 log::error!(

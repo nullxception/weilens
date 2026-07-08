@@ -2255,6 +2255,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "img-parts"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19734e3c43b2a850f5889c077056e47c874095f2d87e853c7c41214ae67375f0"
+dependencies = [
+ "bytes",
+ "crc32fast",
+ "miniz_oxide",
+]
+
+[[package]]
 name = "imgref"
 version = "1.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4785,6 +4796,7 @@ dependencies = [
  "chrono",
  "dirs",
  "image",
+ "img-parts",
  "little_exif",
  "log",
  "rand 0.9.4",
@@ -4801,6 +4813,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "url",
+ "xmp-writer",
 ]
 
 [[package]]
@@ -6402,6 +6415,12 @@ dependencies = [
  "once_cell",
  "pkg-config",
 ]
+
+[[package]]
+name = "xmp-writer"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
 
 [[package]]
 name = "y4m"

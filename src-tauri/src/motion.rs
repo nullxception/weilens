@@ -1,0 +1,165 @@
+use img_parts::jpeg::Jpeg;
+use img_parts::jpeg::JpegSegment;
+use img_parts::Bytes;
+use std::fs::File;
+use std::io::{Read, Write};
+use std::path::Path;
+use std::string;
+
+struct SefTag {
+    id: [u8; 4],
+    name: &'static str,
+    payload: Vec<u8>,
+}
+
+pub fn create_motion_photo(
+    image_path: &Path,
+    video_buf: &[u8],
+    video_ext: &string::String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut image_bytes = Vec::new();
+    File::open(image_path)?.read_to_end(&mut image_bytes)?;
+
+    let video_bytes = video_buf.to_vec();
+    let video_mime = match video_ext.as_str() {
+        "mp4" => "video/mp4",
+        "mov" => "video/quicktime",
+        _ => return Err("Unsupported video format! Must be .mp4 or .mov".into()),
+    };
+
+    const SEFH_VERSION: u32 = 107;
+    const TAG_MOTION_PHOTO_DATA: [u8; 4] = [0x00, 0x00, 0x30, 0x0A];
+    const TAG_MOTION_PHOTO_VERSION: [u8; 4] = [0x00, 0x00, 0x31, 0x0A];
+
+    // NOTE: Data tag FIRST (video payload sits right after its own small
+    // header, immediately following the JPEG), Version tag SECOND.
+    let tags = vec![
+        SefTag {
+            id: TAG_MOTION_PHOTO_DATA,
+            name: "MotionPhoto_Data",
+            payload: video_bytes.clone(),
+        },
+        SefTag {
+            id: TAG_MOTION_PHOTO_VERSION,
+            name: "MotionPhoto_Version",
+            payload: b"mpv3".to_vec(),
+        },
+    ];
+
+    let mut tag_data = Vec::new();
+    let mut tag_lengths = Vec::new();
+    let mut video_padstart: usize = 0;
+
+    for (i, tag) in tags.iter().enumerate() {
+        let start = tag_data.len();
+        tag_data.extend_from_slice(&tag.id);
+        tag_data.extend_from_slice(&(tag.name.len() as u32).to_le_bytes());
+        tag_data.extend_from_slice(tag.name.as_bytes());
+
+        if i == 0 {
+            // padding = header only (id+namelen+name), before raw video bytes
+            video_padstart = tag_data.len() - start;
+        }
+
+        tag_data.extend_from_slice(&tag.payload);
+        tag_lengths.push((tag_data.len() - start) as u32);
+    }
+
+    let mut offsets = vec![0u32; tags.len()];
+    for i in 0..tags.len() {
+        let len = tag_lengths[i];
+        for j in 0..=i {
+            offsets[j] += len;
+        }
+    }
+
+    let mut sefh = Vec::new();
+    sefh.extend_from_slice(b"SEFH");
+    sefh.extend_from_slice(&SEFH_VERSION.to_le_bytes());
+    sefh.extend_from_slice(&(tags.len() as u32).to_le_bytes());
+    for i in 0..tags.len() {
+        sefh.extend_from_slice(&tags[i].id);
+        sefh.extend_from_slice(&offsets[i].to_le_bytes());
+        sefh.extend_from_slice(&tag_lengths[i].to_le_bytes());
+    }
+    let sefh_len = sefh.len() as u32;
+    sefh.extend_from_slice(&sefh_len.to_le_bytes());
+    sefh.extend_from_slice(b"SEFT");
+
+    let total_trailing = tag_data.len() + sefh.len();
+    let video_len = total_trailing - video_padstart;
+
+    let xmp_packet = format!(
+        r#"<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.0-jc003">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description 
+    xmlns:GCamera="http://ns.google.com/photos/1.0/camera/"
+    xmlns:OpCamera="http://ns.oplus.com/photos/1.0/camera/"
+    xmlns:MiCamera="http://ns.xiaomi.com/photos/1.0/camera/"
+    xmlns:Container="http://ns.google.com/photos/1.0/container/" 
+    xmlns:Item="http://ns.google.com/photos/1.0/container/item/" 
+    rdf:about="" 
+    GCamera:MotionPhoto="1" 
+    GCamera:MotionPhotoVersion="1" 
+    GCamera:MotionPhotoPresentationTimestampUs="0"
+    OpCamera:MotionPhotoPrimaryPresentationTimestampUs="0"
+    OpCamera:MotionPhotoOwner="oplus"
+    OpCamera:OLivePhotoVersion="2"
+    OpCamera:VideoLength="{}"
+    GCamera:MicroVideoVersion="1"
+    GCamera:MicroVideo="1"
+    GCamera:MicroVideoOffset="{}"
+    GCamera:MicroVideoPresentationTimestampUs="0"
+    MiCamera:XMPMeta="&lt;?xml version='1.0' encoding='UTF-8' standalone='yes' ?&gt;">
+      <Container:Directory>
+        <rdf:Seq>
+          <rdf:li rdf:parseType="Resource">
+            <Container:Item
+                Item:Mime="image/jpeg"
+                Item:Semantic="Primary"
+                Item:Length="0" 
+                Item:Padding="{}"/>
+          </rdf:li>
+          <rdf:li rdf:parseType="Resource">
+            <Container:Item
+                Item:Mime="{}"
+                Item:Semantic="MotionPhoto"
+                Item:Length="{}"
+                Item:Padding="0"/>
+          </rdf:li>
+        </rdf:Seq>
+      </Container:Directory>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>"#,
+        video_len, video_len, video_padstart, video_mime, video_len
+    );
+
+    let sign = b"http://ns.adobe.com/xap/1.0/\0";
+    let mut payload = Vec::with_capacity(sign.len() + xmp_packet.len());
+    payload.extend_from_slice(sign);
+    payload.extend_from_slice(xmp_packet.as_bytes());
+
+    let mut jpeg = Jpeg::from_bytes(Bytes::from(image_bytes))?;
+    jpeg.segments_mut().retain(|seg| {
+        if seg.marker() != 0xE1 {
+            return true;
+        }
+        !seg.contents().starts_with(sign)
+    });
+    let xmp_segment = JpegSegment::new_with_contents(0xE1, Bytes::from(payload));
+    jpeg.segments_mut().insert(1, xmp_segment);
+
+    let mut motion_bytes = Vec::new();
+    jpeg.encoder().write_to(&mut motion_bytes)?;
+
+    // [JPEG] [Data-tag-header][raw video][Version tag][SEFH][SEFT]
+    motion_bytes.extend_from_slice(&tag_data);
+    motion_bytes.extend_from_slice(&sefh);
+
+    let mut out = File::create(image_path)?;
+    out.write_all(&motion_bytes)?;
+
+    Ok(())
+}

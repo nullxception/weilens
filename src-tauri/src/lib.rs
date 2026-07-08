@@ -2,6 +2,7 @@ mod dates;
 mod download;
 mod exif;
 mod image;
+mod motion;
 mod types;
 mod util;
 
