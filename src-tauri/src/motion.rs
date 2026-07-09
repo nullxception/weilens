@@ -1,32 +1,23 @@
 use img_parts::jpeg::Jpeg;
 use img_parts::jpeg::JpegSegment;
 use img_parts::Bytes;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
-use std::string;
 
-struct SefTag {
+struct SefTag<'a> {
     id: [u8; 4],
     name: &'static str,
-    payload: Vec<u8>,
+    payload: &'a [u8],
 }
 
-pub fn create_motion_photo(
-    image_path: &Path,
-    video_buf: &[u8],
-    video_ext: &string::String,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut image_bytes = Vec::new();
-    File::open(image_path)?.read_to_end(&mut image_bytes)?;
-
-    let video_bytes = video_buf.to_vec();
-    let video_mime = match video_ext.as_str() {
-        "mp4" => "video/mp4",
-        "mov" => "video/quicktime",
-        _ => return Err("Unsupported video format! Must be .mp4 or .mov".into()),
-    };
-
+/// Mux an image and a video entirely in memory, returning the combined motion-photo bytes.
+///
+/// accepted `mime`:
+/// - `video/mp4`
+/// - `video/quicktime`
+pub fn mux_motion_photo(
+    image_bytes: &[u8],
+    video_bytes: &[u8],
+    mime: &str,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     const SEFH_VERSION: u32 = 107;
     const TAG_MOTION_PHOTO_DATA: [u8; 4] = [0x00, 0x00, 0x30, 0x0A];
     const TAG_MOTION_PHOTO_VERSION: [u8; 4] = [0x00, 0x00, 0x31, 0x0A];
@@ -37,12 +28,12 @@ pub fn create_motion_photo(
         SefTag {
             id: TAG_MOTION_PHOTO_DATA,
             name: "MotionPhoto_Data",
-            payload: video_bytes.clone(),
+            payload: video_bytes,
         },
         SefTag {
             id: TAG_MOTION_PHOTO_VERSION,
             name: "MotionPhoto_Version",
-            payload: b"mpv3".to_vec(),
+            payload: b"mpv3",
         },
     ];
 
@@ -133,7 +124,7 @@ pub fn create_motion_photo(
   </rdf:RDF>
 </x:xmpmeta>
 <?xpacket end="w"?>"#,
-        video_len, video_len, video_padstart, video_mime, video_len
+        video_len, video_len, video_padstart, &mime, video_len
     );
 
     let sign = b"http://ns.adobe.com/xap/1.0/\0";
@@ -141,7 +132,7 @@ pub fn create_motion_photo(
     payload.extend_from_slice(sign);
     payload.extend_from_slice(xmp_packet.as_bytes());
 
-    let mut jpeg = Jpeg::from_bytes(Bytes::from(image_bytes))?;
+    let mut jpeg = Jpeg::from_bytes(Bytes::from(image_bytes.to_vec()))?;
     jpeg.segments_mut().retain(|seg| {
         if seg.marker() != 0xE1 {
             return true;
@@ -158,8 +149,5 @@ pub fn create_motion_photo(
     motion_bytes.extend_from_slice(&tag_data);
     motion_bytes.extend_from_slice(&sefh);
 
-    let mut out = File::create(image_path)?;
-    out.write_all(&motion_bytes)?;
-
-    Ok(())
+    Ok(motion_bytes)
 }

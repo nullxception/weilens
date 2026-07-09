@@ -14,7 +14,7 @@ use crate::dates::{get_date_folder, parse_date};
 use crate::dates::{get_exif_date_string, get_formatted_date};
 use crate::exif::write_exif;
 use crate::image::merge_bottom_three_percent;
-use crate::motion::create_motion_photo;
+use crate::motion::mux_motion_photo;
 use crate::types::{DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData};
 use crate::util::get_no_watermark_url;
 
@@ -106,10 +106,10 @@ pub async fn download_post(
                             .saturating_mul(1u64 << attempt.min(10))
                             .min(config_clone.retry_max_delay_ms);
                         log::warn!(
-                            "[{}/{}] Post {} - Attempt {}/{} failed ({}). Retrying in {}ms…",
+                            "[Post {}:{}/{}] Attempt {}/{} failed ({}). Retrying in {}ms…",
+                            &post_id_clone,
                             index + 1,
                             total,
-                            &post_id_clone,
                             attempt,
                             config_clone.max_retries,
                             e,
@@ -119,10 +119,10 @@ pub async fn download_post(
                     }
                     Err(e) => {
                         log::error!(
-                            "[{}/{}] Post {} - All {} retries exhausted: {}",
+                            "[Post {}:{}/{}] All {} retries exhausted: {}",
+                            &post_id_clone,
                             index + 1,
                             total,
-                            &post_id_clone,
                             config_clone.max_retries,
                             e
                         );
@@ -201,10 +201,10 @@ pub async fn download_item(
     let no_watermark_url = get_no_watermark_url(&item_url);
 
     log::info!(
-        "[{}/{}] Starting download for post_id: {}. URL: {}",
+        "[Post {}:{}/{}] Starting download. URL: {}",
+        post_id,
         index + 1,
         total,
-        post_id,
         item_url
     );
 
@@ -262,28 +262,28 @@ pub async fn download_item(
                             buffer = merged;
                         } else {
                             log::warn!(
-                                "[{}/{}] Post {} - Failed to merge watermark-free version",
+                                "[Post {}:{}/{}] Failed to merge watermark-free version",
+                                post_id,
                                 index + 1,
-                                total,
-                                post_id
+                                total
                             );
                         }
                     }
                 } else {
                     log::warn!(
-                        "[{}/{}] Post {} - Watermark-free request returned status: {}",
+                        "[Post {}:{}/{}] Watermark-free request returned status: {}",
+                        post_id,
                         index + 1,
                         total,
-                        post_id,
                         res_no_wm.status()
                     );
                 }
             } else {
                 log::warn!(
-                    "[{}/{}] Post {} - Failed to connect for watermark-free image",
+                    "[Post {}:{}/{}] Failed to request watermark-free image",
+                    post_id,
                     index + 1,
-                    total,
-                    post_id
+                    total
                 );
             }
         }
@@ -299,97 +299,64 @@ pub async fn download_item(
     let image_filename = format!("{}{}", formatted_date, extension);
     let target_path = resolved_download_dir.join(&image_filename);
 
+    // For live photos, mux the video into the image bytes in memory before
+    // writing to disk so we only need a single file write.
+    if is_live_photo {
+        if let Some(ref video_url) = item_video_url {
+            buffer =
+                download_live_photo(&client, video_url, &buffer, &config, index, total, post_id)
+                    .await
+                    .unwrap_or_else(|e| {
+                        log::error!(
+                            "[Post {}:{}/{}] Live photo mux failed, writing plain image: {}",
+                            post_id,
+                            index + 1,
+                            total,
+                            e
+                        );
+                        buffer.clone()
+                    });
+            log::info!(
+                "[Post {}:{}/{}] Live photo muxed successfully, new size: {} bytes",
+                post_id,
+                index + 1,
+                total,
+                buffer.len()
+            );
+        }
+    }
+
     let mut file = File::create(&target_path).map_err(|e| {
         let err = DownloadError::Io(e).to_string();
-        log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
+        log::error!("[Post {}:{}/{}] - {}", post_id, index + 1, total, err);
         err
     })?;
     file.write_all(&buffer).map_err(|e| {
         let err = DownloadError::Io(e).to_string();
-        log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
+        log::error!("[Post {}:{}/{}] - {}", post_id, index + 1, total, err);
         err
     })?;
 
     log::info!(
-        "[{}/{}] Post {} - Wrote image to {}",
+        "[Post {}:{}/{}] Wrote image to {}",
+        post_id,
         index + 1,
         total,
-        post_id,
         target_path.display()
     );
 
     let exif_date_str = get_exif_date_string(created_at_dt, index as i64);
     if let Err(e) = write_exif(&target_path, &exif_date_str, location) {
         log::warn!(
-            "[{}/{}] Post {} - Failed to write EXIF metadata: {}",
+            "[Post {}:{}/{}] Failed to write EXIF metadata: {}",
+            post_id,
             index + 1,
             total,
-            post_id,
             e
         );
     }
 
     saved_paths.push(target_path.to_string_lossy().to_string());
-
-    if let Some(ref video_url) = item_video_url {
-        log::info!(
-            "[{}/{}] Post {} - Item is a Live Photo, downloading video from {}",
-            index + 1,
-            total,
-            post_id,
-            video_url
-        );
-        let req_video = client
-            .get(video_url)
-            .timeout(Duration::from_secs(config.request_timeout_secs))
-            .header("Referer", &config.referer)
-            .header("User-Agent", &config.user_agent);
-        if let Ok(res_video) = req_video.send().await {
-            if res_video.status().is_success() {
-                if let Ok(video_bytes) = res_video.bytes().await {
-                    let parsed = Url::parse(video_url).unwrap();
-                    let path = parsed.path();
-                    let video_ext = Path::new(path)
-                        .extension()
-                        .and_then(|e| e.to_str())
-                        .unwrap_or_else(|| "mov")
-                        .to_string();
-                    log::info!(
-                        "[{}/{}] Post {} - muxing video into to {}",
-                        index + 1,
-                        total,
-                        post_id,
-                        target_path.display()
-                    );
-                    let _ =
-                        create_motion_photo(&target_path, &video_bytes, &video_ext).map_err(|e| {
-                            log::error!(
-                                "[{}/{}] Post {} - Failed to mux video: {}",
-                                index + 1,
-                                total,
-                                post_id,
-                                e
-                            );
-                        });
-                }
-            } else {
-                log::error!(
-                    "[{}/{}] Post {} - Video download request returned status: {}",
-                    index + 1,
-                    total,
-                    post_id,
-                    res_video.status()
-                );
-            }
-        } else {
-            log::error!(
-                "[{}/{}] Post {} - Failed to connect for video download",
-                index + 1,
-                total,
-                post_id
-            );
-        }
-    }
 
     let _ = app_handle.emit(
         "download-progress",
@@ -403,12 +370,67 @@ pub async fn download_item(
         },
     );
 
-    log::info!(
-        "[{}/{}] Post {} - Completed successfully",
-        index + 1,
-        total,
-        post_id
-    );
+    log::info!("[Post {}:{}/{}] Completed", post_id, index + 1, total);
 
     Ok(saved_paths)
+}
+
+/// Downloads the video component of a live photo and muxes it with the already-downloaded
+/// `image_bytes` entirely in memory.
+///
+/// Returns the muxed motion-photo bytes on success, or an error string on failure.
+async fn download_live_photo(
+    client: &reqwest::Client,
+    video_url: &str,
+    image_bytes: &[u8],
+    config: &DownloadConfig,
+    index: usize,
+    total: usize,
+    post_id: &str,
+) -> Result<Vec<u8>, String> {
+    log::info!(
+        "[Post {}:{}/{}] Live Photo: Downloading video from {}",
+        post_id,
+        index + 1,
+        total,
+        video_url
+    );
+
+    let res = client
+        .get(video_url)
+        .timeout(Duration::from_secs(config.request_timeout_secs))
+        .header("Referer", &config.referer)
+        .header("User-Agent", &config.user_agent)
+        .send()
+        .await
+        .map_err(|e| format!("Video request failed: {}", e))?;
+
+    if !res.status().is_success() {
+        return Err(format!("Video HTTP error: {}", res.status()));
+    }
+
+    let video_bytes = res
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read video bytes: {}", e))?;
+
+    let url = Url::parse(video_url).unwrap();
+    let mime = match Path::new(url.path())
+        .extension()
+        .and_then(|ext| ext.to_str())
+    {
+        Some("mp4") | Some("MP4") => "video/mp4",
+        Some("mov") | Some("MOV") => "video/quicktime",
+        _ => return Err("Unsupported url video format! Must be mp4 or mov".into()),
+    };
+
+    log::info!(
+        "[Post {}:{}/{}]  - Muxing live photo video ({} bytes) in memory",
+        post_id,
+        index + 1,
+        total,
+        video_bytes.len()
+    );
+
+    mux_motion_photo(image_bytes, &video_bytes, &mime).map_err(|e| format!("Mux failed: {}", e))
 }
