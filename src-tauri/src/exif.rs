@@ -1,9 +1,9 @@
 use crate::types::GpsData;
 use little_exif::exif_tag::ExifTag;
+use little_exif::filetype::FileExtension;
 use little_exif::metadata::Metadata;
 use little_exif::rational::{iR64, uR64};
 use rand::Rng;
-use std::path::Path;
 
 #[derive(Debug, Clone, Copy)] // Required for .copied()
 struct IPhoneExif {
@@ -70,11 +70,22 @@ fn get_iphone_model(exif_date_str: &str) -> IPhoneExif {
 }
 
 pub fn write_exif(
-    file_path: &Path,
+    buffer: &mut Vec<u8>,
     exif_date: &str,
     location: Option<&GpsData>,
+    extension: &str,
 ) -> Result<(), String> {
-    let mut metadata = match Metadata::new_from_path(file_path) {
+    let ext_lower = extension.to_lowercase();
+    let ext_str = ext_lower.strip_prefix('.').unwrap_or(&ext_lower);
+    let file_type = match ext_str {
+        "png" => FileExtension::PNG {
+            as_zTXt_chunk: false,
+        },
+        "jpg" | "jpeg" => FileExtension::JPEG,
+        _ => return Ok(()), // Don't write EXIF for unsupported formats
+    };
+
+    let mut metadata = match Metadata::new_from_vec(buffer, file_type) {
         Ok(m) => m,
         Err(e) => {
             log::info!(
@@ -164,7 +175,7 @@ pub fn write_exif(
     }
 
     metadata
-        .write_to_file(file_path)
+        .write_to_vec(buffer, file_type)
         .map_err(|e| format!("Metadata write error: {:?}", e))?;
 
     Ok(())

@@ -299,6 +299,17 @@ pub async fn download_item(
     let image_filename = format!("{}{}", formatted_date, extension);
     let target_path = resolved_download_dir.join(&image_filename);
 
+    let exif_date_str = get_exif_date_string(created_at_dt, index as i64);
+    if let Err(e) = write_exif(&mut buffer, &exif_date_str, location, &extension) {
+        log::warn!(
+            "[Post {}:{}/{}] Failed to write EXIF metadata in memory: {}",
+            post_id,
+            index + 1,
+            total,
+            e
+        );
+    }
+
     // For live photos, mux the video into the image bytes in memory before
     // writing to disk so we only need a single file write.
     if is_live_photo {
@@ -344,17 +355,6 @@ pub async fn download_item(
         total,
         target_path.display()
     );
-
-    let exif_date_str = get_exif_date_string(created_at_dt, index as i64);
-    if let Err(e) = write_exif(&target_path, &exif_date_str, location) {
-        log::warn!(
-            "[Post {}:{}/{}] Failed to write EXIF metadata: {}",
-            post_id,
-            index + 1,
-            total,
-            e
-        );
-    }
 
     saved_paths.push(target_path.to_string_lossy().to_string());
 
