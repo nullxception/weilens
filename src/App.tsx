@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { BlogFeed } from "./components/BlogFeed"
 import { AppShell } from "./components/AppShell"
+import { CookieSetupDialog } from "./components/CookieSetupDialog"
 import { useWeiLookup } from "./hooks/useWeiLookup"
 import { useAppStore, type AppState } from "./stores/appStore"
 
@@ -80,23 +81,26 @@ function App() {
   }
 
   return (
-    <AppShell
-      uid={uid}
-      isLoading={isLoading}
-      onUidChange={setUid}
-      onSubmit={handleCheck}
-      onOpenSettings={() => setActiveView("settings")}
-      historyOnSidebar={historyOnSidebar}
-    >
-      <BlogFeed
-        blogs={blogs}
-        result={result}
-        error={error}
+    <>
+      <CookieSetupDialog />
+      <AppShell
+        uid={uid}
         isLoading={isLoading}
-        onLoadMore={handleNextPage}
-        activeDisplayName={activeDisplayName}
-      />
-    </AppShell>
+        onUidChange={setUid}
+        onSubmit={handleCheck}
+        onOpenSettings={() => setActiveView("settings")}
+        historyOnSidebar={historyOnSidebar}
+      >
+        <BlogFeed
+          blogs={blogs}
+          result={result}
+          error={error}
+          isLoading={isLoading}
+          onLoadMore={handleNextPage}
+          activeDisplayName={activeDisplayName}
+        />
+      </AppShell>
+    </>
   )
 }
 
