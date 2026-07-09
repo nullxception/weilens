@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import type { NominatimResult } from "../types/gps"
+import { StorageKeys } from "../shared/storageKeys"
 
 export interface Place {
   lat: number
@@ -145,7 +146,7 @@ export function toHttpCookieHeader(cookie: string): string {
 
 function readCookieFromStorage() {
   try {
-    return localStorage.getItem("wei_cookie") ?? ""
+    return localStorage.getItem(StorageKeys.COOKIE) ?? ""
   } catch {
     return ""
   }
@@ -153,7 +154,7 @@ function readCookieFromStorage() {
 
 function readDownloadLocationFromStorage() {
   try {
-    return localStorage.getItem("wei_download_location") ?? ""
+    return localStorage.getItem(StorageKeys.DOWNLOAD_PATH) ?? ""
   } catch {
     return ""
   }
@@ -161,7 +162,7 @@ function readDownloadLocationFromStorage() {
 
 function readHistoryFromStorage(): CheckedProfile[] {
   try {
-    const saved = localStorage.getItem("wei_profile_history")
+    const saved = localStorage.getItem(StorageKeys.PROFILE_HISTORY)
     return saved ? JSON.parse(saved) : []
   } catch {
     return []
@@ -170,7 +171,7 @@ function readHistoryFromStorage(): CheckedProfile[] {
 
 function readRecentPlacesFromStorage(): NominatimResult[] {
   try {
-    const saved = localStorage.getItem("wei_recent_places")
+    const saved = localStorage.getItem(StorageKeys.RECENT_PLACES)
     return saved ? JSON.parse(saved) : []
   } catch {
     return []
@@ -179,7 +180,7 @@ function readRecentPlacesFromStorage(): NominatimResult[] {
 
 function writeRecentPlacesToStorage(places: NominatimResult[]) {
   try {
-    localStorage.setItem("wei_recent_places", JSON.stringify(places))
+    localStorage.setItem(StorageKeys.RECENT_PLACES, JSON.stringify(places))
   } catch (error) {
     console.error("Failed to save recent places to localStorage:", error)
   }
@@ -187,7 +188,7 @@ function writeRecentPlacesToStorage(places: NominatimResult[]) {
 
 function readSavedPlacesFromStorage(): Place[] {
   try {
-    const saved = localStorage.getItem("wei_places")
+    const saved = localStorage.getItem(StorageKeys.PLACES)
     return saved ? JSON.parse(saved) : []
   } catch {
     return []
@@ -196,7 +197,7 @@ function readSavedPlacesFromStorage(): Place[] {
 
 function writeSavedPlacesToStorage(places: Place[]) {
   try {
-    localStorage.setItem("wei_places", JSON.stringify(places))
+    localStorage.setItem(StorageKeys.PLACES, JSON.stringify(places))
   } catch (error) {
     console.error("Failed to save places to localStorage:", error)
   }
@@ -204,7 +205,7 @@ function writeSavedPlacesToStorage(places: Place[]) {
 
 function readBlogPlacesFromStorage(): BlogPlaces {
   try {
-    const saved = localStorage.getItem("wei_blog_places")
+    const saved = localStorage.getItem(StorageKeys.BLOG_PLACES)
     return saved ? JSON.parse(saved) : {}
   } catch {
     return {}
@@ -213,7 +214,7 @@ function readBlogPlacesFromStorage(): BlogPlaces {
 
 function writeBlogPlacesToStorage(places: BlogPlaces) {
   try {
-    localStorage.setItem("wei_blog_places", JSON.stringify(places))
+    localStorage.setItem(StorageKeys.BLOG_PLACES, JSON.stringify(places))
   } catch (error) {
     console.error("Failed to save blog places to localStorage:", error)
   }
@@ -221,7 +222,7 @@ function writeBlogPlacesToStorage(places: BlogPlaces) {
 
 function writeHistoryToStorage(history: CheckedProfile[]) {
   try {
-    localStorage.setItem("wei_profile_history", JSON.stringify(history))
+    localStorage.setItem(StorageKeys.PROFILE_HISTORY, JSON.stringify(history))
   } catch (error) {
     console.error("Failed to save history to localStorage:", error)
   }
@@ -299,7 +300,7 @@ export const useAppStore = create<AppState>((set) => ({
   savedMessage: "",
   setCookie: (cookie: string) => {
     try {
-      localStorage.setItem("wei_cookie", cookie)
+      localStorage.setItem(StorageKeys.COOKIE, cookie)
     } catch (error) {
       console.error("Failed to save cookie to localStorage:", error)
     }
@@ -308,7 +309,7 @@ export const useAppStore = create<AppState>((set) => ({
   },
   setDownloadLocation: (downloadLocation: string) => {
     try {
-      localStorage.setItem("wei_download_location", downloadLocation)
+      localStorage.setItem(StorageKeys.DOWNLOAD_PATH, downloadLocation)
     } catch (error) {
       console.error("Failed to save download location to localStorage:", error)
     }
@@ -362,7 +363,7 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   clearHistory: () => {
     try {
-      localStorage.removeItem("wei_profile_history")
+      localStorage.removeItem(StorageKeys.PROFILE_HISTORY)
     } catch (error) {
       console.error("Failed to clear history from localStorage:", error)
     }
@@ -390,7 +391,7 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   clearRecentPlaces: () => {
     try {
-      localStorage.removeItem("wei_recent_places")
+      localStorage.removeItem(StorageKeys.RECENT_PLACES)
     } catch (error) {
       console.error("Failed to clear recent places:", error)
     }

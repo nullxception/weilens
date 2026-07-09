@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { StorageKeys } from "../shared/storageKeys";
 
 type Theme = "dark" | "light" | "system";
 
@@ -23,7 +24,7 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  storageKey = "vite-ui-theme",
+  storageKey = StorageKeys.THEME,
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(
