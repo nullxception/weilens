@@ -7,7 +7,9 @@ mod motion;
 mod types;
 mod util;
 
-use crate::db::{add_place, init_db, list_places, remove_blog_place, set_blog_place, DbState};
+use crate::db::{
+    add_place, get_place_by_post, init_db, list_places, remove_blog_place, set_blog_place, DbState,
+};
 use crate::download::{choose_download_dir, default_download_dir, download_post};
 use log::LevelFilter;
 use std::sync::Mutex;
@@ -153,6 +155,7 @@ pub fn run() {
             choose_download_dir,
             default_download_dir,
             list_places,
+            get_place_by_post,
             add_place,
             set_blog_place,
             remove_blog_place,

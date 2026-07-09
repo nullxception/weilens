@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import { type DownloadItem } from "../shared/rpc"
 import type { PicDimension, PicInfo, WeiPost } from "../shared/WeiSchema"
-import { useAppStore, type AppState } from "../stores/appStore"
+import { useAppStore, type AppState, type Place } from "../stores/appStore"
 import type { GPSData } from "../shared/gps"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
@@ -75,16 +76,26 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   // --- Blog place (persisted per post) ---
   const blogPlaceKey =
     blog.user?.id != null ? `${blog.user.id}_${blog.mblogid}` : null
-  const storedBlogPlace = useAppStore((state: AppState) =>
-    blogPlaceKey ? (state.blogPlaces[blogPlaceKey] ?? null) : null
-  )
+  const [storedBlogPlace, setStoredBlogPlace] = useState<Place | null>(null)
   const setBlogPlace = useAppStore((state: AppState) => state.setBlogPlace)
-  const [gpsLocation, setGpsLocation] = useState<GPSData | null>(
-    storedBlogPlace
-      ? { lat: storedBlogPlace.lat, lon: storedBlogPlace.lon }
-      : null
-  )
+  const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
+
+  useEffect(() => {
+    if (!blogPlaceKey) {
+      setStoredBlogPlace(null)
+      return
+    }
+    const [userId, mblogid] = blogPlaceKey.split("_")
+    invoke<Place>("get_place_by_post", { userId, mblogid })
+      .then((place) => {
+        setStoredBlogPlace(place)
+        setGpsLocation({ lat: place.lat, lon: place.lon })
+      })
+      .catch(() => {
+        setStoredBlogPlace(null)
+      })
+  }, [blogPlaceKey])
 
   const clearProgressLater = () => {
     setTimeout(() => clearDownload(blog.idstr), 3000)

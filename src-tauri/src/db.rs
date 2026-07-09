@@ -113,6 +113,33 @@ pub fn list_places(state: tauri::State<'_, DbState>) -> Result<AllPlaces, String
 }
 
 #[tauri::command]
+pub fn get_place_by_post(
+    state: tauri::State<'_, DbState>,
+    user_id: String,
+    mblogid: String,
+) -> Result<Place, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.lat, p.lon, p.name 
+             FROM blog_places bp
+             JOIN places p ON bp.place_id = p.id where bp.user_id = ?1 and bp.mblogid = ?2 LIMIT 1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let place = stmt
+        .query_row([user_id, mblogid], |row| {
+            Ok(Place {
+                lat: row.get(0)?,
+                lon: row.get(1)?,
+                name: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(place)
+}
+
+#[tauri::command]
 pub fn add_place(state: tauri::State<'_, DbState>, place: Place) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
