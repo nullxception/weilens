@@ -13,7 +13,8 @@ use url::Url;
 use crate::dates::{get_date_folder, parse_date};
 use crate::dates::{get_exif_date_string, get_formatted_date};
 use crate::exif::write_exif;
-use crate::image::merge_bottom_three_percent;
+use crate::image::merge_strip_three_percent;
+use crate::image::StripPosition;
 use crate::motion::mux_motion_photo;
 use crate::types::{DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData};
 use crate::util::get_no_watermark_url;
@@ -27,6 +28,7 @@ pub async fn download_post(
     items: Vec<DownloadItem>,
     download_dir: Option<String>,
     location: Option<GpsData>,
+    wm_position: String,
 ) -> Result<serde_json::Value, String> {
     let config = DownloadConfig::default();
     let base_dir = config.effective_download_root(download_dir);
@@ -71,6 +73,7 @@ pub async fn download_post(
         let created_at_dt_clone = created_at_dt.clone();
         let resolved_dir = resolved_download_dir.to_path_buf();
         let location_clone = location.clone();
+        let wm_position_clone = wm_position.clone();
         let client_clone = client.clone();
         let sem = semaphore.clone();
         let config_clone = config.clone();
@@ -93,6 +96,7 @@ pub async fn download_post(
                     total,
                     &resolved_dir,
                     location_clone.as_ref(),
+                    &wm_position_clone,
                     client_clone.clone(),
                     config_clone.clone(),
                 )
@@ -193,6 +197,7 @@ pub async fn download_item(
     total: usize,
     resolved_download_dir: &Path,
     location: Option<&GpsData>,
+    wm_position: &str,
     client: reqwest::Client,
     config: DownloadConfig,
 ) -> Result<Vec<String>, String> {
@@ -258,7 +263,13 @@ pub async fn download_item(
             if let Ok(res_no_wm) = req_no_wm.send().await {
                 if res_no_wm.status().is_success() {
                     if let Ok(no_wm_bytes) = res_no_wm.bytes().await {
-                        if let Ok(merged) = merge_bottom_three_percent(&buffer, &no_wm_bytes) {
+                        let pos = match wm_position {
+                            "top" => StripPosition::Top,
+                            "center" => StripPosition::Center,
+                            "bottom" => StripPosition::Bottom,
+                            _ => StripPosition::Bottom,
+                        };
+                        if let Ok(merged) = merge_strip_three_percent(&buffer, &no_wm_bytes, pos) {
                             buffer = merged;
                         } else {
                             log::warn!(

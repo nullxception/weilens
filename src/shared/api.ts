@@ -12,6 +12,8 @@ export async function chooseDownloadDir(
   return invoke<string>("choose_download_dir", { startingFolder })
 }
 
+export type WmPosition = "top" | "center" | "bottom"
+
 export async function downloadPost(params: {
   uid: string
   postId: string
@@ -19,6 +21,7 @@ export async function downloadPost(params: {
   items: DownloadItem[]
   downloadDir?: string | undefined
   location?: GPSData | undefined
+  wmPosition: WmPosition
 }): Promise<{ savedPaths: string[]; count: number }> {
   return invoke("download_post", params) as Promise<{
     savedPaths: string[]

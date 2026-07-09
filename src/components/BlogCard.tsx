@@ -7,7 +7,7 @@ import type { GPSData } from "../shared/gps"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
 import { Progress, ProgressLabel, ProgressValue } from "./ui/progress"
-import { downloadPost } from "../shared/api"
+import { downloadPost, type WmPosition } from "../shared/api"
 import LocationDialog from "./LocationDialog"
 import {
   DropdownMenu,
@@ -20,12 +20,22 @@ import Masonry, { ResponsiveMasonry } from "react-responsive-masonry"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import {
   DownloadIcon,
+  EraserIcon,
   MapPinIcon,
   MessageSquareQuoteIcon,
   RotateCwIcon,
   ThumbsUpIcon,
 } from "lucide-react"
 import type { Place } from "@/types/gps"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select"
 
 interface BlogCardProps {
   blog: WeiPost
@@ -50,6 +60,12 @@ function getPreferredImage(info: PicInfo | undefined) {
     picId: info?.pic_id,
   }
 }
+
+const wmPositions = [
+  { label: "Top", value: "top" },
+  { label: "Center", value: "center" },
+  { label: "Bottom", value: "bottom" },
+]
 
 export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const downloadLocation = useAppStore(
@@ -80,6 +96,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const [storedBlogPlace, setStoredBlogPlace] = useState<Place | null>(null)
   const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
+  const [wmPosition, setWmPosition] = useState<WmPosition>("bottom")
 
   useEffect(() => {
     if (!blogPlaceKey) {
@@ -113,6 +130,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
         items: downloadItems,
         downloadDir: downloadLocation || undefined,
         location: loc ?? gpsLocation ?? undefined,
+        wmPosition,
       })
     } catch (error) {
       console.error("Failed to start download", error)
@@ -253,6 +271,28 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                   </Progress>
                 ) : (
                   <div className="flex items-center gap-2">
+                    <Select
+                      items={wmPositions}
+                      onValueChange={(value) =>
+                        setWmPosition(value as WmPosition)
+                      }
+                      value={wmPosition}
+                    >
+                      <SelectTrigger size="sm">
+                        <EraserIcon />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>DeWatermark</SelectLabel>
+                          {wmPositions.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                     <DropdownMenu>
                       <DropdownMenuTrigger>
                         <Button type="button" variant="outline" size="sm">
