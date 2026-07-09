@@ -14,15 +14,20 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { type Place } from "../stores/appStore"
 import { ScrollArea } from "./ui/scroll-area"
 import { useCallback, useEffect, useState } from "react"
 import type { GPSData } from "../shared/gps"
-import type { NominatimResult } from "../types/gps"
-import { NominatimSearchSchema } from "../types/gps"
+import { NominatimSearchSchema, type Place } from "../types/gps"
 import { invoke } from "@tauri-apps/api/core"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
-import { BookmarkIcon, LoaderCircle, SearchIcon, XIcon } from "lucide-react"
+import {
+  BookmarkIcon,
+  GlobeIcon,
+  HistoryIcon,
+  LoaderCircle,
+  SearchIcon,
+  XIcon,
+} from "lucide-react"
 import { ButtonGroup } from "./ui/button-group"
 
 const PAGE_SIZE = 20
@@ -45,24 +50,52 @@ function parseCoordinateInput(input: string): GPSData | null {
   return { lat, lon }
 }
 
+interface SearchPlaceResult {
+  place: Place
+  type: "local" | "nominatim"
+}
+
 async function searchNominatim(
   q: string,
   limit = 10
-): Promise<NominatimResult[]> {
+): Promise<SearchPlaceResult[]> {
   if (!q) return []
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=${limit}`
-  const res = await tauriFetch(url, {
-    headers: { Accept: "application/json" },
-  })
-  if (!res.ok) throw new Error(`Nominatim error ${res.status}`)
-  const raw = await res.json()
+
+  const [nominatimRes, localPlaces] = await Promise.all([
+    tauriFetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=${limit}`,
+      { headers: { Accept: "application/json" } }
+    ),
+    invoke<Place[]>("search_place", { for: q }).catch(() => [] as Place[]),
+  ])
+
+  if (!nominatimRes.ok)
+    throw new Error(`Nominatim error ${nominatimRes.status}`)
+  const raw = await nominatimRes.json()
+  let parsed: SearchPlaceResult[]
   try {
-    // validate + coerce types using shared Zod schema
-    const parsed = NominatimSearchSchema.parse(raw) as NominatimResult[]
-    return parsed.slice(0, limit)
+    parsed = NominatimSearchSchema.parse(raw).map((r) => ({
+      place: { lat: r.lat, lon: r.lon, name: r.display_name },
+      type: "nominatim",
+    }))
   } catch (err: any) {
     throw new Error(`Nominatim parse error: ${err?.message ?? String(err)}`)
   }
+
+  // interleave: local matches first, dedup by lat/lon
+  const seen = new Set<string>()
+  const combined: SearchPlaceResult[] = []
+  for (const r of [
+    ...localPlaces.map((p) => ({ place: p, type: "local" })),
+    ...parsed,
+  ]) {
+    const key = `${r.place.lat.toFixed(5)},${r.place.lon.toFixed(5)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    combined.push(r as SearchPlaceResult)
+  }
+
+  return combined
 }
 
 export default function LocationDialog({
@@ -72,14 +105,14 @@ export default function LocationDialog({
   renderTrigger = true,
   suggestedLocation,
 }: {
-  onSelect?: (data: GPSData, name: string) => void
+  onSelect?: (place: Place) => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
   renderTrigger?: boolean
   suggestedLocation?: string
 }) {
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<NominatimResult[]>([])
+  const [results, setResults] = useState<SearchPlaceResult[]>([])
 
   // Pending coord save prompt state
   const [pendingCoord, setPendingCoord] = useState<GPSData | null>(null)
@@ -176,8 +209,8 @@ export default function LocationDialog({
   }, [query, refetch])
 
   const confirmSelect = useCallback(
-    (coord: GPSData, name: string) => {
-      onSelect?.(coord, name)
+    (p: Place) => {
+      onSelect?.(p)
       onOpenChange?.(false)
       setPendingCoord(null)
       setSaveMode(null)
@@ -198,12 +231,16 @@ export default function LocationDialog({
       }).catch(console.error)
       queryClient.invalidateQueries({ queryKey: ["places"] })
     }
-    confirmSelect(pendingCoord, trimmed)
+    confirmSelect({
+      lat: pendingCoord.lat,
+      lon: pendingCoord.lon,
+      name: trimmed,
+    })
   }, [confirmSelect, pendingCoord, queryClient, saveName])
 
   const handleSkipSave = useCallback(() => {
     if (!pendingCoord) return
-    confirmSelect(pendingCoord, "")
+    confirmSelect({ lat: pendingCoord.lat, lon: pendingCoord.lon, name: "" })
   }, [confirmSelect, pendingCoord])
 
   useEffect(() => {
@@ -326,7 +363,7 @@ export default function LocationDialog({
                     key={`${rp.lat}-${rp.lon}-${String(rp.name).slice(0, 30)}`}
                     className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
                     onClick={() => {
-                      onSelect?.({ lat: rp.lat, lon: rp.lon }, rp.name)
+                      onSelect?.({ lat: rp.lat, lon: rp.lon, name: rp.name })
                       onOpenChange?.(false)
                     }}
                   >
@@ -348,24 +385,31 @@ export default function LocationDialog({
               <ScrollArea className="h-96 rounded-md border border-border">
                 {results.map((p) => (
                   <div
-                    key={`${p.lat}-${p.lon}-${String(p.display_name).slice(0, 30)}`}
-                    className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
+                    key={`${p.place.lat}-${p.place.lon}-${String(p.place.name).slice(0, 30)}`}
+                    className="flex w-full cursor-pointer flex-row items-center gap-2 rounded-sm p-3 transition-colors hover:bg-muted/50"
                     onClick={() => {
                       invoke("add_place", {
                         place: {
-                          name: p.display_name,
-                          lat: p.lat,
-                          lon: p.lon,
+                          name: p.place.name,
+                          lat: p.place.lat,
+                          lon: p.place.lon,
                         },
                       }).catch(console.error)
                       queryClient.invalidateQueries({ queryKey: ["places"] })
-                      onSelect?.({ lat: p.lat, lon: p.lon }, p.display_name)
+                      onSelect?.(p.place)
                       onOpenChange?.(false)
                     }}
                   >
-                    <div className="text-sm">{p.display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      lat: {p.lat}, lon: {p.lon}
+                    {p.type == "nominatim" ? (
+                      <GlobeIcon className="text-green-300/75" />
+                    ) : (
+                      <HistoryIcon className="text-blue-300/75" />
+                    )}
+                    <div className="flex flex-col">
+                      <div className="text-sm">{p.place.name}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        lat: {p.place.lat}, lon: {p.place.lon}
+                      </div>
                     </div>
                   </div>
                 ))}

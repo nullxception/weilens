@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { type DownloadItem } from "../shared/rpc"
 import type { PicDimension, PicInfo, WeiPost } from "../shared/WeiSchema"
-import { useAppStore, type AppState, type Place } from "../stores/appStore"
+import { useAppStore, type AppState } from "../stores/appStore"
 import type { GPSData } from "../shared/gps"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
@@ -25,6 +25,7 @@ import {
   RotateCwIcon,
   ThumbsUpIcon,
 } from "lucide-react"
+import type { Place } from "@/types/gps"
 
 interface BlogCardProps {
   blog: WeiPost
@@ -100,7 +101,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
     setTimeout(() => clearDownload(blog.idstr), 3000)
   }
 
-  const handleDownloadWithLocation = async (loc?: GPSData | null) => {
+  const handleDownload = async (loc?: GPSData | null) => {
     if (loc) setGpsLocation(loc)
     startDownload(blog.idstr, downloadItems.length)
 
@@ -264,8 +265,12 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-42">
                         <DropdownMenuItem
-                          onSelect={() => void handleDownloadWithLocation(null)}
-                          onClick={() => void handleDownloadWithLocation(null)}
+                          onSelect={() =>
+                            void handleDownload(storedBlogPlace ?? null)
+                          }
+                          onClick={() =>
+                            void handleDownload(storedBlogPlace ?? null)
+                          }
                         >
                           Download normally
                         </DropdownMenuItem>
@@ -284,21 +289,21 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                       open={locationDialogOpen}
                       onOpenChange={setLocationDialogOpen}
                       suggestedLocation={locationTag}
-                      onSelect={(p, name) => {
-                        setGpsLocation(p)
+                      onSelect={(p) => {
+                        setStoredBlogPlace(p)
+                        setGpsLocation({ lat: p.lat, lon: p.lon })
                         if (blog.user?.id != null) {
                           invoke("set_blog_place", {
                             userId: String(blog.user.id),
                             mblogid: blog.mblogid,
-                            place: {
-                              lat: p.lat,
-                              lon: p.lon,
-                              name: name,
-                            },
+                            place: p,
                           }).catch(console.error)
                         }
 
-                        void handleDownloadWithLocation(p)
+                        void handleDownload({
+                          lat: p.lat,
+                          lon: p.lon,
+                        })
                       }}
                     />
                   </div>

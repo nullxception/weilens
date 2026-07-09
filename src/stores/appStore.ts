@@ -1,15 +1,7 @@
 import { create } from "zustand"
 import { StorageKeys } from "../shared/storageKeys"
 import { invoke } from "@tauri-apps/api/core"
-import type { NominatimResult } from "@/types/gps"
-
-export interface Place {
-  lat: number
-  lon: number
-  name: string
-}
-
-export type BlogPlaces = Record<string, Place>
+import { NominatimResultSchema, PlaceSchema, type Place } from "@/types/gps"
 
 export interface CheckedProfile {
   uid: string
@@ -165,11 +157,13 @@ function readPlacesFromStorage(): Place[] {
   try {
     const recents = localStorage.getItem(StorageKeys.RECENT_PLACES)
     const recentPlaces = recents
-      ? (JSON.parse(recents) as NominatimResult[])
+      ? NominatimResultSchema.array().parse(JSON.parse(recents))
       : []
 
     const saved = localStorage.getItem(StorageKeys.PLACES)
-    const savedPlaces = saved ? (JSON.parse(saved) as Place[]) : []
+    const savedPlaces = saved
+      ? PlaceSchema.array().parse(JSON.parse(saved))
+      : []
     return [
       ...recentPlaces.map((p) => ({
         lat: p.lat,
@@ -183,7 +177,7 @@ function readPlacesFromStorage(): Place[] {
   }
 }
 
-function readBlogPlacesFromStorage(): BlogPlaces {
+function readBlogPlacesFromStorage(): Record<string, Place> {
   try {
     const saved = localStorage.getItem(StorageKeys.BLOG_PLACES)
     return saved ? JSON.parse(saved) : {}
@@ -261,8 +255,6 @@ export const useAppStore = create<AppState>((set) => ({
       return { downloads: next }
     }),
   clearDownloads: () => set({ downloads: {} }),
-  places: readPlacesFromStorage(),
-  blogPlaces: readBlogPlacesFromStorage(),
   activeUid: "",
   activeView: "search",
   pendingLookupUid: null,

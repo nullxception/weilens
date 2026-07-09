@@ -8,7 +8,8 @@ mod types;
 mod util;
 
 use crate::db::{
-    add_place, get_place_by_post, init_db, list_places, remove_blog_place, set_blog_place, DbState,
+    add_place, get_place_by_post, init_db, list_places, remove_blog_place, search_place,
+    set_blog_place, DbState,
 };
 use crate::download::{choose_download_dir, default_download_dir, download_post};
 use log::LevelFilter;
@@ -157,6 +158,7 @@ pub fn run() {
             list_places,
             get_place_by_post,
             add_place,
+            search_place,
             set_blog_place,
             remove_blog_place,
         ])

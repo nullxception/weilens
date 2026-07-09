@@ -98,6 +98,32 @@ pub fn list_places(
 }
 
 #[tauri::command]
+pub fn search_place(state: tauri::State<'_, DbState>, r#for: &str) -> Result<Vec<Place>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let pattern = format!("%{}%", r#for);
+    let mut stmt = conn
+        .prepare("SELECT  lat, lon, name FROM places WHERE name LIKE ?1")
+        .map_err(|e| e.to_string())?;
+
+    let place_iter = stmt
+        .query_map(params![pattern], |row| {
+            Ok(Place {
+                lat: row.get(0)?,
+                lon: row.get(1)?,
+                name: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut result = Vec::new();
+    for place in place_iter {
+        result.push(place.map_err(|e| e.to_string())?);
+    }
+
+    Ok(result)
+}
+
+#[tauri::command]
 pub fn get_place_by_post(
     state: tauri::State<'_, DbState>,
     user_id: String,
