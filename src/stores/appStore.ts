@@ -71,11 +71,6 @@ export interface AppState {
   ) => void
   clearDownload: (postId: string) => void
   clearDownloads: () => void
-  places: Place[]
-  addPlace: (place: Place) => void
-  blogPlaces: BlogPlaces
-  setBlogPlace: (userId: number | string, mblogid: string, place: Place) => void
-  removeBlogPlace: (userId: number | string, mblogid: string) => void
   initStore: () => Promise<void>
 }
 
@@ -346,46 +341,15 @@ export const useAppStore = create<AppState>((set) => ({
 
     set({ history: [] })
   },
-  addPlace: (place: Place) => {
-    invoke("add_place", { place }).catch(console.error)
-    set((state: AppState) => ({
-      places: [place, ...state.places],
-    }))
-  },
-  setBlogPlace: (userId: number | string, mblogid: string, place: Place) => {
-    invoke("set_blog_place", {
-      userId: String(userId),
-      mblogid,
-      place,
-    }).catch(console.error)
-    set((state: AppState) => {
-      const key = `${userId}_${mblogid}`
-      return {
-        blogPlaces: { ...state.blogPlaces, [key]: place },
-      }
-    })
-  },
-  removeBlogPlace: (userId: number | string, mblogid: string) => {
-    invoke("remove_blog_place", {
-      userId: String(userId),
-      mblogid,
-    }).catch(console.error)
-    set((state: AppState) => {
-      const key = `${userId}_${mblogid}`
-      const next = { ...state.blogPlaces }
-      delete next[key]
-      return { blogPlaces: next }
-    })
-  },
   initStore: async () => {
     try {
-      const { blogPlaces, places } = await invoke<{
-        blogPlaces: Record<string, Place>
-        places: Place[]
-      }>("list_places")
+      const { total } = await invoke<{ places: Place[]; total: number }>(
+        "list_places",
+        { limit: 10, offset: 0 }
+      )
 
       // If SQLite is empty, check if we have data in localStorage to migrate
-      if (Object.keys(blogPlaces).length === 0 && places.length === 0) {
+      if (total === 0) {
         const localSaved = readPlacesFromStorage()
         const localBlog = readBlogPlacesFromStorage()
 
@@ -403,25 +367,12 @@ export const useAppStore = create<AppState>((set) => ({
               await invoke("set_blog_place", { userId, mblogid, place: bp })
             }
           }
-          // Fetch again from SQLite
-          const migrated = await invoke<{
-            blogPlaces: Record<string, Place>
-            places: Place[]
-          }>("list_places")
-
           // Clear localStorage
           localStorage.removeItem(StorageKeys.PLACES)
           localStorage.removeItem(StorageKeys.BLOG_PLACES)
-
-          set({
-            blogPlaces: migrated.blogPlaces,
-            places: migrated.places,
-          })
           return
         }
       }
-
-      set({ blogPlaces, places })
     } catch (err) {
       console.error("Failed to initialize places from SQLite:", err)
     }

@@ -77,7 +77,6 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const blogPlaceKey =
     blog.user?.id != null ? `${blog.user.id}_${blog.mblogid}` : null
   const [storedBlogPlace, setStoredBlogPlace] = useState<Place | null>(null)
-  const setBlogPlace = useAppStore((state: AppState) => state.setBlogPlace)
   const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
 
@@ -288,12 +287,17 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                       onSelect={(p, name) => {
                         setGpsLocation(p)
                         if (blog.user?.id != null) {
-                          setBlogPlace(blog.user.id, blog.mblogid, {
-                            lat: p.lat,
-                            lon: p.lon,
-                            name: name,
-                          })
+                          invoke("set_blog_place", {
+                            userId: String(blog.user.id),
+                            mblogid: blog.mblogid,
+                            place: {
+                              lat: p.lat,
+                              lon: p.lon,
+                              name: name,
+                            },
+                          }).catch(console.error)
                         }
+
                         void handleDownloadWithLocation(p)
                       }}
                     />

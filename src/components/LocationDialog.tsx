@@ -9,16 +9,23 @@ import {
 } from "./ui/dialog"
 import { Input } from "./ui/input"
 import { Button } from "./ui/button"
-import { useQuery } from "@tanstack/react-query"
-import { useAppStore } from "../stores/appStore"
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
+import { type Place } from "../stores/appStore"
 import { ScrollArea } from "./ui/scroll-area"
 import { useCallback, useEffect, useState } from "react"
 import type { GPSData } from "../shared/gps"
 import type { NominatimResult } from "../types/gps"
 import { NominatimSearchSchema } from "../types/gps"
+import { invoke } from "@tauri-apps/api/core"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
 import { BookmarkIcon, LoaderCircle, SearchIcon, XIcon } from "lucide-react"
 import { ButtonGroup } from "./ui/button-group"
+
+const PAGE_SIZE = 20
 
 function parseCoordinateInput(input: string): GPSData | null {
   const trimmed = input.trim()
@@ -79,7 +86,64 @@ export default function LocationDialog({
   const [saveName, setSaveName] = useState("")
   const [saveMode, setSaveMode] = useState<"ask" | "saving" | null>(null)
 
-  const { places, addPlace } = useAppStore()
+  const queryClient = useQueryClient()
+
+  const {
+    data: placesPages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetching: placesLoading,
+  } = useInfiniteQuery({
+    queryKey: ["places"],
+    queryFn: async ({ pageParam }) => {
+      const res = await invoke<{
+        places: Place[]
+        total: number
+      }>("list_places", { limit: PAGE_SIZE, offset: pageParam })
+      return res
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const fetched = allPages.reduce((sum, p) => sum + p.places.length, 0)
+      return fetched < lastPage.total ? fetched : undefined
+    },
+    staleTime: 1000 * 60,
+  })
+
+  const places = placesPages?.pages.flatMap((p) => p.places) ?? []
+  const [scrollViewport, setScrollViewport] = useState<HTMLDivElement | null>(
+    null
+  )
+  const vpRefCallback = useCallback((node: HTMLDivElement | null) => {
+    setScrollViewport(node)
+  }, [])
+
+  const checkAndLoadMore = useCallback(() => {
+    if (!scrollViewport) return
+    if (!hasNextPage || isFetchingNextPage) return
+
+    const remaining =
+      scrollViewport.scrollHeight -
+      scrollViewport.scrollTop -
+      scrollViewport.clientHeight
+
+    if (remaining <= 150) {
+      fetchNextPage()
+    }
+  }, [scrollViewport, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  useEffect(() => {
+    if (!scrollViewport) return
+
+    checkAndLoadMore() // fill viewport if needed
+    scrollViewport.addEventListener("scroll", checkAndLoadMore, {
+      passive: true,
+    })
+    return () => {
+      scrollViewport.removeEventListener("scroll", checkAndLoadMore)
+    }
+  }, [scrollViewport, checkAndLoadMore])
 
   const {
     data,
@@ -125,14 +189,17 @@ export default function LocationDialog({
     if (!pendingCoord) return
     const trimmed = saveName.trim()
     if (trimmed) {
-      addPlace({
-        name: trimmed,
-        lat: pendingCoord.lat,
-        lon: pendingCoord.lon,
-      })
+      invoke("add_place", {
+        place: {
+          name: trimmed,
+          lat: pendingCoord.lat,
+          lon: pendingCoord.lon,
+        },
+      }).catch(console.error)
+      queryClient.invalidateQueries({ queryKey: ["places"] })
     }
     confirmSelect(pendingCoord, trimmed)
-  }, [addPlace, confirmSelect, pendingCoord, saveName])
+  }, [confirmSelect, pendingCoord, queryClient, saveName])
 
   const handleSkipSave = useCallback(() => {
     if (!pendingCoord) return
@@ -143,8 +210,7 @@ export default function LocationDialog({
     if (data) setResults(data)
   }, [data])
 
-  const showRecent =
-    !isFetching && places && places.length > 0 && results.length === 0
+  const showRecent = !isFetching && places.length > 0 && results.length === 0
 
   return (
     <>
@@ -240,15 +306,21 @@ export default function LocationDialog({
             </div>
           )}
 
-          {/* Recent places / search results */}
+          {/* Saved places / search results */}
           {showRecent ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between text-muted-foreground">
                 <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Recently
+                  Saved places
                 </span>
+                {placesLoading && (
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                )}
               </div>
-              <ScrollArea className="h-96 rounded-md border border-border bg-background/60">
+              <ScrollArea
+                viewportRef={vpRefCallback}
+                className="h-80 rounded-md border border-border bg-background/60"
+              >
                 {places.map((rp) => (
                   <div
                     key={`${rp.lat}-${rp.lon}-${String(rp.name).slice(0, 30)}`}
@@ -264,6 +336,11 @@ export default function LocationDialog({
                     </div>
                   </div>
                 ))}
+                {isFetchingNextPage && (
+                  <div className="flex justify-center py-3">
+                    <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
               </ScrollArea>
             </div>
           ) : (
@@ -274,11 +351,14 @@ export default function LocationDialog({
                     key={`${p.lat}-${p.lon}-${String(p.display_name).slice(0, 30)}`}
                     className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
                     onClick={() => {
-                      addPlace({
-                        name: p.display_name,
-                        lat: p.lat,
-                        lon: p.lon,
-                      })
+                      invoke("add_place", {
+                        place: {
+                          name: p.display_name,
+                          lat: p.lat,
+                          lon: p.lon,
+                        },
+                      }).catch(console.error)
+                      queryClient.invalidateQueries({ queryKey: ["places"] })
                       onSelect?.({ lat: p.lat, lon: p.lon }, p.display_name)
                       onOpenChange?.(false)
                     }}

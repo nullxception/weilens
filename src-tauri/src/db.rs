@@ -58,42 +58,30 @@ fn cleanup_orphans(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AllPlaces {
-    pub blog_places: std::collections::HashMap<String, Place>,
+pub struct Places {
     pub places: Vec<Place>,
+    pub total: usize,
 }
 
 #[tauri::command]
-pub fn list_places(state: tauri::State<'_, DbState>) -> Result<AllPlaces, String> {
+pub fn list_places(
+    state: tauri::State<'_, DbState>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<Places, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare(
-            "SELECT bp.user_id, bp.mblogid, p.lat, p.lon, p.name 
-             FROM blog_places bp
-             JOIN places p ON bp.place_id = p.id",
-        )
+    let total: usize = conn
+        .query_row("SELECT COUNT(*) FROM places", [], |row| row.get(0))
         .map_err(|e| e.to_string())?;
-    let blog_iter = stmt
-        .query_map([], |row| {
-            let user_id: String = row.get(0)?;
-            let mblogid: String = row.get(1)?;
-            let lat: f64 = row.get(2)?;
-            let lon: f64 = row.get(3)?;
-            let name: String = row.get(4)?;
-            Ok((format!("{}_{}", user_id, mblogid), Place { lat, lon, name }))
-        })
-        .map_err(|e| e.to_string())?;
-    let mut blog_places = std::collections::HashMap::new();
-    for item in blog_iter {
-        let (key, place) = item.map_err(|e| e.to_string())?;
-        blog_places.insert(key, place);
-    }
+
+    let limit = limit.unwrap_or(total);
+    let offset = offset.unwrap_or(0);
 
     let mut stmt = conn
-        .prepare("SELECT lat, lon, name FROM places")
+        .prepare("SELECT lat, lon, name FROM places LIMIT ? OFFSET ?")
         .map_err(|e| e.to_string())?;
     let saved_iter = stmt
-        .query_map([], |row| {
+        .query_map(params![limit as i64, offset as i64], |row| {
             Ok(Place {
                 lat: row.get(0)?,
                 lon: row.get(1)?,
@@ -101,15 +89,12 @@ pub fn list_places(state: tauri::State<'_, DbState>) -> Result<AllPlaces, String
             })
         })
         .map_err(|e| e.to_string())?;
-    let mut saved_places = Vec::new();
+    let mut places = Vec::new();
     for item in saved_iter {
-        saved_places.push(item.map_err(|e| e.to_string())?);
+        places.push(item.map_err(|e| e.to_string())?);
     }
 
-    Ok(AllPlaces {
-        blog_places,
-        places: saved_places,
-    })
+    Ok(Places { places, total })
 }
 
 #[tauri::command]
