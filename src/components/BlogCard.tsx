@@ -19,6 +19,7 @@ import Masonry, { ResponsiveMasonry } from "react-responsive-masonry"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import {
   DownloadIcon,
+  MapPinIcon,
   MessageSquareQuoteIcon,
   RotateCwIcon,
   ThumbsUpIcon,
@@ -71,7 +72,18 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
     (tag) => tag.otype === "place"
   )?.tag_name
 
-  const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
+  // --- Blog place (persisted per post) ---
+  const blogPlaceKey =
+    blog.user?.id != null ? `${blog.user.id}_${blog.mblogid}` : null
+  const storedBlogPlace = useAppStore((state: AppState) =>
+    blogPlaceKey ? (state.blogPlaces[blogPlaceKey] ?? null) : null
+  )
+  const setBlogPlace = useAppStore((state: AppState) => state.setBlogPlace)
+  const [gpsLocation, setGpsLocation] = useState<GPSData | null>(
+    storedBlogPlace
+      ? { lat: storedBlogPlace.lat, lon: storedBlogPlace.lon }
+      : null
+  )
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
 
   const clearProgressLater = () => {
@@ -189,6 +201,17 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
             </Masonry>
           </ResponsiveMasonry>
 
+          {/* Pinned location badge */}
+          {storedBlogPlace && (
+            <div className="flex items-center gap-1 text-xs">
+              <MapPinIcon className="h-4 w-4 shrink-0" />
+              <span className="truncate">
+                {storedBlogPlace.name ??
+                  `${storedBlogPlace.lat}, ${storedBlogPlace.lon}`}
+              </span>
+            </div>
+          )}
+
           {/* Footer: stats + download */}
           <div className="flex items-center justify-between gap-6 pt-2 text-xs font-medium text-muted-foreground">
             <div className="flex gap-4">
@@ -240,7 +263,9 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                           onSelect={() => setLocationDialogOpen(true)}
                           onClick={() => setLocationDialogOpen(true)}
                         >
-                          Download with location
+                          {storedBlogPlace
+                            ? "Change location & download"
+                            : "Download with location"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -249,8 +274,15 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                       open={locationDialogOpen}
                       onOpenChange={setLocationDialogOpen}
                       suggestedLocation={locationTag}
-                      onSelect={(p) => {
+                      onSelect={(p, name) => {
                         setGpsLocation(p)
+                        if (blog.user?.id != null) {
+                          setBlogPlace(blog.user.id, blog.mblogid, {
+                            lat: p.lat,
+                            lon: p.lon,
+                            name: name,
+                          })
+                        }
                         void handleDownloadWithLocation(p)
                       }}
                     />

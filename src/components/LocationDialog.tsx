@@ -17,7 +17,7 @@ import type { GPSData } from "../shared/gps"
 import type { NominatimResult } from "../types/gps"
 import { NominatimSearchSchema } from "../types/gps"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
-import { LoaderCircle, SearchIcon, TrashIcon } from "lucide-react"
+import { BookmarkIcon, LoaderCircle, SearchIcon, TrashIcon, XIcon } from "lucide-react"
 import { ButtonGroup } from "./ui/button-group"
 
 function parseCoordinateInput(input: string): GPSData | null {
@@ -65,7 +65,7 @@ export default function LocationDialog({
   renderTrigger = true,
   suggestedLocation,
 }: {
-  onSelect?: (data: GPSData) => void
+  onSelect?: (data: GPSData, name?: string) => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
   renderTrigger?: boolean
@@ -73,7 +73,20 @@ export default function LocationDialog({
 }) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<NominatimResult[]>([])
-  const { recentPlaces, addRecentPlace, clearRecentPlaces } = useAppStore()
+
+  // Pending coord save prompt state
+  const [pendingCoord, setPendingCoord] = useState<GPSData | null>(null)
+  const [saveName, setSaveName] = useState("")
+  const [saveMode, setSaveMode] = useState<"ask" | "saving" | null>(null)
+
+  const {
+    recentPlaces,
+    addRecentPlace,
+    clearRecentPlaces,
+    savedPlaces,
+    addSavedPlace,
+    removeSavedPlace,
+  } = useAppStore()
 
   const {
     data,
@@ -92,8 +105,10 @@ export default function LocationDialog({
 
     const parsedCoords = parseCoordinateInput(query)
     if (parsedCoords) {
-      onSelect?.(parsedCoords)
-      onOpenChange?.(false)
+      // Ask user whether to save before selecting
+      setPendingCoord(parsedCoords)
+      setSaveName("")
+      setSaveMode("ask")
       return
     }
 
@@ -101,11 +116,39 @@ export default function LocationDialog({
     try {
       await refetch()
     } catch {}
-  }, [onOpenChange, onSelect, query, refetch])
+  }, [query, refetch])
+
+  const confirmSelect = useCallback(
+    (coord: GPSData, name?: string) => {
+      onSelect?.(coord, name)
+      onOpenChange?.(false)
+      setPendingCoord(null)
+      setSaveMode(null)
+    },
+    [onOpenChange, onSelect]
+  )
+
+  const handleSaveAndSelect = useCallback(() => {
+    if (!pendingCoord) return
+    const trimmed = saveName.trim()
+    if (trimmed) {
+      addSavedPlace({ name: trimmed, lat: pendingCoord.lat, lon: pendingCoord.lon })
+    }
+    confirmSelect(pendingCoord, trimmed || undefined)
+  }, [addSavedPlace, confirmSelect, pendingCoord, saveName])
+
+  const handleSkipSave = useCallback(() => {
+    if (!pendingCoord) return
+    confirmSelect(pendingCoord)
+  }, [confirmSelect, pendingCoord])
 
   useEffect(() => {
     if (data) setResults(data)
   }, [data])
+
+  const hasSavedPlaces = savedPlaces && savedPlaces.length > 0
+  const showRecent =
+    !isFetching && recentPlaces && recentPlaces.length > 0 && results.length === 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,10 +202,87 @@ export default function LocationDialog({
           <div className="mt-2 text-destructive">{String(queryError)}</div>
         )}
 
-        {!isFetching &&
-        recentPlaces &&
-        recentPlaces.length > 0 &&
-        results.length === 0 ? (
+        {/* Save prompt for coordinate input */}
+        {saveMode === "ask" && pendingCoord && (
+          <div className="rounded-md border border-border bg-muted/60 p-3 flex flex-col gap-2">
+            <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+              Save this coordinate?
+            </div>
+            <div className="text-xs text-muted-foreground">
+              lat: {pendingCoord.lat}, lon: {pendingCoord.lon}
+            </div>
+            <Input
+              placeholder="Name (e.g. Home, Office…)"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveAndSelect()
+              }}
+              className="h-8 text-sm"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleSaveAndSelect}
+                disabled={!saveName.trim()}
+                className="flex-1"
+              >
+                <BookmarkIcon className="mr-1 h-3.5 w-3.5" />
+                Save &amp; go
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSkipSave}
+                className="flex-1"
+              >
+                <XIcon className="mr-1 h-3.5 w-3.5" />
+                Skip
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Saved custom places */}
+        {hasSavedPlaces && results.length === 0 && saveMode !== "ask" && (
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+              Saved
+            </span>
+            <ScrollArea className="max-h-40 rounded-md border border-border bg-background/60">
+              {savedPlaces.map((sp, i) => (
+                <div
+                  key={`${sp.lat}-${sp.lon}-${sp.name}`}
+                  className="flex items-center justify-between cursor-pointer rounded-sm px-3 py-2 transition-colors hover:bg-muted/50"
+                >
+                  <div
+                    className="flex-1"
+                    onClick={() => {
+                      onSelect?.({ lat: sp.lat, lon: sp.lon })
+                      onOpenChange?.(false)
+                    }}
+                  >
+                    <div className="text-sm font-medium">{sp.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      lat: {sp.lat}, lon: {sp.lon}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeSavedPlace(i)}
+                  >
+                    <TrashIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Recent places / search results */}
+        {showRecent ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-muted-foreground">
               <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">

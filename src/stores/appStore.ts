@@ -1,6 +1,20 @@
 import { create } from "zustand"
 import type { NominatimResult } from "../types/gps"
 
+export interface CustomPlace {
+  name: string
+  lat: number
+  lon: number
+}
+
+export interface BlogPlace {
+  lat: number
+  lon: number
+  name?: string
+}
+
+export type BlogPlaces = Record<string, BlogPlace>
+
 export interface CheckedProfile {
   uid: string
   screenName: string
@@ -65,6 +79,12 @@ export interface AppState {
   addRecentPlace: (place: NominatimResult) => void
   removeRecentPlace: (index: number) => void
   clearRecentPlaces: () => void
+  savedPlaces: CustomPlace[]
+  addSavedPlace: (place: CustomPlace) => void
+  removeSavedPlace: (index: number) => void
+  blogPlaces: BlogPlaces
+  setBlogPlace: (userId: number | string, mblogid: string, place: BlogPlace) => void
+  removeBlogPlace: (userId: number | string, mblogid: string) => void
 }
 
 type NetscapeCookie = {
@@ -171,6 +191,40 @@ function writeRecentPlacesToStorage(places: NominatimResult[]) {
   }
 }
 
+function readSavedPlacesFromStorage(): CustomPlace[] {
+  try {
+    const saved = localStorage.getItem("wei_places")
+    return saved ? JSON.parse(saved) : []
+  } catch {
+    return []
+  }
+}
+
+function writeSavedPlacesToStorage(places: CustomPlace[]) {
+  try {
+    localStorage.setItem("wei_places", JSON.stringify(places))
+  } catch (error) {
+    console.error("Failed to save places to localStorage:", error)
+  }
+}
+
+function readBlogPlacesFromStorage(): BlogPlaces {
+  try {
+    const saved = localStorage.getItem("wei_blog_places")
+    return saved ? JSON.parse(saved) : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeBlogPlacesToStorage(places: BlogPlaces) {
+  try {
+    localStorage.setItem("wei_blog_places", JSON.stringify(places))
+  } catch (error) {
+    console.error("Failed to save blog places to localStorage:", error)
+  }
+}
+
 function writeHistoryToStorage(history: CheckedProfile[]) {
   try {
     localStorage.setItem("wei_profile_history", JSON.stringify(history))
@@ -241,6 +295,8 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   clearDownloads: () => set({ downloads: {} }),
   recentPlaces: readRecentPlacesFromStorage(),
+  savedPlaces: readSavedPlacesFromStorage(),
+  blogPlaces: readBlogPlacesFromStorage(),
   activeUid: "",
   activeView: "search",
   pendingLookupUid: null,
@@ -346,4 +402,31 @@ export const useAppStore = create<AppState>((set) => ({
     }
     set({ recentPlaces: [] })
   },
+  addSavedPlace: (place: CustomPlace) =>
+    set((state: AppState) => {
+      const next = [place, ...state.savedPlaces]
+      writeSavedPlacesToStorage(next)
+      return { savedPlaces: next }
+    }),
+  removeSavedPlace: (index: number) =>
+    set((state: AppState) => {
+      const next = state.savedPlaces.filter((_: unknown, i: number) => i !== index)
+      writeSavedPlacesToStorage(next)
+      return { savedPlaces: next }
+    }),
+  setBlogPlace: (userId: number | string, mblogid: string, place: BlogPlace) =>
+    set((state: AppState) => {
+      const key = `${userId}_${mblogid}`
+      const next = { ...state.blogPlaces, [key]: place }
+      writeBlogPlacesToStorage(next)
+      return { blogPlaces: next }
+    }),
+  removeBlogPlace: (userId: number | string, mblogid: string) =>
+    set((state: AppState) => {
+      const key = `${userId}_${mblogid}`
+      const next = { ...state.blogPlaces }
+      delete next[key]
+      writeBlogPlacesToStorage(next)
+      return { blogPlaces: next }
+    }),
 }))
