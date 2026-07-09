@@ -1,19 +1,13 @@
 import { create } from "zustand"
 import type { NominatimResult } from "../types/gps"
 
-export interface CustomPlace {
+export interface Place {
+  lat: number
+  lon: number
   name: string
-  lat: number
-  lon: number
 }
 
-export interface BlogPlace {
-  lat: number
-  lon: number
-  name?: string
-}
-
-export type BlogPlaces = Record<string, BlogPlace>
+export type BlogPlaces = Record<string, Place>
 
 export interface CheckedProfile {
   uid: string
@@ -79,11 +73,11 @@ export interface AppState {
   addRecentPlace: (place: NominatimResult) => void
   removeRecentPlace: (index: number) => void
   clearRecentPlaces: () => void
-  savedPlaces: CustomPlace[]
-  addSavedPlace: (place: CustomPlace) => void
+  savedPlaces: Place[]
+  addSavedPlace: (place: Place) => void
   removeSavedPlace: (index: number) => void
   blogPlaces: BlogPlaces
-  setBlogPlace: (userId: number | string, mblogid: string, place: BlogPlace) => void
+  setBlogPlace: (userId: number | string, mblogid: string, place: Place) => void
   removeBlogPlace: (userId: number | string, mblogid: string) => void
 }
 
@@ -191,7 +185,7 @@ function writeRecentPlacesToStorage(places: NominatimResult[]) {
   }
 }
 
-function readSavedPlacesFromStorage(): CustomPlace[] {
+function readSavedPlacesFromStorage(): Place[] {
   try {
     const saved = localStorage.getItem("wei_places")
     return saved ? JSON.parse(saved) : []
@@ -200,7 +194,7 @@ function readSavedPlacesFromStorage(): CustomPlace[] {
   }
 }
 
-function writeSavedPlacesToStorage(places: CustomPlace[]) {
+function writeSavedPlacesToStorage(places: Place[]) {
   try {
     localStorage.setItem("wei_places", JSON.stringify(places))
   } catch (error) {
@@ -402,7 +396,7 @@ export const useAppStore = create<AppState>((set) => ({
     }
     set({ recentPlaces: [] })
   },
-  addSavedPlace: (place: CustomPlace) =>
+  addSavedPlace: (place: Place) =>
     set((state: AppState) => {
       const next = [place, ...state.savedPlaces]
       writeSavedPlacesToStorage(next)
@@ -410,11 +404,13 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   removeSavedPlace: (index: number) =>
     set((state: AppState) => {
-      const next = state.savedPlaces.filter((_: unknown, i: number) => i !== index)
+      const next = state.savedPlaces.filter(
+        (_: unknown, i: number) => i !== index
+      )
       writeSavedPlacesToStorage(next)
       return { savedPlaces: next }
     }),
-  setBlogPlace: (userId: number | string, mblogid: string, place: BlogPlace) =>
+  setBlogPlace: (userId: number | string, mblogid: string, place: Place) =>
     set((state: AppState) => {
       const key = `${userId}_${mblogid}`
       const next = { ...state.blogPlaces, [key]: place }

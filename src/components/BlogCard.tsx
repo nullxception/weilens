@@ -203,9 +203,9 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
 
           {/* Pinned location badge */}
           {storedBlogPlace && (
-            <div className="flex items-center gap-1 text-xs">
-              <MapPinIcon className="h-4 w-4 shrink-0" />
-              <span className="truncate">
+            <div className="mt-1 flex items-center gap-1 text-xs">
+              <MapPinIcon className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate rounded-sm bg-green-500/10 px-2 py-1">
                 {storedBlogPlace.name ??
                   `${storedBlogPlace.lat}, ${storedBlogPlace.lon}`}
               </span>
@@ -213,7 +213,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
           )}
 
           {/* Footer: stats + download */}
-          <div className="flex items-center justify-between gap-6 pt-2 text-xs font-medium text-muted-foreground">
+          <div className="flex items-center justify-between gap-6 pt-1 text-xs font-medium text-muted-foreground">
             <div className="flex gap-4">
               <span>
                 <ThumbsUpIcon className="inline h-4" />{" "}
