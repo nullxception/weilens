@@ -1,4 +1,5 @@
 mod dates;
+mod db;
 mod download;
 mod exif;
 mod image;
@@ -6,10 +7,12 @@ mod motion;
 mod types;
 mod util;
 
+use crate::db::{add_place, init_db, list_places, remove_blog_place, set_blog_place, DbState};
 use crate::download::{choose_download_dir, default_download_dir, download_post};
 use log::LevelFilter;
+use std::sync::Mutex;
 use tauri::{
-    http::header::REFERER, http::Request, http::Response, webview::PageLoadEvent,
+    http::header::REFERER, http::Request, http::Response, webview::PageLoadEvent, Manager,
     UriSchemeResponder,
 };
 use tauri_plugin_log::{Target, TargetKind};
@@ -140,10 +143,19 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(external_navigation_plugin())
+        .setup(|app| {
+            let conn = init_db(app.handle()).expect("Failed to initialize database");
+            app.manage(DbState(Mutex::new(conn)));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             download_post,
             choose_download_dir,
             default_download_dir,
+            list_places,
+            add_place,
+            set_blog_place,
+            remove_blog_place,
         ])
         .on_page_load(|webview, payload| {
             if webview.label() == "main" && matches!(payload.event(), PageLoadEvent::Finished) {

@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog"
-import { ConfirmDialog } from "./ui/confirm-dialog"
 import { Input } from "./ui/input"
 import { Button } from "./ui/button"
 import { useQuery } from "@tanstack/react-query"
@@ -18,13 +17,7 @@ import type { GPSData } from "../shared/gps"
 import type { NominatimResult } from "../types/gps"
 import { NominatimSearchSchema } from "../types/gps"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
-import {
-  BookmarkIcon,
-  LoaderCircle,
-  SearchIcon,
-  TrashIcon,
-  XIcon,
-} from "lucide-react"
+import { BookmarkIcon, LoaderCircle, SearchIcon, XIcon } from "lucide-react"
 import { ButtonGroup } from "./ui/button-group"
 
 function parseCoordinateInput(input: string): GPSData | null {
@@ -86,20 +79,7 @@ export default function LocationDialog({
   const [saveName, setSaveName] = useState("")
   const [saveMode, setSaveMode] = useState<"ask" | "saving" | null>(null)
 
-  // Confirmation dialog state
-  const [confirmClearOpen, setConfirmClearOpen] = useState(false)
-  const [confirmRemoveIndex, setConfirmRemoveIndex] = useState<number | null>(
-    null
-  )
-
-  const {
-    recentPlaces,
-    addRecentPlace,
-    clearRecentPlaces,
-    savedPlaces,
-    addSavedPlace,
-    removeSavedPlace,
-  } = useAppStore()
+  const { places, addPlace } = useAppStore()
 
   const {
     data,
@@ -145,14 +125,14 @@ export default function LocationDialog({
     if (!pendingCoord) return
     const trimmed = saveName.trim()
     if (trimmed) {
-      addSavedPlace({
+      addPlace({
         name: trimmed,
         lat: pendingCoord.lat,
         lon: pendingCoord.lon,
       })
     }
     confirmSelect(pendingCoord, trimmed)
-  }, [addSavedPlace, confirmSelect, pendingCoord, saveName])
+  }, [addPlace, confirmSelect, pendingCoord, saveName])
 
   const handleSkipSave = useCallback(() => {
     if (!pendingCoord) return
@@ -163,39 +143,11 @@ export default function LocationDialog({
     if (data) setResults(data)
   }, [data])
 
-  const hasSavedPlaces = savedPlaces && savedPlaces.length > 0
   const showRecent =
-    !isFetching &&
-    recentPlaces &&
-    recentPlaces.length > 0 &&
-    results.length === 0
+    !isFetching && places && places.length > 0 && results.length === 0
 
   return (
     <>
-      {/* Confirmation: clear recent places */}
-      <ConfirmDialog
-        open={confirmClearOpen}
-        onOpenChange={setConfirmClearOpen}
-        title="Clear recent places?"
-        description="This will remove all recently visited locations. This action cannot be undone."
-        confirmLabel="Clear all"
-        onConfirm={clearRecentPlaces}
-      />
-
-      {/* Confirmation: remove a saved place */}
-      <ConfirmDialog
-        open={confirmRemoveIndex !== null}
-        onOpenChange={(o) => {
-          if (!o) setConfirmRemoveIndex(null)
-        }}
-        title="Remove saved place?"
-        description="This saved location will be permanently deleted."
-        confirmLabel="Remove"
-        onConfirm={() => {
-          if (confirmRemoveIndex !== null) removeSavedPlace(confirmRemoveIndex)
-        }}
-      />
-
       <Dialog open={open} onOpenChange={onOpenChange}>
         {renderTrigger && (
           <DialogTrigger>
@@ -288,44 +240,6 @@ export default function LocationDialog({
             </div>
           )}
 
-          {/* Saved custom places */}
-          {hasSavedPlaces && results.length === 0 && saveMode !== "ask" && (
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Saved
-              </span>
-              <ScrollArea className="max-h-40 rounded-md border border-border bg-background/60">
-                {savedPlaces.map((sp, i) => (
-                  <div
-                    key={`${sp.lat}-${sp.lon}-${sp.name}`}
-                    className="flex cursor-pointer items-center justify-between rounded-sm px-3 py-2 transition-colors hover:bg-muted/50"
-                  >
-                    <div
-                      className="flex-1"
-                      onClick={() => {
-                        onSelect?.({ lat: sp.lat, lon: sp.lon }, sp.name)
-                        onOpenChange?.(false)
-                      }}
-                    >
-                      <div className="text-sm font-medium">{sp.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        lat: {sp.lat}, lon: {sp.lon}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => setConfirmRemoveIndex(i)}
-                    >
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </ScrollArea>
-            </div>
-          )}
-
           {/* Recent places / search results */}
           {showRecent ? (
             <div className="flex flex-col gap-2">
@@ -333,26 +247,18 @@ export default function LocationDialog({
                 <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                   Recently
                 </span>
-                <Button
-                  variant="destructive"
-                  className="text-destructive"
-                  onClick={() => setConfirmClearOpen(true)}
-                >
-                  <TrashIcon />
-                  Clear
-                </Button>
               </div>
               <ScrollArea className="h-96 rounded-md border border-border bg-background/60">
-                {recentPlaces.map((rp) => (
+                {places.map((rp) => (
                   <div
-                    key={`${rp.lat}-${rp.lon}-${String(rp.display_name).slice(0, 30)}`}
+                    key={`${rp.lat}-${rp.lon}-${String(rp.name).slice(0, 30)}`}
                     className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
                     onClick={() => {
-                      onSelect?.({ lat: rp.lat, lon: rp.lon }, rp.display_name)
+                      onSelect?.({ lat: rp.lat, lon: rp.lon }, rp.name)
                       onOpenChange?.(false)
                     }}
                   >
-                    <div className="text-sm">{rp.display_name}</div>
+                    <div className="text-sm">{rp.name}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       lat: {rp.lat}, lon: {rp.lon}
                     </div>
@@ -368,7 +274,11 @@ export default function LocationDialog({
                     key={`${p.lat}-${p.lon}-${String(p.display_name).slice(0, 30)}`}
                     className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
                     onClick={() => {
-                      addRecentPlace(p)
+                      addPlace({
+                        name: p.display_name,
+                        lat: p.lat,
+                        lon: p.lon,
+                      })
                       onSelect?.({ lat: p.lat, lon: p.lon }, p.display_name)
                       onOpenChange?.(false)
                     }}

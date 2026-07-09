@@ -31,8 +31,13 @@ function App() {
   const setPendingLookupUid = useAppStore(
     (state: AppState) => state.setPendingLookupUid
   )
+  const initStore = useAppStore((state: AppState) => state.initStore)
   const historyOnSidebar =
     blogs.length > 0 || isLoading || Boolean(error) || Boolean(result)
+
+  useEffect(() => {
+    initStore()
+  }, [initStore])
 
   useEffect(() => {
     setHistoryOnSidebar(historyOnSidebar)

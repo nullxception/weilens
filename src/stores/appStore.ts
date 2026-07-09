@@ -1,6 +1,7 @@
 import { create } from "zustand"
-import type { NominatimResult } from "../types/gps"
 import { StorageKeys } from "../shared/storageKeys"
+import { invoke } from "@tauri-apps/api/core"
+import type { NominatimResult } from "@/types/gps"
 
 export interface Place {
   lat: number
@@ -70,16 +71,12 @@ export interface AppState {
   ) => void
   clearDownload: (postId: string) => void
   clearDownloads: () => void
-  recentPlaces: NominatimResult[]
-  addRecentPlace: (place: NominatimResult) => void
-  removeRecentPlace: (index: number) => void
-  clearRecentPlaces: () => void
-  savedPlaces: Place[]
-  addSavedPlace: (place: Place) => void
-  removeSavedPlace: (index: number) => void
+  places: Place[]
+  addPlace: (place: Place) => void
   blogPlaces: BlogPlaces
   setBlogPlace: (userId: number | string, mblogid: string, place: Place) => void
   removeBlogPlace: (userId: number | string, mblogid: string) => void
+  initStore: () => Promise<void>
 }
 
 type NetscapeCookie = {
@@ -169,37 +166,25 @@ function readHistoryFromStorage(): CheckedProfile[] {
   }
 }
 
-function readRecentPlacesFromStorage(): NominatimResult[] {
+function readPlacesFromStorage(): Place[] {
   try {
-    const saved = localStorage.getItem(StorageKeys.RECENT_PLACES)
-    return saved ? JSON.parse(saved) : []
-  } catch {
-    return []
-  }
-}
+    const recents = localStorage.getItem(StorageKeys.RECENT_PLACES)
+    const recentPlaces = recents
+      ? (JSON.parse(recents) as NominatimResult[])
+      : []
 
-function writeRecentPlacesToStorage(places: NominatimResult[]) {
-  try {
-    localStorage.setItem(StorageKeys.RECENT_PLACES, JSON.stringify(places))
-  } catch (error) {
-    console.error("Failed to save recent places to localStorage:", error)
-  }
-}
-
-function readSavedPlacesFromStorage(): Place[] {
-  try {
     const saved = localStorage.getItem(StorageKeys.PLACES)
-    return saved ? JSON.parse(saved) : []
+    const savedPlaces = saved ? (JSON.parse(saved) as Place[]) : []
+    return [
+      ...recentPlaces.map((p) => ({
+        lat: p.lat,
+        lon: p.lon,
+        name: p.display_name,
+      })),
+      ...savedPlaces,
+    ]
   } catch {
     return []
-  }
-}
-
-function writeSavedPlacesToStorage(places: Place[]) {
-  try {
-    localStorage.setItem(StorageKeys.PLACES, JSON.stringify(places))
-  } catch (error) {
-    console.error("Failed to save places to localStorage:", error)
   }
 }
 
@@ -209,14 +194,6 @@ function readBlogPlacesFromStorage(): BlogPlaces {
     return saved ? JSON.parse(saved) : {}
   } catch {
     return {}
-  }
-}
-
-function writeBlogPlacesToStorage(places: BlogPlaces) {
-  try {
-    localStorage.setItem(StorageKeys.BLOG_PLACES, JSON.stringify(places))
-  } catch (error) {
-    console.error("Failed to save blog places to localStorage:", error)
   }
 }
 
@@ -289,8 +266,7 @@ export const useAppStore = create<AppState>((set) => ({
       return { downloads: next }
     }),
   clearDownloads: () => set({ downloads: {} }),
-  recentPlaces: readRecentPlacesFromStorage(),
-  savedPlaces: readSavedPlacesFromStorage(),
+  places: readPlacesFromStorage(),
   blogPlaces: readBlogPlacesFromStorage(),
   activeUid: "",
   activeView: "search",
@@ -370,60 +346,84 @@ export const useAppStore = create<AppState>((set) => ({
 
     set({ history: [] })
   },
-  addRecentPlace: (place: NominatimResult) =>
-    set((state: AppState) => {
-      // dedupe by lat+lon+display_name
-      const key = `${place.lat}_${place.lon}_${place.display_name}`
-      const filtered = state.recentPlaces.filter(
-        (p: NominatimResult) => `${p.lat}_${p.lon}_${p.display_name}` !== key
-      )
-      const next = [place, ...filtered]
-      writeRecentPlacesToStorage(next)
-      return { recentPlaces: next }
-    }),
-  removeRecentPlace: (index: number) =>
-    set((state: AppState) => {
-      const next = state.recentPlaces.filter(
-        (_: unknown, i: number) => i !== index
-      )
-      writeRecentPlacesToStorage(next)
-      return { recentPlaces: next }
-    }),
-  clearRecentPlaces: () => {
-    try {
-      localStorage.removeItem(StorageKeys.RECENT_PLACES)
-    } catch (error) {
-      console.error("Failed to clear recent places:", error)
-    }
-    set({ recentPlaces: [] })
+  addPlace: (place: Place) => {
+    invoke("add_place", { place }).catch(console.error)
+    set((state: AppState) => ({
+      places: [place, ...state.places],
+    }))
   },
-  addSavedPlace: (place: Place) =>
-    set((state: AppState) => {
-      const next = [place, ...state.savedPlaces]
-      writeSavedPlacesToStorage(next)
-      return { savedPlaces: next }
-    }),
-  removeSavedPlace: (index: number) =>
-    set((state: AppState) => {
-      const next = state.savedPlaces.filter(
-        (_: unknown, i: number) => i !== index
-      )
-      writeSavedPlacesToStorage(next)
-      return { savedPlaces: next }
-    }),
-  setBlogPlace: (userId: number | string, mblogid: string, place: Place) =>
+  setBlogPlace: (userId: number | string, mblogid: string, place: Place) => {
+    invoke("set_blog_place", {
+      userId: String(userId),
+      mblogid,
+      place,
+    }).catch(console.error)
     set((state: AppState) => {
       const key = `${userId}_${mblogid}`
-      const next = { ...state.blogPlaces, [key]: place }
-      writeBlogPlacesToStorage(next)
-      return { blogPlaces: next }
-    }),
-  removeBlogPlace: (userId: number | string, mblogid: string) =>
+      return {
+        blogPlaces: { ...state.blogPlaces, [key]: place },
+      }
+    })
+  },
+  removeBlogPlace: (userId: number | string, mblogid: string) => {
+    invoke("remove_blog_place", {
+      userId: String(userId),
+      mblogid,
+    }).catch(console.error)
     set((state: AppState) => {
       const key = `${userId}_${mblogid}`
       const next = { ...state.blogPlaces }
       delete next[key]
-      writeBlogPlacesToStorage(next)
       return { blogPlaces: next }
-    }),
+    })
+  },
+  initStore: async () => {
+    try {
+      const { blogPlaces, places } = await invoke<{
+        blogPlaces: Record<string, Place>
+        places: Place[]
+      }>("list_places")
+
+      // If SQLite is empty, check if we have data in localStorage to migrate
+      if (Object.keys(blogPlaces).length === 0 && places.length === 0) {
+        const localSaved = readPlacesFromStorage()
+        const localBlog = readBlogPlacesFromStorage()
+
+        if (localSaved.length > 0 || Object.keys(localBlog).length > 0) {
+          // Migrate local saved places to SQLite
+          for (const sp of localSaved) {
+            await invoke("add_place", { place: sp })
+          }
+          // Migrate local blog places to SQLite
+          for (const [key, bp] of Object.entries(localBlog)) {
+            const idx = key.indexOf("_")
+            if (idx !== -1) {
+              const userId = key.substring(0, idx)
+              const mblogid = key.substring(idx + 1)
+              await invoke("set_blog_place", { userId, mblogid, place: bp })
+            }
+          }
+          // Fetch again from SQLite
+          const migrated = await invoke<{
+            blogPlaces: Record<string, Place>
+            places: Place[]
+          }>("list_places")
+
+          // Clear localStorage
+          localStorage.removeItem(StorageKeys.PLACES)
+          localStorage.removeItem(StorageKeys.BLOG_PLACES)
+
+          set({
+            blogPlaces: migrated.blogPlaces,
+            places: migrated.places,
+          })
+          return
+        }
+      }
+
+      set({ blogPlaces, places })
+    } catch (err) {
+      console.error("Failed to initialize places from SQLite:", err)
+    }
+  },
 }))
