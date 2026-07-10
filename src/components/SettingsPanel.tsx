@@ -4,10 +4,23 @@ import { Input } from "./ui/input"
 import { Textarea } from "./ui/textarea"
 import { Button } from "./ui/button"
 import { Label } from "./ui/label"
-import { chooseDownloadDir, defaultDownloadDir } from "../shared/api"
+import {
+  chooseDownloadDir,
+  defaultDownloadDir,
+  type WmPosition,
+} from "../shared/api"
 import { useAppStore, type AppState } from "../stores/appStore"
 import { ButtonGroup } from "./ui/button-group"
 import { Suspense, use } from "react"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select"
 
 const systemDownloadDir = defaultDownloadDir()
 
@@ -33,6 +46,8 @@ export function SettingsPanel() {
   const setDownloadLocation = useAppStore(
     (state: AppState) => state.setDownloadLocation
   )
+  const wmPosition = useAppStore((state: AppState) => state.wmPosition)
+  const setWmPosition = useAppStore((state: AppState) => state.setWmPosition)
   const onBack = useAppStore((state: AppState) => state.closeSettings)
   const savedMessage = useAppStore((state: AppState) => state.savedMessage)
   const saveCookie = useAppStore((state: AppState) => state.saveCookie)
@@ -129,6 +144,31 @@ export function SettingsPanel() {
               Choose folder
             </Button>
           </ButtonGroup>
+        </div>
+
+        <div className="flex flex-row justify-between gap-1.5">
+          <Label>Default Watermark Remover</Label>
+          <Select
+            items={[
+              { label: "Top", value: "top" },
+              { label: "Center", value: "center" },
+              { label: "Bottom", value: "bottom" },
+            ]}
+            onValueChange={(value) => setWmPosition(value as WmPosition)}
+            value={wmPosition}
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Position</SelectLabel>
+                <SelectItem value="top">Top</SelectItem>
+                <SelectItem value="center">Center</SelectItem>
+                <SelectItem value="bottom">Bottom</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
       </CardContent>
     </Card>

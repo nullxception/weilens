@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { StorageKeys } from "../shared/storageKeys"
 import { invoke } from "@tauri-apps/api/core"
 import { NominatimResultSchema, PlaceSchema, type Place } from "@/types/gps"
+import type { WmPosition } from "../shared/api"
 
 export interface CheckedProfile {
   uid: string
@@ -28,6 +29,7 @@ export interface AppState {
    */
   parsedCookie: string
   downloadLocation: string
+  wmPosition: WmPosition
   history: CheckedProfile[]
   activeUid: string
   activeView: "search" | "settings"
@@ -38,6 +40,7 @@ export interface AppState {
   setCookie: (cookie: string) => void
   setActiveUid: (uid: string) => void
   setDownloadLocation: (downloadLocation: string) => void
+  setWmPosition: (wmPosition: WmPosition) => void
   setActiveView: (view: "search" | "settings") => void
   setPendingLookupUid: (uid: string | null) => void
   setSidebarOpen: (isOpen: boolean) => void
@@ -144,6 +147,16 @@ function readDownloadLocationFromStorage() {
   }
 }
 
+function readWmPositionFromStorage(): WmPosition {
+  try {
+    const val = localStorage.getItem(StorageKeys.WM_POSITION)
+    if (val === "top" || val === "center" || val === "bottom") return val
+    return "bottom"
+  } catch {
+    return "bottom"
+  }
+}
+
 function readHistoryFromStorage(): CheckedProfile[] {
   try {
     const saved = localStorage.getItem(StorageKeys.PROFILE_HISTORY)
@@ -198,6 +211,7 @@ export const useAppStore = create<AppState>((set) => ({
   cookie: readCookieFromStorage(),
   parsedCookie: toHttpCookieHeader(readCookieFromStorage()),
   downloadLocation: readDownloadLocationFromStorage(),
+  wmPosition: readWmPositionFromStorage(),
   history: readHistoryFromStorage(),
   downloads: {},
   startDownload: (postId: string, total: number) =>
@@ -278,6 +292,15 @@ export const useAppStore = create<AppState>((set) => ({
     }
 
     set({ downloadLocation })
+  },
+  setWmPosition: (wmPosition: WmPosition) => {
+    try {
+      localStorage.setItem(StorageKeys.WM_POSITION, wmPosition)
+    } catch (error) {
+      console.error("Failed to save WM position to localStorage:", error)
+    }
+
+    set({ wmPosition })
   },
   setActiveUid: (activeUid: string) => set({ activeUid }),
   setActiveView: (activeView: "search" | "settings") => set({ activeView }),

@@ -6,6 +6,7 @@ export const StorageKeys = {
   PLACES: "places",
   BLOG_PLACES: "blog_places",
   THEME: "vite-ui-theme",
+  WM_POSITION: "wm_position",
 } as const
 
 export type StorageKey = (typeof StorageKeys)[keyof typeof StorageKeys]

@@ -71,6 +71,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const downloadLocation = useAppStore(
     (state: AppState) => state.downloadLocation
   )
+  const defaultWmPos = useAppStore((state: AppState) => state.wmPosition)
   const activeUid = useAppStore((state: AppState) => state.activeUid)
   const startDownload = useAppStore((state: AppState) => state.startDownload)
   const clearDownload = useAppStore((state: AppState) => state.clearDownload)
@@ -96,7 +97,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const [storedBlogPlace, setStoredBlogPlace] = useState<Place | null>(null)
   const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
-  const [wmPosition, setWmPosition] = useState<WmPosition>("bottom")
+  const [wmPosition, setWmPosition] = useState<WmPosition>(defaultWmPos)
 
   useEffect(() => {
     if (!blogPlaceKey) {
@@ -278,13 +279,13 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                       }
                       value={wmPosition}
                     >
-                      <SelectTrigger size="sm">
+                      <SelectTrigger size="sm" className="w-32">
                         <EraserIcon />
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectLabel>DeWatermark</SelectLabel>
+                          <SelectLabel>WM Remover</SelectLabel>
                           {wmPositions.map((item) => (
                             <SelectItem key={item.value} value={item.value}>
                               {item.label}
