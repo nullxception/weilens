@@ -1,16 +1,18 @@
 import { X } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle, CardAction } from "./ui/card"
-import { Input } from "./ui/input"
-import { Textarea } from "./ui/textarea"
-import { Button } from "./ui/button"
-import { Label } from "./ui/label"
 import {
-  chooseDownloadDir,
-  defaultDownloadDir,
-  type WmPosition,
-} from "../shared/api"
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardAction,
+} from "../components/ui/card"
+import { Input } from "../components/ui/input"
+import { Textarea } from "../components/ui/textarea"
+import { Button } from "../components/ui/button"
+import { Label } from "../components/ui/label"
+import { chooseDownloadDir, defaultDownloadDir } from "../lib/api"
 import { useAppStore, type AppState } from "../stores/appStore"
-import { ButtonGroup } from "./ui/button-group"
+import { ButtonGroup } from "../components/ui/button-group"
 import { Suspense, use } from "react"
 import {
   Select,
@@ -20,7 +22,8 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "./ui/select"
+} from "../components/ui/select"
+import type { WmPosition } from "@/types/rpc"
 
 const systemDownloadDir = defaultDownloadDir()
 

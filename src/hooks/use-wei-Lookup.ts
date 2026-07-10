@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { WeiResponseSchema, type WeiPost } from "../shared/WeiSchema"
+import { WeiResponseSchema, type WeiPost } from "../types/wei"
 import { useAppStore, type AppState } from "../stores/appStore"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
 

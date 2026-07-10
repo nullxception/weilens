@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
-import { HistoryPanel } from "./HistoryPanel"
-import { SearchForm } from "./SearchForm"
-import { SettingsModal } from "./SettingsModal"
+import { HistoryPanel } from "./history-panel"
+import { SearchForm } from "./search-form"
+import { SettingsModal } from "../settings/settings-modal"
 import { Button } from "./ui/button"
 import {
   Sidebar,
@@ -14,7 +14,7 @@ import {
 } from "./ui/sidebar"
 import { TooltipProvider } from "./ui/tooltip"
 import { SettingsIcon } from "lucide-react"
-import { DownloadProgressPanel } from "./DownloadProgressPanel"
+import { DownloadProgressPanel } from "./download-progress-panel"
 import { useAppStore, type AppState } from "../stores/appStore"
 
 interface AppShellProps {

@@ -1,5 +1,10 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
-import { SettingsPanel } from "./SettingsPanel"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog"
+import { SettingsPanel } from "./settings-panel"
 import { useAppStore, type AppState } from "../stores/appStore"
 
 export function SettingsModal() {

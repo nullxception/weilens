@@ -3,7 +3,7 @@ import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { Progress } from "./ui/progress"
 import { useEffect } from "react"
 import { listen } from "@tauri-apps/api/event"
-import type { DownloadProgressPayload } from "@/shared/rpc"
+import type { DownloadProgressPayload } from "@/types/rpc"
 
 export function DownloadProgressPanel() {
   const downloads = useAppStore((state: AppState) => state.downloads)

@@ -6,18 +6,17 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog"
-import { Input } from "./ui/input"
-import { Button } from "./ui/button"
+} from "../components/ui/dialog"
+import { Input } from "../components/ui/input"
+import { Button } from "../components/ui/button"
 import {
   useInfiniteQuery,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { ScrollArea } from "./ui/scroll-area"
+import { ScrollArea } from "../components/ui/scroll-area"
 import { useCallback, useEffect, useState } from "react"
-import type { GPSData } from "../shared/gps"
-import { NominatimSearchSchema, type Place } from "../types/gps"
+import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps"
 import { invoke } from "@tauri-apps/api/core"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
 import {
@@ -28,7 +27,7 @@ import {
   SearchIcon,
   XIcon,
 } from "lucide-react"
-import { ButtonGroup } from "./ui/button-group"
+import { ButtonGroup } from "../components/ui/button-group"
 
 const PAGE_SIZE = 20
 

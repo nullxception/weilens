@@ -1,8 +1,8 @@
 import { create } from "zustand"
-import { StorageKeys } from "../shared/storageKeys"
+import { StorageKeys } from "../storage-keys"
 import { invoke } from "@tauri-apps/api/core"
 import { NominatimResultSchema, PlaceSchema, type Place } from "@/types/gps"
-import type { WmPosition } from "../shared/api"
+import type { WmPosition } from "@/types/rpc"
 
 export interface CheckedProfile {
   uid: string

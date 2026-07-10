@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react"
-import type { WeiPost } from "../shared/WeiSchema"
+import type { WeiPost } from "../types/wei"
 import { useAppStore, type AppState } from "../stores/appStore"
-import { BlogCard } from "./BlogCard"
-import { HistoryPanel } from "./HistoryPanel"
-import { Card, CardContent } from "./ui/card"
-import { Button } from "./ui/button"
+import { BlogCard } from "./blog-card"
+import { HistoryPanel } from "../components/history-panel"
+import { Card, CardContent } from "../components/ui/card"
+import { Button } from "../components/ui/button"
 
 interface BlogFeedProps {
   blogs: WeiPost[]

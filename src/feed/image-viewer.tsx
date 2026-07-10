@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
-import { Dialog, DialogPortal, DialogOverlay } from "./ui/dialog"
+import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { Button } from "./ui/button"
+import { Button } from "../components/ui/button"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import { proxyImage } from "@/lib/proxy"
 
@@ -39,7 +39,10 @@ export function ImageViewer({
   }, [images.length])
 
   const goFirst = useCallback(() => setCurrentIndex(0), [])
-  const goLast = useCallback(() => setCurrentIndex(images.length - 1), [images.length])
+  const goLast = useCallback(
+    () => setCurrentIndex(images.length - 1),
+    [images.length]
+  )
 
   if (images.length === 0) return null
 
@@ -63,7 +66,7 @@ export function ImageViewer({
           <Button
             variant="ghost"
             size="icon-sm"
-            className="absolute top-3 right-3 z-10 text-white/70 hover:text-white hover:bg-white/10"
+            className="absolute top-3 right-3 z-10 text-white/70 hover:bg-white/10 hover:text-white"
             onClick={() => onOpenChange(false)}
           >
             <XIcon className="size-5" />
@@ -81,7 +84,7 @@ export function ImageViewer({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute left-3 z-10 text-white/70 hover:text-white hover:bg-white/10"
+              className="absolute left-3 z-10 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={goPrev}
             >
               <ChevronLeftIcon className="size-6" />
@@ -102,7 +105,7 @@ export function ImageViewer({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-3 z-10 text-white/70 hover:text-white hover:bg-white/10"
+              className="absolute right-3 z-10 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={goNext}
             >
               <ChevronRightIcon className="size-6" />

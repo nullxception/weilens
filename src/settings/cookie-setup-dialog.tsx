@@ -5,8 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "./ui/dialog"
-import { Button } from "./ui/button"
+} from "../components/ui/dialog"
+import { Button } from "../components/ui/button"
 import { useAppStore, type AppState } from "../stores/appStore"
 
 export function CookieSetupDialog() {

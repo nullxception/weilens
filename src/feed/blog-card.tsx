@@ -1,23 +1,27 @@
 import { useEffect, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { type DownloadItem } from "../shared/rpc"
-import type { PicDimension, PicInfo, WeiPost } from "../shared/WeiSchema"
+import { type DownloadItem, type WmPosition } from "../types/rpc"
+import type { PicDimension, PicInfo, WeiPost } from "../types/wei"
 import { useAppStore, type AppState } from "../stores/appStore"
-import type { GPSData } from "../shared/gps"
-import { Card, CardContent } from "./ui/card"
-import { Button } from "./ui/button"
-import { Progress, ProgressLabel, ProgressValue } from "./ui/progress"
-import { downloadPost, type WmPosition } from "../shared/api"
-import LocationDialog from "./LocationDialog"
+import type { GPSData } from "../types/gps"
+import { Card, CardContent } from "../components/ui/card"
+import { Button } from "../components/ui/button"
+import {
+  Progress,
+  ProgressLabel,
+  ProgressValue,
+} from "../components/ui/progress"
+import { downloadPost } from "../lib/api"
+import LocationDialog from "./location-dialog"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "./ui/dropdown-menu"
+} from "../components/ui/dropdown-menu"
 import { proxyImage } from "@/lib/proxy"
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry"
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import {
   DownloadIcon,
   EraserIcon,
@@ -35,8 +39,8 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "./ui/select"
-import { ImageViewer } from "./ImageViewer"
+} from "../components/ui/select"
+import { ImageViewer } from "./image-viewer"
 
 interface BlogCardProps {
   blog: WeiPost
@@ -161,7 +165,10 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
       const picData = blog.pic_infos?.[picId]
       const info = getPreferredImage(picData)
       if (!info.url) return null
-      return { url: info.url, aspectRatio: getAspectRatio(info.thumb ?? undefined) }
+      return {
+        url: info.url,
+        aspectRatio: getAspectRatio(info.thumb ?? undefined),
+      }
     })
     .filter((img): img is { url: string; aspectRatio: string } => img !== null)
 

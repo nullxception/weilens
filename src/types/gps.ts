@@ -18,3 +18,8 @@ export const PlaceSchema = z.object({
 })
 
 export type Place = z.infer<typeof PlaceSchema>
+
+export interface GPSData {
+  lat: number
+  lon: number
+}

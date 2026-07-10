@@ -1,8 +1,8 @@
 import { useEffect } from "react"
-import { BlogFeed } from "./components/BlogFeed"
-import { AppShell } from "./components/AppShell"
-import { CookieSetupDialog } from "./components/CookieSetupDialog"
-import { useWeiLookup } from "./hooks/useWeiLookup"
+import { BlogFeed } from "./feed/blog-feed"
+import { AppShell } from "./components/app-shell"
+import { CookieSetupDialog } from "./settings/cookie-setup-dialog"
+import { useWeiLookup } from "./hooks/use-wei-Lookup"
 import { useAppStore, type AppState } from "./stores/appStore"
 
 function App() {

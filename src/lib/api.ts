@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
-import type { DownloadItem } from "./rpc"
-import type { GPSData } from "./gps"
+import type { DownloadItem, WmPosition } from "../types/rpc"
+import type { GPSData } from "../types/gps"
 
 export async function defaultDownloadDir(): Promise<string> {
   return invoke<string>("default_download_dir")
@@ -11,8 +11,6 @@ export async function chooseDownloadDir(
 ): Promise<string> {
   return invoke<string>("choose_download_dir", { startingFolder })
 }
-
-export type WmPosition = "top" | "center" | "bottom"
 
 export async function downloadPost(params: {
   uid: string
