@@ -95,7 +95,7 @@ export function SettingsPanel() {
             >
               Get cookies.txt locally
             </a>{" "}
-            to get cookie from weibo.
+            to get cookie from Sina Weibo.
           </span>
           <Textarea
             id="weicookie"

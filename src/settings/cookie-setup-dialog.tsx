@@ -24,11 +24,11 @@ export function CookieSetupDialog() {
       <DialogContent className="w-full max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-sm font-bold">
-            Weibo Cookie Setup Required
+            Sina Weibo Cookie Setup Required
           </DialogTitle>
           <DialogDescription className="mt-1.5 text-muted-foreground">
-            You need to configure your Weibo cookie in Settings to load blogs,
-            posts, and media successfully.
+            You need to configure your Sina Weibo cookie in Settings to load
+            blogs, posts, and media successfully.
           </DialogDescription>
         </DialogHeader>
 
