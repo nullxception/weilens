@@ -38,16 +38,8 @@ export function ImageViewer({
     setCurrentIndex((i) => (i - 1 + images.length) % images.length)
   }, [images.length])
 
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") goNext()
-      else if (e.key === "ArrowLeft") goPrev()
-      else if (e.key === "Escape") onOpenChange(false)
-    }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
-  }, [open, goNext, goPrev, onOpenChange])
+  const goFirst = useCallback(() => setCurrentIndex(0), [])
+  const goLast = useCallback(() => setCurrentIndex(images.length - 1), [images.length])
 
   if (images.length === 0) return null
 
@@ -57,7 +49,16 @@ export function ImageViewer({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay className="fixed inset-0 z-50 bg-black/90 supports-backdrop-filter:backdrop-blur-sm" />
-        <DialogPrimitive.Popup className="fixed inset-0 z-50 flex items-center justify-center outline-none">
+        <DialogPrimitive.Popup
+          className="fixed inset-0 z-50 flex items-center justify-center outline-none"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight" || e.key === "l") goNext()
+            else if (e.key === "ArrowLeft" || e.key === "h") goPrev()
+            else if (e.key === "Home") goFirst()
+            else if (e.key === "End") goLast()
+            else if (e.key === "Escape") onOpenChange(false)
+          }}
+        >
           {/* Close */}
           <Button
             variant="ghost"
