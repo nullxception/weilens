@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select"
+import { ImageViewer } from "./ImageViewer"
 
 interface BlogCardProps {
   blog: WeiPost
@@ -98,6 +99,8 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
   const [wmPosition, setWmPosition] = useState<WmPosition>(defaultWmPos)
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [viewerIndex, setViewerIndex] = useState(0)
 
   useEffect(() => {
     if (!blogPlaceKey) {
@@ -153,6 +156,15 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
     activeUid && blog.user?.idstr && blog.user.idstr !== activeUid
   )
 
+  const viewerImages = (blog.pic_ids ?? [])
+    .map((picId) => {
+      const picData = blog.pic_infos?.[picId]
+      const info = getPreferredImage(picData)
+      if (!info.url) return null
+      return { url: info.url, aspectRatio: getAspectRatio(info.thumb ?? undefined) }
+    })
+    .filter((img): img is { url: string; aspectRatio: string } => img !== null)
+
   return (
     <div className="flex flex-col gap-1">
       <Card size="sm">
@@ -204,13 +216,17 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
               {blog.pic_ids &&
                 blog.pic_ids.length > 0 &&
                 blog.pic_infos &&
-                blog.pic_ids.map((picId) => {
+                blog.pic_ids.map((picId, idx) => {
                   const picData = blog.pic_infos?.[picId]
                   const info = getPreferredImage(picData)
                   return info.thumb ? (
                     <div
                       key={picId}
-                      className="relative w-full overflow-hidden rounded-md border border-border"
+                      className="relative w-full cursor-pointer overflow-hidden rounded-md border border-border transition-opacity hover:opacity-90"
+                      onClick={() => {
+                        setViewerIndex(idx)
+                        setViewerOpen(true)
+                      }}
                     >
                       <img
                         src={proxyImage(info.thumb.url)}
@@ -354,6 +370,12 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
           </div>
         </CardContent>
       </Card>
+      <ImageViewer
+        images={viewerImages}
+        initialIndex={viewerIndex}
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+      />
     </div>
   )
 }
