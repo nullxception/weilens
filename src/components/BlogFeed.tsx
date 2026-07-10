@@ -1,5 +1,4 @@
-import { useState } from "react"
-import { ChevronDown } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import type { WeiPost } from "../shared/WeiSchema"
 import { useAppStore, type AppState } from "../stores/appStore"
 import { BlogCard } from "./BlogCard"
@@ -12,6 +11,7 @@ interface BlogFeedProps {
   result: string
   error: string
   isLoading: boolean
+  hasMore: boolean
   onLoadMore: () => void
   activeDisplayName?: string
 }
@@ -21,10 +21,31 @@ export function BlogFeed({
   result,
   error,
   isLoading,
+  hasMore,
   onLoadMore,
   activeDisplayName,
 }: BlogFeedProps) {
   const [showReposted, setShowReposted] = useState(true)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const isLoadingRef = useRef(isLoading)
+  isLoadingRef.current = isLoading
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasMore) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isLoadingRef.current) {
+          onLoadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, onLoadMore])
   const activeUid = useAppStore((state: AppState) => state.activeUid)
   const history = useAppStore((state: AppState) => state.history)
   const onHistoryClick = useAppStore(
@@ -94,17 +115,13 @@ export function BlogFeed({
               />
             ))}
           </div>
-          <div className="mt-3 flex justify-center">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onLoadMore}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? "Loading..." : "Load More"}
-              {!isLoading && <ChevronDown className="h-4 w-4" />}
-            </Button>
+          <div
+            ref={sentinelRef}
+            className="mt-3 flex items-center justify-center py-4"
+          >
+            {isLoading && (
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted border-t-primary" />
+            )}
           </div>
         </>
       ) : result ? (

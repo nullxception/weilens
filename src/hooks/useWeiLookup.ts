@@ -154,6 +154,8 @@ export function useWeiLookup() {
     checkUid(uid, page + 1)
   }
 
+  const hasMore = sinceId !== undefined && sinceId !== ""
+
   return {
     uid,
     setUid,
@@ -162,6 +164,7 @@ export function useWeiLookup() {
     result,
     error,
     isLoading,
+    hasMore,
     checkUid,
     handleNextPage,
   }

@@ -14,6 +14,7 @@ function App() {
     result,
     error,
     isLoading,
+    hasMore,
     checkUid,
     handleNextPage,
   } = useWeiLookup()
@@ -101,6 +102,7 @@ function App() {
           result={result}
           error={error}
           isLoading={isLoading}
+          hasMore={hasMore}
           onLoadMore={handleNextPage}
           activeDisplayName={activeDisplayName}
         />
