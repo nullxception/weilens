@@ -12,15 +12,12 @@ use crate::db::{
     set_blog_place, DbState,
 };
 use crate::download::{choose_download_dir, default_download_dir, download_post};
+use crate::image::handle_image_proxy;
 use log::LevelFilter;
 use std::sync::Mutex;
-use tauri::{
-    http::header::REFERER, http::Request, http::Response, webview::PageLoadEvent, Manager,
-    UriSchemeResponder,
-};
+use tauri::{webview::PageLoadEvent, Manager};
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_opener::OpenerExt;
-use url::Url;
 
 fn external_navigation_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::<R>::new("external-navigation")
@@ -47,78 +44,6 @@ fn external_navigation_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin
             true
         })
         .build()
-}
-
-async fn handle_image_proxy(
-    client: reqwest::Client,
-    request: Request<Vec<u8>>,
-    responder: UriSchemeResponder,
-) {
-    let uri_string = request.uri().to_string();
-
-    let parsed_uri = match Url::parse(&uri_string) {
-        Ok(u) => u,
-        Err(_) => {
-            let res = Response::builder().status(400).body(Vec::new()).unwrap();
-            return responder.respond(res);
-        }
-    };
-
-    let target_url_param = match parsed_uri.query_pairs().find(|(k, _)| k == "url") {
-        Some((_, val)) => val.into_owned(),
-        None => {
-            let res = Response::builder().status(400).body(Vec::new()).unwrap();
-            return responder.respond(res);
-        }
-    };
-
-    let target_url = match Url::parse(&target_url_param) {
-        Ok(u) => u,
-        Err(_) => {
-            let res = Response::builder().status(422).body(Vec::new()).unwrap();
-            return responder.respond(res);
-        }
-    };
-
-    let referer_host = format!(
-        "{}://{}",
-        target_url.scheme(),
-        target_url.host_str().unwrap_or("")
-    );
-
-    let network_result = client
-        .get(target_url.as_str())
-        .header(REFERER, &referer_host)
-        .header(
-            "User-Agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        )
-        .send()
-        .await;
-
-    let response = match network_result {
-        Ok(outbound_res) => {
-            let mime = outbound_res
-                .headers()
-                .get("content-type")
-                .and_then(|h| h.to_str().ok())
-                .unwrap_or("image/jpeg")
-                .to_string();
-
-            let status_code = outbound_res.status().as_u16();
-            let bytes = outbound_res.bytes().await.unwrap_or_default();
-
-            Response::builder()
-                .status(status_code)
-                .header("Content-Type", mime)
-                .header("Access-Control-Allow-Origin", "*")
-                .body(bytes.to_vec())
-                .unwrap()
-        }
-        Err(_) => Response::builder().status(502).body(Vec::new()).unwrap(),
-    };
-
-    responder.respond(response);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

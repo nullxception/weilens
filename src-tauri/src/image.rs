@@ -1,3 +1,8 @@
+use tauri::{http::header::REFERER, http::Request, http::Response, UriSchemeResponder};
+use url::Url;
+
+use crate::types::DEFAULT_USER_AGENT;
+
 pub enum StripPosition {
     Top,
     Center,
@@ -42,4 +47,92 @@ pub fn merge_strip_three_percent(
         .map_err(|e| format!("Failed to encode merged image: {}", e))?;
 
     Ok(out_bytes.into_inner())
+}
+
+pub async fn handle_image_proxy(
+    client: reqwest::Client,
+    request: Request<Vec<u8>>,
+    responder: UriSchemeResponder,
+) {
+    let uri_string = request.uri().to_string();
+
+    let parsed_uri = match Url::parse(&uri_string) {
+        Ok(u) => u,
+        Err(_) => {
+            let res = Response::builder().status(400).body(Vec::new()).unwrap();
+            return responder.respond(res);
+        }
+    };
+
+    let target_url_param = match parsed_uri.query_pairs().find(|(k, _)| k == "url") {
+        Some((_, val)) => val.into_owned(),
+        None => {
+            let res = Response::builder().status(400).body(Vec::new()).unwrap();
+            return responder.respond(res);
+        }
+    };
+
+    let target_url = match Url::parse(&target_url_param) {
+        Ok(u) => u,
+        Err(_) => {
+            let res = Response::builder().status(422).body(Vec::new()).unwrap();
+            return responder.respond(res);
+        }
+    };
+
+    let referer_host = format!(
+        "{}://{}",
+        target_url.scheme(),
+        target_url.host_str().unwrap_or("")
+    );
+
+    let network_result = client
+        .get(target_url.as_str())
+        .header(REFERER, &referer_host)
+        .header("User-Agent", DEFAULT_USER_AGENT.to_string())
+        .send()
+        .await;
+
+    let response = match network_result {
+        Ok(outbound_res) => {
+            let headers = outbound_res.headers().clone();
+
+            let mime = headers
+                .get("content-type")
+                .and_then(|h| h.to_str().ok())
+                .unwrap_or("image/jpeg")
+                .to_string();
+
+            let status_code = outbound_res.status().as_u16();
+            let bytes = outbound_res.bytes().await.unwrap_or_default();
+
+            let cache_control = headers.get("cache-control").and_then(|h| h.to_str().ok());
+            let etag = headers.get("etag").and_then(|h| h.to_str().ok());
+            let expires = headers.get("expires").and_then(|h| h.to_str().ok());
+            let last_modified = headers.get("last-modified").and_then(|h| h.to_str().ok());
+
+            let mut builder = Response::builder()
+                .status(status_code)
+                .header("Content-Type", mime)
+                .header("Access-Control-Allow-Origin", "*");
+
+            if let Some(cc) = cache_control {
+                builder = builder.header("Cache-Control", cc);
+            }
+            if let Some(etag) = etag {
+                builder = builder.header("ETag", etag);
+            }
+            if let Some(exp) = expires {
+                builder = builder.header("Expires", exp);
+            }
+            if let Some(lm) = last_modified {
+                builder = builder.header("Last-Modified", lm);
+            }
+
+            builder.body(bytes.to_vec()).unwrap()
+        }
+        Err(_) => Response::builder().status(502).body(Vec::new()).unwrap(),
+    };
+
+    responder.respond(response);
 }
