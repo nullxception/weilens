@@ -176,7 +176,23 @@ pub async fn download_post(
                             e,
                             delay_ms
                         );
-                        sleep(Duration::from_millis(delay_ms)).await;
+                        tokio::select! {
+                            _ = sleep(Duration::from_millis(delay_ms)) => {},
+                            _ = token.cancelled() => {
+                                let _ = app.emit(
+                                    "download-progress",
+                                    DownloadProgressPayload {
+                                        post_id: post_id_clone.clone(),
+                                        index,
+                                        total,
+                                        status: "cancelled".to_string(),
+                                        url: item_url.clone(),
+                                        saved_path: None,
+                                    },
+                                );
+                                return Err("cancelled".to_string());
+                            }
+                        }
                     }
                     Err(e) => {
                         log::error!(
@@ -300,11 +316,14 @@ pub async fn download_item(
         .timeout(Duration::from_secs(config.request_timeout_secs))
         .header("Referer", &config.referer)
         .header("User-Agent", &config.user_agent);
-    let response = req.send().await.map_err(|e| {
-        let err = DownloadError::Request(format!("Request failed: {}", e)).to_string();
-        log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
-        err
-    })?;
+    let response = tokio::select! {
+        res = req.send() => res.map_err(|e| {
+            let err = DownloadError::Request(format!("Request failed: {}", e)).to_string();
+            log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
+            err
+        })?,
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    };
 
     if !response.status().is_success() {
         let err = DownloadError::Http(format!("HTTP error: {}", response.status())).to_string();
@@ -312,16 +331,15 @@ pub async fn download_item(
         return Err(err);
     }
 
-    let mut buffer = response
-        .bytes()
-        .await
-        .map_err(|e| {
+    let mut buffer = tokio::select! {
+        bytes = response.bytes() => bytes.map_err(|e| {
             let err =
                 DownloadError::Request(format!("Failed to read response bytes: {}", e)).to_string();
             log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
             err
-        })?
-        .to_vec();
+        })?.to_vec(),
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    };
 
     if let Some(ref no_wm_url) = no_watermark_url {
         if no_wm_url != &item_url && !is_live_photo {
@@ -333,9 +351,17 @@ pub async fn download_item(
                 .timeout(Duration::from_secs(config.request_timeout_secs))
                 .header("Referer", &config.referer)
                 .header("User-Agent", &config.user_agent);
-            if let Ok(res_no_wm) = req_no_wm.send().await {
+            let res_no_wm = tokio::select! {
+                res = req_no_wm.send() => res,
+                _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+            };
+            if let Ok(res_no_wm) = res_no_wm {
                 if res_no_wm.status().is_success() {
-                    if let Ok(no_wm_bytes) = res_no_wm.bytes().await {
+                    let no_wm_bytes = tokio::select! {
+                        bytes = res_no_wm.bytes() => bytes,
+                        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+                    };
+                    if let Ok(no_wm_bytes) = no_wm_bytes {
                         let pos = match wm_position {
                             "top" => StripPosition::Top,
                             "center" => StripPosition::Center,
@@ -488,23 +514,24 @@ async fn download_live_photo(
         return Err("cancelled".to_string());
     }
 
-    let res = client
-        .get(video_url)
-        .timeout(Duration::from_secs(config.request_timeout_secs))
-        .header("Referer", &config.referer)
-        .header("User-Agent", &config.user_agent)
-        .send()
-        .await
-        .map_err(|e| format!("Video request failed: {}", e))?;
+    let res = tokio::select! {
+        res = client
+            .get(video_url)
+            .timeout(Duration::from_secs(config.request_timeout_secs))
+            .header("Referer", &config.referer)
+            .header("User-Agent", &config.user_agent)
+            .send() => res.map_err(|e| format!("Video request failed: {}", e)),
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    }?;
 
     if !res.status().is_success() {
         return Err(format!("Video HTTP error: {}", res.status()));
     }
 
-    let video_bytes = res
-        .bytes()
-        .await
-        .map_err(|e| format!("Failed to read video bytes: {}", e))?;
+    let video_bytes = tokio::select! {
+        bytes = res.bytes() => bytes.map_err(|e| format!("Failed to read video bytes: {}", e)),
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    }?;
 
     let url = Url::parse(video_url).unwrap();
     let mime = match Path::new(url.path())

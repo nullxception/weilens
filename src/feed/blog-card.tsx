@@ -25,6 +25,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import {
   DownloadIcon,
   EraserIcon,
+  FileXIcon,
+  Loader2Icon,
   MapPinIcon,
   MessageSquareQuoteIcon,
   RotateCwIcon,
@@ -150,10 +152,11 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
 
   const completed = downloadProgress?.completed ?? 0;
   const failed = downloadProgress?.failed ?? 0;
+  const cancelled = downloadProgress?.cancelled ?? 0;
   const downloading = downloadProgress
-    ? downloadProgress.total - completed - failed
+    ? downloadProgress.total - completed - failed - cancelled
     : 0;
-  const finished = completed + failed;
+  const finished = completed + failed + cancelled;
   const progressPercent = downloadProgress
     ? Math.round((finished / downloadProgress.total) * 100)
     : 0;
@@ -287,14 +290,26 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
               <div>
                 {downloadProgress ? (
                   <div className="flex items-center gap-1.5">
-                    <Progress value={progressPercent} className="w-48">
+                    <Progress value={progressPercent} className="w-56">
                       <ProgressLabel>
                         {finished}/{downloadProgress.total}
-                        {downloading > 0 && ` • ${downloading} downloading`}
+                        {downloading > 0 && ` • ${downloading}`}
+                        {downloading > 0 && (
+                          <Loader2Icon className="inline h-5 w-5 animate-spin pr-1 pl-1" />
+                        )}
                         {failed > 0 && ` • ${failed} failed`}
+                        {failed > 0 && (
+                          <FileXIcon className="inline h-5 w-5 pr-1 pl-1" />
+                        )}
+                        {cancelled > 0 && ` • ${cancelled}`}
+                        {cancelled > 0 && (
+                          <XCircleIcon className="inline h-5 w-5 pr-1 pl-1" />
+                        )}
                       </ProgressLabel>
 
-                      <ProgressValue>{() => `${progressPercent}%`}</ProgressValue>
+                      <ProgressValue>
+                        {() => `${progressPercent}%`}
+                      </ProgressValue>
                     </Progress>
                     {downloading > 0 && (
                       <Button
