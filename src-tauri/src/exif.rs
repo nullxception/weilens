@@ -87,13 +87,7 @@ pub fn write_exif(
 
     let mut metadata = match Metadata::new_from_vec(buffer, file_type) {
         Ok(m) => m,
-        Err(e) => {
-            log::info!(
-                "No existing EXIF metadata or read error: {:?}. Creating new metadata.",
-                e
-            );
-            Metadata::new()
-        }
+        Err(_) => Metadata::new(),
     };
 
     let phone_model = get_iphone_model(exif_date);
