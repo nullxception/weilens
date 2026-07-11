@@ -1,7 +1,10 @@
+use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Mutex;
 use thiserror::Error;
+use tokio_util::sync::CancellationToken;
 
 pub const DEFAULT_REFERER: &str = "https://weibo.com/";
 pub const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
@@ -117,3 +120,5 @@ pub struct DownloadProgressPayload {
     pub url: String,
     pub saved_path: Option<String>,
 }
+
+pub struct DownloadCancellationState(pub Mutex<HashMap<String, CancellationToken>>);

@@ -8,6 +8,7 @@ use tauri::Emitter;
 use tauri::Manager;
 use tokio::sync::Semaphore;
 use tokio::time::{sleep, Duration};
+use tokio_util::sync::CancellationToken;
 use url::Url;
 
 use crate::dates::{get_date_folder, parse_date};
@@ -16,7 +17,10 @@ use crate::exif::write_exif;
 use crate::image::merge_strip_three_percent;
 use crate::image::StripPosition;
 use crate::motion::mux_motion_photo;
-use crate::types::{DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData};
+use crate::types::{
+    DownloadCancellationState, DownloadConfig, DownloadError, DownloadItem,
+    DownloadProgressPayload, GpsData,
+};
 use crate::util::get_no_watermark_url;
 
 #[tauri::command]
@@ -53,6 +57,13 @@ pub async fn download_post(
     let client = app_handle.state::<reqwest::Client>().inner().clone();
     let semaphore = Arc::new(Semaphore::new(config.effective_max_concurrency()));
 
+    let cancellation_token = CancellationToken::new();
+    {
+        let state = app_handle.state::<DownloadCancellationState>();
+        let mut map = state.0.lock().map_err(|e| e.to_string())?;
+        map.insert(post_id.clone(), cancellation_token.clone());
+    }
+
     let mut hosts: HashSet<String> = HashSet::new();
     for it in items.iter() {
         if let Ok(parsed) = url::Url::parse(&it.url) {
@@ -77,15 +88,46 @@ pub async fn download_post(
         let client_clone = client.clone();
         let sem = semaphore.clone();
         let config_clone = config.clone();
+        let token = cancellation_token.clone();
 
         let item_url = item.url.clone();
         let item_video = item.video_url.clone();
 
         let handle = tokio::spawn(async move {
+            if token.is_cancelled() {
+                let _ = app.emit(
+                    "download-progress",
+                    DownloadProgressPayload {
+                        post_id: post_id_clone.clone(),
+                        index,
+                        total,
+                        status: "cancelled".to_string(),
+                        url: item_url.clone(),
+                        saved_path: None,
+                    },
+                );
+                return Err("cancelled".to_string());
+            }
+
             let _permit = sem.acquire().await;
 
             let mut attempt = 0u32;
             loop {
+                if token.is_cancelled() {
+                    let _ = app.emit(
+                        "download-progress",
+                        DownloadProgressPayload {
+                            post_id: post_id_clone.clone(),
+                            index,
+                            total,
+                            status: "cancelled".to_string(),
+                            url: item_url.clone(),
+                            saved_path: None,
+                        },
+                    );
+                    return Err("cancelled".to_string());
+                }
+
                 match download_item(
                     &app,
                     &post_id_clone,
@@ -99,10 +141,25 @@ pub async fn download_post(
                     &wm_position_clone,
                     client_clone.clone(),
                     config_clone.clone(),
+                    token.clone(),
                 )
                 .await
                 {
                     Ok(paths) => break Ok(paths),
+                    Err(e) if e == "cancelled" => {
+                        let _ = app.emit(
+                            "download-progress",
+                            DownloadProgressPayload {
+                                post_id: post_id_clone.clone(),
+                                index,
+                                total,
+                                status: "cancelled".to_string(),
+                                url: item_url.clone(),
+                                saved_path: None,
+                            },
+                        );
+                        break Err(e);
+                    }
                     Err(e) if attempt < config_clone.max_retries => {
                         attempt += 1;
                         let delay_ms = config_clone
@@ -130,7 +187,6 @@ pub async fn download_post(
                             config_clone.max_retries,
                             e
                         );
-                        // Emit failed only after all retries done
                         let _ = app.emit(
                             "download-progress",
                             crate::types::DownloadProgressPayload {
@@ -154,9 +210,18 @@ pub async fn download_post(
     for handle in handles {
         match handle.await {
             Ok(Ok(paths)) => saved_paths.extend(paths),
+            Ok(Err(e)) if e == "cancelled" => {
+                log::info!("Download item cancelled");
+            }
             Ok(Err(e)) => log::error!("Error downloading item: {}", e),
             Err(e) => log::error!("Join error: {}", e),
         }
+    }
+
+    {
+        let state = app_handle.state::<DownloadCancellationState>();
+        let mut map = state.0.lock().map_err(|e| e.to_string())?;
+        map.remove(&post_id);
     }
 
     Ok(serde_json::json!({
@@ -200,6 +265,7 @@ pub async fn download_item(
     wm_position: &str,
     client: reqwest::Client,
     config: DownloadConfig,
+    cancellation_token: CancellationToken,
 ) -> Result<Vec<String>, String> {
     let mut saved_paths = Vec::new();
     let is_live_photo = item_video_url.is_some();
@@ -224,6 +290,10 @@ pub async fn download_item(
             saved_path: None,
         },
     );
+
+    if cancellation_token.is_cancelled() {
+        return Err("cancelled".to_string());
+    }
 
     let req = client
         .get(&item_url)
@@ -255,6 +325,9 @@ pub async fn download_item(
 
     if let Some(ref no_wm_url) = no_watermark_url {
         if no_wm_url != &item_url && !is_live_photo {
+            if cancellation_token.is_cancelled() {
+                return Err("cancelled".to_string());
+            }
             let req_no_wm = client
                 .get(no_wm_url)
                 .timeout(Duration::from_secs(config.request_timeout_secs))
@@ -325,8 +398,11 @@ pub async fn download_item(
     // writing to disk so we only need a single file write.
     if is_live_photo {
         if let Some(ref video_url) = item_video_url {
+            if cancellation_token.is_cancelled() {
+                return Err("cancelled".to_string());
+            }
             buffer =
-                download_live_photo(&client, video_url, &buffer, &config, index, total, post_id)
+                download_live_photo(&client, video_url, &buffer, &config, index, total, post_id, cancellation_token)
                     .await
                     .unwrap_or_else(|e| {
                         log::error!(
@@ -398,6 +474,7 @@ async fn download_live_photo(
     index: usize,
     total: usize,
     post_id: &str,
+    cancellation_token: CancellationToken,
 ) -> Result<Vec<u8>, String> {
     log::info!(
         "[Post {}:{}/{}] Live Photo: Downloading video from {}",
@@ -406,6 +483,10 @@ async fn download_live_photo(
         total,
         video_url
     );
+
+    if cancellation_token.is_cancelled() {
+        return Err("cancelled".to_string());
+    }
 
     let res = client
         .get(video_url)
@@ -444,4 +525,18 @@ async fn download_live_photo(
     );
 
     mux_motion_photo(image_bytes, &video_bytes, &mime).map_err(|e| format!("Mux failed: {}", e))
+}
+
+#[tauri::command]
+pub fn cancel_download(
+    app_handle: tauri::AppHandle,
+    post_id: String,
+) -> Result<(), String> {
+    let state = app_handle.state::<DownloadCancellationState>();
+    let map = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(token) = map.get(&post_id) {
+        token.cancel();
+        log::info!("Cancelled download for post {}", post_id);
+    }
+    Ok(())
 }

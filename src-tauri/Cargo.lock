@@ -5262,6 +5262,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]
@@ -5995,6 +5996,7 @@ dependencies = [
  "tauri-plugin-os",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-util",
  "url",
  "xmp-writer",
 ]

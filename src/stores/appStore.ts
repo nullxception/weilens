@@ -16,7 +16,8 @@ export interface PostDownloadState {
   total: number;
   completed: number;
   failed: number;
-  items: Record<number, "downloading" | "completed" | "failed">;
+  cancelled: number;
+  items: Record<number, "downloading" | "completed" | "failed" | "cancelled">;
 }
 
 export interface AppState {
@@ -62,7 +63,7 @@ export interface AppState {
   updateDownloadProgress: (
     postId: string,
     index: number,
-    status: "downloading" | "completed" | "failed",
+    status: "downloading" | "completed" | "failed" | "cancelled",
   ) => void;
   clearDownload: (postId: string) => void;
   clearDownloads: () => void;
@@ -216,7 +217,7 @@ export const useAppStore = create<AppState>((set) => ({
   downloads: {},
   startDownload: (postId: string, total: number) =>
     set((state: AppState) => {
-      const items: Record<number, "downloading" | "completed" | "failed"> = {};
+      const items: Record<number, "downloading" | "completed" | "failed" | "cancelled"> = {};
       for (let i = 0; i < total; i++) {
         items[i] = "downloading";
       }
@@ -228,6 +229,7 @@ export const useAppStore = create<AppState>((set) => ({
             total,
             completed: 0,
             failed: 0,
+            cancelled: 0,
             items,
           },
         },
@@ -236,7 +238,7 @@ export const useAppStore = create<AppState>((set) => ({
   updateDownloadProgress: (
     postId: string,
     index: number,
-    status: "downloading" | "completed" | "failed",
+    status: "downloading" | "completed" | "failed" | "cancelled",
   ) =>
     set((state: AppState) => {
       const postDownload = state.downloads[postId];
@@ -245,9 +247,11 @@ export const useAppStore = create<AppState>((set) => ({
       const items = { ...postDownload.items, [index]: status };
       let completed = 0;
       let failed = 0;
+      let cancelled = 0;
       Object.values(items).forEach((s) => {
         if (s === "completed") completed++;
         if (s === "failed") failed++;
+        if (s === "cancelled") cancelled++;
       });
 
       return {
@@ -257,6 +261,7 @@ export const useAppStore = create<AppState>((set) => ({
             ...postDownload,
             completed,
             failed,
+            cancelled,
             items,
           },
         },

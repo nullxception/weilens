@@ -11,9 +11,11 @@ use crate::db::{
     add_place, get_place_by_post, init_db, list_places, remove_blog_place, search_place,
     set_blog_place, DbState,
 };
-use crate::download::{choose_download_dir, default_download_dir, download_post};
+use crate::download::{cancel_download, choose_download_dir, default_download_dir, download_post};
 use crate::image::handle_image_proxy;
+use crate::types::DownloadCancellationState;
 use log::LevelFilter;
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{webview::PageLoadEvent, Manager};
 use tauri_plugin_log::{Target, TargetKind};
@@ -56,6 +58,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(http_client.clone())
+        .manage(DownloadCancellationState(Mutex::new(HashMap::new())))
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_http::init())
         .plugin(
@@ -78,6 +81,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             download_post,
+            cancel_download,
             choose_download_dir,
             default_download_dir,
             list_places,

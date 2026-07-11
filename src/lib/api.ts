@@ -26,3 +26,7 @@ export async function downloadPost(params: {
     count: number;
   }>;
 }
+
+export async function cancelDownload(postId: string): Promise<void> {
+  return invoke("cancel_download", { postId });
+}

@@ -11,7 +11,7 @@ import {
   ProgressLabel,
   ProgressValue,
 } from "../components/ui/progress";
-import { downloadPost } from "../lib/api";
+import { downloadPost, cancelDownload } from "../lib/api";
 import LocationDialog from "./location-dialog";
 import {
   DropdownMenu,
@@ -29,6 +29,7 @@ import {
   MessageSquareQuoteIcon,
   RotateCwIcon,
   ThumbsUpIcon,
+  XCircleIcon,
 } from "lucide-react";
 import type { Place } from "@/types/gps";
 import {
@@ -285,15 +286,28 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
             {downloadItems.length > 0 && (
               <div>
                 {downloadProgress ? (
-                  <Progress value={progressPercent} className="w-48">
-                    <ProgressLabel>
-                      {finished}/{downloadProgress.total}
-                      {downloading > 0 && ` • ${downloading} downloading`}
-                      {failed > 0 && ` • ${failed} failed`}
-                    </ProgressLabel>
+                  <div className="flex items-center gap-1.5">
+                    <Progress value={progressPercent} className="w-48">
+                      <ProgressLabel>
+                        {finished}/{downloadProgress.total}
+                        {downloading > 0 && ` • ${downloading} downloading`}
+                        {failed > 0 && ` • ${failed} failed`}
+                      </ProgressLabel>
 
-                    <ProgressValue>{() => `${progressPercent}%`}</ProgressValue>
-                  </Progress>
+                      <ProgressValue>{() => `${progressPercent}%`}</ProgressValue>
+                    </Progress>
+                    {downloading > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        onClick={() => void cancelDownload(blog.idstr)}
+                      >
+                        <XCircleIcon className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     <Select

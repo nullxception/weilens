@@ -1,9 +1,11 @@
 import { useAppStore, type AppState } from "@/stores/appStore";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, StopCircle } from "lucide-react";
 import { Progress } from "./ui/progress";
+import { Button } from "./ui/button";
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { DownloadProgressPayload } from "@/types/rpc";
+import { cancelDownload } from "@/lib/api";
 
 export function DownloadProgressPanel() {
   const downloads = useAppStore((state: AppState) => state.downloads);
@@ -26,7 +28,7 @@ export function DownloadProgressPanel() {
           useAppStore.getState().downloads[ev.payload.postId];
         if (updatedProgress) {
           const allFinished =
-            updatedProgress.completed + updatedProgress.failed ===
+            updatedProgress.completed + updatedProgress.failed + updatedProgress.cancelled ===
             updatedProgress.total;
           if (allFinished) {
             setTimeout(
@@ -54,11 +56,13 @@ export function DownloadProgressPanel() {
 
       {/* Per-post progress */}
       {entries.map((d) => {
-        const finished = d.completed + d.failed;
+        const finished = d.completed + d.failed + d.cancelled;
         const percent =
           d.total > 0 ? Math.round((finished / d.total) * 100) : 0;
         const isAllDone = finished === d.total;
         const hasError = d.failed > 0;
+        const isCancelled = d.cancelled > 0;
+        const isDownloading = !isAllDone && !isCancelled;
 
         return (
           <div
@@ -73,6 +77,8 @@ export function DownloadProgressPanel() {
                   ) : (
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
                   )
+                ) : isCancelled ? (
+                  <StopCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 ) : (
                   <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
                 )}
@@ -80,14 +86,32 @@ export function DownloadProgressPanel() {
                   Post …{d.postId.slice(-6)}
                 </span>
               </div>
-              <span className="shrink-0 text-[10px] text-muted-foreground">
-                {finished}/{d.total}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="shrink-0 text-[10px] text-muted-foreground">
+                  {finished}/{d.total}
+                </span>
+                {isDownloading && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                    onClick={() => void cancelDownload(d.postId)}
+                  >
+                    <XCircle className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
             <Progress value={percent} />
             {hasError && (
               <span className="text-[10px] text-destructive">
                 {d.failed} failed · {d.completed} saved
+              </span>
+            )}
+            {isCancelled && !hasError && (
+              <span className="text-[10px] text-muted-foreground">
+                Cancelled · {d.completed} saved
               </span>
             )}
           </div>
