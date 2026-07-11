@@ -26,8 +26,11 @@ export function ImageViewer({
 }: ImageViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
+  // Sync index when dialog opens with a new initial position
   useEffect(() => {
-    if (open) setCurrentIndex(initialIndex);
+    if (open)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCurrentIndex(initialIndex);
   }, [open, initialIndex]);
 
   const goNext = useCallback(() => {

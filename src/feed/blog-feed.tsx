@@ -28,7 +28,10 @@ export function BlogFeed({
   const [showReposted, setShowReposted] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(isLoading);
-  isLoadingRef.current = isLoading;
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   useEffect(() => {
     const el = sentinelRef.current;

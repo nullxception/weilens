@@ -40,7 +40,8 @@ export default defineConfig({
             res.writeHead(200, { "Content-Type": contentType });
             const buffer = Buffer.from(await fetched.arrayBuffer());
             res.end(buffer);
-          } catch (err) {
+          } catch {
+            next();
             next();
           }
         });

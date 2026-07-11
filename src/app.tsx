@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { BlogFeed } from "./feed/blog-feed";
 import { AppShell } from "./components/app-shell";
 import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
@@ -53,6 +53,10 @@ function App() {
     return () => mql.removeEventListener("change", handler);
   }, [setSidebarOpen]);
 
+  const handleBackToSearch = useCallback(() => {
+    setActiveView("search");
+  }, [setActiveView]);
+
   useEffect(() => {
     if (activeView !== "settings") return;
 
@@ -64,7 +68,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeView]);
+  }, [activeView, handleBackToSearch]);
 
   useEffect(() => {
     if (!pendingLookupUid) return;
@@ -80,10 +84,6 @@ function App() {
     const nextUid = uid || "";
     setActiveView("search");
     checkUid(nextUid, 1);
-  }
-
-  function handleBackToSearch() {
-    setActiveView("search");
   }
 
   return (

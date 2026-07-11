@@ -40,7 +40,7 @@ export function DownloadProgressPanel() {
     return () => {
       unlistenPromise.then((unlisten) => unlisten());
     };
-  }, []);
+  }, [updateDownloadProgress]);
 
   const entries = Object.values(downloads);
   if (entries.length === 0) return null;

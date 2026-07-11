@@ -77,8 +77,11 @@ async function searchNominatim(
       place: { lat: r.lat, lon: r.lon, name: r.display_name },
       type: "nominatim",
     }));
-  } catch (err: any) {
-    throw new Error(`Nominatim parse error: ${err?.message ?? String(err)}`);
+  } catch (err) {
+    throw new Error(
+      `Nominatim parse error: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
+    );
   }
 
   // interleave: local matches first, dedup by lat/lon
@@ -204,7 +207,9 @@ export default function LocationDialog({
     setResults([]);
     try {
       await refetch();
-    } catch {}
+    } catch {
+      // queryError will reflect the failure
+    }
   }, [query, refetch]);
 
   const confirmSelect = useCallback(
@@ -242,9 +247,12 @@ export default function LocationDialog({
     confirmSelect({ lat: pendingCoord.lat, lon: pendingCoord.lon, name: "" });
   }, [confirmSelect, pendingCoord]);
 
+  // Sync query results into local state so we can clear them between searches
   useEffect(() => {
-    if (data) setResults(data);
-  }, [data]);
+    if (data && data !== results)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResults(data);
+  }, [data, results]);
 
   const showRecent = !isFetching && places.length > 0 && results.length === 0;
 

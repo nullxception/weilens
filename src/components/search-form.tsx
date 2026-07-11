@@ -17,7 +17,9 @@ function extractUid(value: string): string {
     const url = new URL(trimmed);
     const match = url.pathname.match(/\/u\/(\d+)/);
     if (match) return match[1];
-  } catch {}
+  } catch {
+    // not a valid URL, fall through to trimmed value
+  }
   return trimmed;
 }
 

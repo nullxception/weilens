@@ -108,6 +108,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
 
   useEffect(() => {
     if (!blogPlaceKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStoredBlogPlace(null);
       return;
     }
