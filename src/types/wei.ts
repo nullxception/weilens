@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod";
 
 export const UserSchema = z.object({
   id: z.number(),
@@ -8,13 +8,13 @@ export const UserSchema = z.object({
   profile_url: z.string().optional(),
   avatar_large: z.string().optional(),
   avatar_hd: z.string().optional(),
-})
+});
 
 export const PicDimensionSchema = z.object({
   url: z.string(),
   width: z.number(),
   height: z.number(),
-})
+});
 
 export const PicInfoSchema = z.object({
   thumbnail: PicDimensionSchema.nullish(),
@@ -27,12 +27,12 @@ export const PicInfoSchema = z.object({
   pic_id: z.string(),
   type: z.string().nullish(),
   video: z.string().optional().nullish(),
-})
+});
 
 export const WeiPostTagSchema = z.object({
   tag_name: z.string(),
   otype: z.string().optional(),
-})
+});
 
 export const WeiPostSchema = z.object({
   created_at: z.string(),
@@ -49,18 +49,18 @@ export const WeiPostSchema = z.object({
   text: z.string(),
   region_name: z.string().optional(),
   tag_struct: z.array(WeiPostTagSchema).optional(),
-})
+});
 
 export const WeiDataSchema = z.object({
   since_id: z.string().optional(),
   list: z.array(WeiPostSchema),
-})
+});
 
-export const WeiResponseSchema = z.object({ data: WeiDataSchema })
+export const WeiResponseSchema = z.object({ data: WeiDataSchema });
 
-export type User = z.infer<typeof UserSchema>
-export type PicDimension = z.infer<typeof PicDimensionSchema>
-export type PicInfo = z.infer<typeof PicInfoSchema>
-export type WeiPost = z.infer<typeof WeiPostSchema>
-export type WeiData = z.infer<typeof WeiDataSchema>
-export type WeiResponse = z.infer<typeof WeiResponseSchema>
+export type User = z.infer<typeof UserSchema>;
+export type PicDimension = z.infer<typeof PicDimensionSchema>;
+export type PicInfo = z.infer<typeof PicInfoSchema>;
+export type WeiPost = z.infer<typeof WeiPostSchema>;
+export type WeiData = z.infer<typeof WeiDataSchema>;
+export type WeiResponse = z.infer<typeof WeiResponseSchema>;

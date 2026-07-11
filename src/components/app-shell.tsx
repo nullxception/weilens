@@ -1,8 +1,8 @@
-import type { ReactNode } from "react"
-import { HistoryPanel } from "./history-panel"
-import { SearchForm } from "./search-form"
-import { SettingsModal } from "../settings/settings-modal"
-import { Button } from "./ui/button"
+import type { ReactNode } from "react";
+import { HistoryPanel } from "./history-panel";
+import { SearchForm } from "./search-form";
+import { SettingsModal } from "../settings/settings-modal";
+import { Button } from "./ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -11,20 +11,20 @@ import {
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
-} from "./ui/sidebar"
-import { TooltipProvider } from "./ui/tooltip"
-import { SettingsIcon } from "lucide-react"
-import { DownloadProgressPanel } from "./download-progress-panel"
-import { useAppStore, type AppState } from "../stores/appStore"
+} from "./ui/sidebar";
+import { TooltipProvider } from "./ui/tooltip";
+import { SettingsIcon } from "lucide-react";
+import { DownloadProgressPanel } from "./download-progress-panel";
+import { useAppStore, type AppState } from "../stores/appStore";
 
 interface AppShellProps {
-  uid: string
-  isLoading: boolean
-  onUidChange: (uid: string) => void
-  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void
-  onOpenSettings: () => void
-  historyOnSidebar: boolean
-  children: ReactNode
+  uid: string;
+  isLoading: boolean;
+  onUidChange: (uid: string) => void;
+  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void;
+  onOpenSettings: () => void;
+  historyOnSidebar: boolean;
+  children: ReactNode;
 }
 
 function SidebarInner({
@@ -36,39 +36,39 @@ function SidebarInner({
   showHistory,
   history,
 }: {
-  uid: string
-  isLoading: boolean
-  onUidChange: (uid: string) => void
-  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void
-  onOpenSettings: () => void
-  showHistory: boolean
+  uid: string;
+  isLoading: boolean;
+  onUidChange: (uid: string) => void;
+  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void;
+  onOpenSettings: () => void;
+  showHistory: boolean;
   history: AppShellProps["historyOnSidebar"] extends never
     ? never
     : {
-        uid: string
-        screenName: string
-        profileImageUrl: string
-        timestamp: number
-      }[]
+        uid: string;
+        screenName: string;
+        profileImageUrl: string;
+        timestamp: number;
+      }[];
 }) {
-  const { isMobile, setOpenMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar();
   const onHistoryClick = useAppStore(
-    (state: AppState) => state.openHistoryProfile
-  )
+    (state: AppState) => state.openHistoryProfile,
+  );
   const onRemoveFromHistory = useAppStore(
-    (state: AppState) => state.removeFromHistory
-  )
-  const onClearHistory = useAppStore((state: AppState) => state.clearHistory)
+    (state: AppState) => state.removeFromHistory,
+  );
+  const onClearHistory = useAppStore((state: AppState) => state.clearHistory);
   const closeSidebar = () => {
     if (isMobile) {
-      setOpenMobile(false)
+      setOpenMobile(false);
     }
-  }
+  };
 
   const handleOpenSettings = () => {
-    onOpenSettings()
-    closeSidebar()
-  }
+    onOpenSettings();
+    closeSidebar();
+  };
 
   return (
     <>
@@ -78,8 +78,8 @@ function SidebarInner({
           isLoading={isLoading}
           onUidChange={onUidChange}
           onSubmit={(event) => {
-            onSubmit(event)
-            closeSidebar()
+            onSubmit(event);
+            closeSidebar();
           }}
         />
       </SidebarHeader>
@@ -88,8 +88,8 @@ function SidebarInner({
           <HistoryPanel
             history={history}
             onProfileClick={(profileUid) => {
-              onHistoryClick(profileUid)
-              closeSidebar()
+              onHistoryClick(profileUid);
+              closeSidebar();
             }}
             onRemove={onRemoveFromHistory}
             onClear={onClearHistory}
@@ -109,7 +109,7 @@ function SidebarInner({
         </Button>
       </SidebarFooter>
     </>
-  )
+  );
 }
 
 export function AppShell({
@@ -121,9 +121,9 @@ export function AppShell({
   historyOnSidebar,
   children,
 }: AppShellProps) {
-  const activeView = useAppStore((state: AppState) => state.activeView)
-  const history = useAppStore((state: AppState) => state.history)
-  const showHistory = history.length > 0 && historyOnSidebar
+  const activeView = useAppStore((state: AppState) => state.activeView);
+  const history = useAppStore((state: AppState) => state.history);
+  const showHistory = history.length > 0 && historyOnSidebar;
 
   return (
     <TooltipProvider>
@@ -152,5 +152,5 @@ export function AppShell({
         </div>
       </SidebarProvider>
     </TooltipProvider>
-  )
+  );
 }

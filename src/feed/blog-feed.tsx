@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState } from "react"
-import type { WeiPost } from "../types/wei"
-import { useAppStore, type AppState } from "../stores/appStore"
-import { BlogCard } from "./blog-card"
-import { HistoryPanel } from "../components/history-panel"
-import { Card, CardContent } from "../components/ui/card"
-import { Button } from "../components/ui/button"
+import { useEffect, useRef, useState } from "react";
+import type { WeiPost } from "../types/wei";
+import { useAppStore, type AppState } from "../stores/appStore";
+import { BlogCard } from "./blog-card";
+import { HistoryPanel } from "../components/history-panel";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 
 interface BlogFeedProps {
-  blogs: WeiPost[]
-  result: string
-  error: string
-  isLoading: boolean
-  hasMore: boolean
-  onLoadMore: () => void
-  activeDisplayName?: string
+  blogs: WeiPost[];
+  result: string;
+  error: string;
+  isLoading: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
+  activeDisplayName?: string;
 }
 
 export function BlogFeed({
@@ -25,48 +25,48 @@ export function BlogFeed({
   onLoadMore,
   activeDisplayName,
 }: BlogFeedProps) {
-  const [showReposted, setShowReposted] = useState(true)
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  const isLoadingRef = useRef(isLoading)
-  isLoadingRef.current = isLoading
+  const [showReposted, setShowReposted] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
 
   useEffect(() => {
-    const el = sentinelRef.current
-    if (!el || !hasMore) return
+    const el = sentinelRef.current;
+    if (!el || !hasMore) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !isLoadingRef.current) {
-          onLoadMore()
+          onLoadMore();
         }
       },
-      { threshold: 0.1 }
-    )
+      { threshold: 0.1 },
+    );
 
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [hasMore, onLoadMore])
-  const activeUid = useAppStore((state: AppState) => state.activeUid)
-  const history = useAppStore((state: AppState) => state.history)
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, onLoadMore]);
+  const activeUid = useAppStore((state: AppState) => state.activeUid);
+  const history = useAppStore((state: AppState) => state.history);
   const onHistoryClick = useAppStore(
-    (state: AppState) => state.openHistoryProfile
-  )
+    (state: AppState) => state.openHistoryProfile,
+  );
   const onRemoveFromHistory = useAppStore(
-    (state: AppState) => state.removeFromHistory
-  )
-  const onClearHistory = useAppStore((state: AppState) => state.clearHistory)
+    (state: AppState) => state.removeFromHistory,
+  );
+  const onClearHistory = useAppStore((state: AppState) => state.clearHistory);
 
   const visibleBlogs = showReposted
     ? blogs
     : blogs.filter((blog) => {
-        const authorId = blog.user?.idstr
-        return !authorId || authorId === activeUid
-      })
+        const authorId = blog.user?.idstr;
+        return !authorId || authorId === activeUid;
+      });
 
   const repostCount = blogs.filter((blog) => {
-    const authorId = blog.user?.idstr
-    return Boolean(authorId && authorId !== activeUid)
-  }).length
+    const authorId = blog.user?.idstr;
+    return Boolean(authorId && authorId !== activeUid);
+  }).length;
 
   return (
     <>
@@ -148,5 +148,5 @@ export function BlogFeed({
         </Card>
       )}
     </>
-  )
+  );
 }

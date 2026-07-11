@@ -1,19 +1,19 @@
-import { X } from "lucide-react"
+import { X } from "lucide-react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardAction,
-} from "../components/ui/card"
-import { Input } from "../components/ui/input"
-import { Textarea } from "../components/ui/textarea"
-import { Button } from "../components/ui/button"
-import { Label } from "../components/ui/label"
-import { chooseDownloadDir, defaultDownloadDir } from "../lib/api"
-import { useAppStore, type AppState } from "../stores/appStore"
-import { ButtonGroup } from "../components/ui/button-group"
-import { Suspense, use } from "react"
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { Button } from "../components/ui/button";
+import { Label } from "../components/ui/label";
+import { chooseDownloadDir, defaultDownloadDir } from "../lib/api";
+import { useAppStore, type AppState } from "../stores/appStore";
+import { ButtonGroup } from "../components/ui/button-group";
+import { Suspense, use } from "react";
 import {
   Select,
   SelectContent,
@@ -22,13 +22,13 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select"
-import type { WmPosition } from "@/types/rpc"
+} from "../components/ui/select";
+import type { WmPosition } from "@/types/rpc";
 
-const systemDownloadDir = defaultDownloadDir()
+const systemDownloadDir = defaultDownloadDir();
 
 function DownloadPathInput({ savedLocation }: { savedLocation: string }) {
-  const dir = use(systemDownloadDir)
+  const dir = use(systemDownloadDir);
   return (
     <Input
       type="text"
@@ -37,31 +37,31 @@ function DownloadPathInput({ savedLocation }: { savedLocation: string }) {
       placeholder={dir}
       className="min-w-0 flex-1"
     />
-  )
+  );
 }
 
 export function SettingsPanel() {
-  const cookie = useAppStore((state: AppState) => state.cookie)
-  const setCookie = useAppStore((state: AppState) => state.setCookie)
+  const cookie = useAppStore((state: AppState) => state.cookie);
+  const setCookie = useAppStore((state: AppState) => state.setCookie);
   const downloadLocation = useAppStore(
-    (state: AppState) => state.downloadLocation
-  )
+    (state: AppState) => state.downloadLocation,
+  );
   const setDownloadLocation = useAppStore(
-    (state: AppState) => state.setDownloadLocation
-  )
-  const wmPosition = useAppStore((state: AppState) => state.wmPosition)
-  const setWmPosition = useAppStore((state: AppState) => state.setWmPosition)
-  const onBack = useAppStore((state: AppState) => state.closeSettings)
-  const savedMessage = useAppStore((state: AppState) => state.savedMessage)
-  const saveCookie = useAppStore((state: AppState) => state.saveCookie)
+    (state: AppState) => state.setDownloadLocation,
+  );
+  const wmPosition = useAppStore((state: AppState) => state.wmPosition);
+  const setWmPosition = useAppStore((state: AppState) => state.setWmPosition);
+  const onBack = useAppStore((state: AppState) => state.closeSettings);
+  const savedMessage = useAppStore((state: AppState) => state.savedMessage);
+  const saveCookie = useAppStore((state: AppState) => state.saveCookie);
 
   const handleChooseDownloadFolder = async () => {
-    const selectedPath = await chooseDownloadDir(downloadLocation)
+    const selectedPath = await chooseDownloadDir(downloadLocation);
 
     if (selectedPath.length > 0) {
-      setDownloadLocation(selectedPath)
+      setDownloadLocation(selectedPath);
     }
-  }
+  };
 
   return (
     <Card size="sm">
@@ -175,5 +175,5 @@ export function SettingsPanel() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

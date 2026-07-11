@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   Dialog,
@@ -6,19 +6,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog"
-import { Input } from "../components/ui/input"
-import { Button } from "../components/ui/button"
+} from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
 import {
   useInfiniteQuery,
   useQuery,
   useQueryClient,
-} from "@tanstack/react-query"
-import { ScrollArea } from "../components/ui/scroll-area"
-import { useCallback, useEffect, useState } from "react"
-import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps"
-import { invoke } from "@tauri-apps/api/core"
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
+} from "@tanstack/react-query";
+import { ScrollArea } from "../components/ui/scroll-area";
+import { useCallback, useEffect, useState } from "react";
+import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps";
+import { invoke } from "@tauri-apps/api/core";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import {
   BookmarkIcon,
   GlobeIcon,
@@ -26,75 +26,75 @@ import {
   LoaderCircle,
   SearchIcon,
   XIcon,
-} from "lucide-react"
-import { ButtonGroup } from "../components/ui/button-group"
+} from "lucide-react";
+import { ButtonGroup } from "../components/ui/button-group";
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 20;
 
 function parseCoordinateInput(input: string): GPSData | null {
-  const trimmed = input.trim()
-  if (!trimmed) return null
+  const trimmed = input.trim();
+  if (!trimmed) return null;
 
-  const normalized = trimmed.replace(/[()]/g, "").replace(/,/g, " ").trim()
-  const parts = normalized.split(/\s+/).filter(Boolean)
+  const normalized = trimmed.replace(/[()]/g, "").replace(/,/g, " ").trim();
+  const parts = normalized.split(/\s+/).filter(Boolean);
 
-  if (parts.length !== 2) return null
+  if (parts.length !== 2) return null;
 
-  const lat = Number(parts[0])
-  const lon = Number(parts[1])
+  const lat = Number(parts[0]);
+  const lon = Number(parts[1]);
 
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
 
-  return { lat, lon }
+  return { lat, lon };
 }
 
 interface SearchPlaceResult {
-  place: Place
-  type: "local" | "nominatim"
+  place: Place;
+  type: "local" | "nominatim";
 }
 
 async function searchNominatim(
   q: string,
-  limit = 10
+  limit = 10,
 ): Promise<SearchPlaceResult[]> {
-  if (!q) return []
+  if (!q) return [];
 
   const [nominatimRes, localPlaces] = await Promise.all([
     tauriFetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=${limit}`,
-      { headers: { Accept: "application/json" } }
+      { headers: { Accept: "application/json" } },
     ),
     invoke<Place[]>("search_place", { for: q }).catch(() => [] as Place[]),
-  ])
+  ]);
 
   if (!nominatimRes.ok)
-    throw new Error(`Nominatim error ${nominatimRes.status}`)
-  const raw = await nominatimRes.json()
-  let parsed: SearchPlaceResult[]
+    throw new Error(`Nominatim error ${nominatimRes.status}`);
+  const raw = await nominatimRes.json();
+  let parsed: SearchPlaceResult[];
   try {
     parsed = NominatimSearchSchema.parse(raw).map((r) => ({
       place: { lat: r.lat, lon: r.lon, name: r.display_name },
       type: "nominatim",
-    }))
+    }));
   } catch (err: any) {
-    throw new Error(`Nominatim parse error: ${err?.message ?? String(err)}`)
+    throw new Error(`Nominatim parse error: ${err?.message ?? String(err)}`);
   }
 
   // interleave: local matches first, dedup by lat/lon
-  const seen = new Set<string>()
-  const combined: SearchPlaceResult[] = []
+  const seen = new Set<string>();
+  const combined: SearchPlaceResult[] = [];
   for (const r of [
     ...localPlaces.map((p) => ({ place: p, type: "local" })),
     ...parsed,
   ]) {
-    const key = `${r.place.lat.toFixed(5)},${r.place.lon.toFixed(5)}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    combined.push(r as SearchPlaceResult)
+    const key = `${r.place.lat.toFixed(5)},${r.place.lon.toFixed(5)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    combined.push(r as SearchPlaceResult);
   }
 
-  return combined
+  return combined;
 }
 
 export default function LocationDialog({
@@ -104,21 +104,21 @@ export default function LocationDialog({
   renderTrigger = true,
   suggestedLocation,
 }: {
-  onSelect?: (place: Place) => void
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-  renderTrigger?: boolean
-  suggestedLocation?: string
+  onSelect?: (place: Place) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  renderTrigger?: boolean;
+  suggestedLocation?: string;
 }) {
-  const [query, setQuery] = useState("")
-  const [results, setResults] = useState<SearchPlaceResult[]>([])
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchPlaceResult[]>([]);
 
   // Pending coord save prompt state
-  const [pendingCoord, setPendingCoord] = useState<GPSData | null>(null)
-  const [saveName, setSaveName] = useState("")
-  const [saveMode, setSaveMode] = useState<"ask" | "saving" | null>(null)
+  const [pendingCoord, setPendingCoord] = useState<GPSData | null>(null);
+  const [saveName, setSaveName] = useState("");
+  const [saveMode, setSaveMode] = useState<"ask" | "saving" | null>(null);
 
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   const {
     data: placesPages,
@@ -130,52 +130,52 @@ export default function LocationDialog({
     queryKey: ["places"],
     queryFn: async ({ pageParam }) => {
       const res = await invoke<{
-        places: Place[]
-        total: number
-      }>("list_places", { limit: PAGE_SIZE, offset: pageParam })
-      return res
+        places: Place[];
+        total: number;
+      }>("list_places", { limit: PAGE_SIZE, offset: pageParam });
+      return res;
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      const fetched = allPages.reduce((sum, p) => sum + p.places.length, 0)
-      return fetched < lastPage.total ? fetched : undefined
+      const fetched = allPages.reduce((sum, p) => sum + p.places.length, 0);
+      return fetched < lastPage.total ? fetched : undefined;
     },
     staleTime: 1000 * 60,
-  })
+  });
 
-  const places = placesPages?.pages.flatMap((p) => p.places) ?? []
+  const places = placesPages?.pages.flatMap((p) => p.places) ?? [];
   const [scrollViewport, setScrollViewport] = useState<HTMLDivElement | null>(
-    null
-  )
+    null,
+  );
   const vpRefCallback = useCallback((node: HTMLDivElement | null) => {
-    setScrollViewport(node)
-  }, [])
+    setScrollViewport(node);
+  }, []);
 
   const checkAndLoadMore = useCallback(() => {
-    if (!scrollViewport) return
-    if (!hasNextPage || isFetchingNextPage) return
+    if (!scrollViewport) return;
+    if (!hasNextPage || isFetchingNextPage) return;
 
     const remaining =
       scrollViewport.scrollHeight -
       scrollViewport.scrollTop -
-      scrollViewport.clientHeight
+      scrollViewport.clientHeight;
 
     if (remaining <= 150) {
-      fetchNextPage()
+      fetchNextPage();
     }
-  }, [scrollViewport, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [scrollViewport, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
-    if (!scrollViewport) return
+    if (!scrollViewport) return;
 
-    checkAndLoadMore() // fill viewport if needed
+    checkAndLoadMore(); // fill viewport if needed
     scrollViewport.addEventListener("scroll", checkAndLoadMore, {
       passive: true,
-    })
+    });
     return () => {
-      scrollViewport.removeEventListener("scroll", checkAndLoadMore)
-    }
-  }, [scrollViewport, checkAndLoadMore])
+      scrollViewport.removeEventListener("scroll", checkAndLoadMore);
+    };
+  }, [scrollViewport, checkAndLoadMore]);
 
   const {
     data,
@@ -187,39 +187,39 @@ export default function LocationDialog({
     queryFn: async () => await searchNominatim(query, 3),
     enabled: false,
     staleTime: 1000 * 60,
-  })
+  });
 
   const doSearch = useCallback(async () => {
-    if (!query) return
+    if (!query) return;
 
-    const parsedCoords = parseCoordinateInput(query)
+    const parsedCoords = parseCoordinateInput(query);
     if (parsedCoords) {
       // Ask user whether to save before selecting
-      setPendingCoord(parsedCoords)
-      setSaveName("")
-      setSaveMode("ask")
-      return
+      setPendingCoord(parsedCoords);
+      setSaveName("");
+      setSaveMode("ask");
+      return;
     }
 
-    setResults([])
+    setResults([]);
     try {
-      await refetch()
+      await refetch();
     } catch {}
-  }, [query, refetch])
+  }, [query, refetch]);
 
   const confirmSelect = useCallback(
     (p: Place) => {
-      onSelect?.(p)
-      onOpenChange?.(false)
-      setPendingCoord(null)
-      setSaveMode(null)
+      onSelect?.(p);
+      onOpenChange?.(false);
+      setPendingCoord(null);
+      setSaveMode(null);
     },
-    [onOpenChange, onSelect]
-  )
+    [onOpenChange, onSelect],
+  );
 
   const handleSaveAndSelect = useCallback(() => {
-    if (!pendingCoord) return
-    const trimmed = saveName.trim()
+    if (!pendingCoord) return;
+    const trimmed = saveName.trim();
     if (trimmed) {
       invoke("add_place", {
         place: {
@@ -227,26 +227,26 @@ export default function LocationDialog({
           lat: pendingCoord.lat,
           lon: pendingCoord.lon,
         },
-      }).catch(console.error)
-      queryClient.invalidateQueries({ queryKey: ["places"] })
+      }).catch(console.error);
+      queryClient.invalidateQueries({ queryKey: ["places"] });
     }
     confirmSelect({
       lat: pendingCoord.lat,
       lon: pendingCoord.lon,
       name: trimmed,
-    })
-  }, [confirmSelect, pendingCoord, queryClient, saveName])
+    });
+  }, [confirmSelect, pendingCoord, queryClient, saveName]);
 
   const handleSkipSave = useCallback(() => {
-    if (!pendingCoord) return
-    confirmSelect({ lat: pendingCoord.lat, lon: pendingCoord.lon, name: "" })
-  }, [confirmSelect, pendingCoord])
+    if (!pendingCoord) return;
+    confirmSelect({ lat: pendingCoord.lat, lon: pendingCoord.lon, name: "" });
+  }, [confirmSelect, pendingCoord]);
 
   useEffect(() => {
-    if (data) setResults(data)
-  }, [data])
+    if (data) setResults(data);
+  }, [data]);
 
-  const showRecent = !isFetching && places.length > 0 && results.length === 0
+  const showRecent = !isFetching && places.length > 0 && results.length === 0;
 
   return (
     <>
@@ -267,8 +267,8 @@ export default function LocationDialog({
             <div
               className="cursor-pointer rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground"
               onClick={() => {
-                setQuery(suggestedLocation)
-                void doSearch()
+                setQuery(suggestedLocation);
+                void doSearch();
               }}
             >
               Post location:{" "}
@@ -285,7 +285,7 @@ export default function LocationDialog({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") doSearch()
+                if (e.key === "Enter") doSearch();
               }}
             />
             <Button onClick={doSearch} disabled={isFetching} variant="outline">
@@ -315,7 +315,7 @@ export default function LocationDialog({
                 value={saveName}
                 onChange={(e) => setSaveName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveAndSelect()
+                  if (e.key === "Enter") handleSaveAndSelect();
                 }}
                 className="h-8 text-sm"
               />
@@ -362,8 +362,8 @@ export default function LocationDialog({
                     key={`${rp.lat}-${rp.lon}-${String(rp.name).slice(0, 30)}`}
                     className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
                     onClick={() => {
-                      onSelect?.({ lat: rp.lat, lon: rp.lon, name: rp.name })
-                      onOpenChange?.(false)
+                      onSelect?.({ lat: rp.lat, lon: rp.lon, name: rp.name });
+                      onOpenChange?.(false);
                     }}
                   >
                     <div className="text-sm">{rp.name}</div>
@@ -393,10 +393,10 @@ export default function LocationDialog({
                           lat: p.place.lat,
                           lon: p.place.lon,
                         },
-                      }).catch(console.error)
-                      queryClient.invalidateQueries({ queryKey: ["places"] })
-                      onSelect?.(p.place)
-                      onOpenChange?.(false)
+                      }).catch(console.error);
+                      queryClient.invalidateQueries({ queryKey: ["places"] });
+                      onSelect?.(p.place);
+                      onOpenChange?.(false);
                     }}
                   >
                     {p.type == "nominatim" ? (
@@ -418,5 +418,5 @@ export default function LocationDialog({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

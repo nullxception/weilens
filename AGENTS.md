@@ -56,7 +56,7 @@ src-tauri/src/        # Rust backend
 
 ## Code style
 
-- Prettier: no semicolons, double quotes, ES5 trailing commas, LF, 2-space indent
+- Prettier: semicolons, double quotes, trailing commas (all), LF, 2-space indent
 - `prettier-plugin-tailwindcss` auto-sorts Tailwind classes (`cn` and `cva` configured as tailwind functions)
 - TypeScript strict mode, no unused locals/parameters
 - ESLint ignores `dist` and `src-tauri`

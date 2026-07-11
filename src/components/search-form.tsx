@@ -1,24 +1,24 @@
-import { Input } from "./ui/input"
-import { Button } from "./ui/button"
-import { LoaderCircle, SearchIcon } from "lucide-react"
-import { useAppStore, type AppState } from "../stores/appStore"
-import { ButtonGroup } from "./ui/button-group"
+import { Input } from "./ui/input";
+import { Button } from "./ui/button";
+import { LoaderCircle, SearchIcon } from "lucide-react";
+import { useAppStore, type AppState } from "../stores/appStore";
+import { ButtonGroup } from "./ui/button-group";
 
 interface SearchFormProps {
-  uid: string
-  isLoading: boolean
-  onUidChange: (uid: string) => void
-  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void
+  uid: string;
+  isLoading: boolean;
+  onUidChange: (uid: string) => void;
+  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void;
 }
 
 function extractUid(value: string): string {
-  const trimmed = value.trim()
+  const trimmed = value.trim();
   try {
-    const url = new URL(trimmed)
-    const match = url.pathname.match(/\/u\/(\d+)/)
-    if (match) return match[1]
+    const url = new URL(trimmed);
+    const match = url.pathname.match(/\/u\/(\d+)/);
+    if (match) return match[1];
   } catch {}
-  return trimmed
+  return trimmed;
 }
 
 export function SearchForm({
@@ -27,17 +27,17 @@ export function SearchForm({
   onUidChange,
   onSubmit,
 }: SearchFormProps) {
-  const setActiveUid = useAppStore((state: AppState) => state.setActiveUid)
+  const setActiveUid = useAppStore((state: AppState) => state.setActiveUid);
 
   const handleUidChange = (value: string) => {
-    onUidChange(extractUid(value))
-  }
+    onUidChange(extractUid(value));
+  };
 
   const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
-    const nextUid = extractUid(uid)
-    setActiveUid(nextUid)
-    onSubmit(event)
-  }
+    const nextUid = extractUid(uid);
+    setActiveUid(nextUid);
+    onSubmit(event);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
@@ -63,5 +63,5 @@ export function SearchForm({
         </Button>
       </ButtonGroup>
     </form>
-  )
+  );
 }

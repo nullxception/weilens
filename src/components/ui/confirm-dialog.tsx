@@ -1,20 +1,15 @@
-"use client"
+"use client";
 
-import { Button } from "./button"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./dialog"
+import { Button } from "./button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
 
 export interface ConfirmDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  description?: string
-  confirmLabel?: string
-  onConfirm: () => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description?: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
 }
 
 export function ConfirmDialog({
@@ -34,7 +29,7 @@ export function ConfirmDialog({
         {description && (
           <p className="text-xs text-muted-foreground">{description}</p>
         )}
-        <div className="flex gap-2 justify-end pt-1">
+        <div className="flex justify-end gap-2 pt-1">
           <Button
             variant="outline"
             size="sm"
@@ -46,8 +41,8 @@ export function ConfirmDialog({
             variant="destructive"
             size="sm"
             onClick={() => {
-              onConfirm()
-              onOpenChange(false)
+              onConfirm();
+              onOpenChange(false);
             }}
           >
             {confirmLabel}
@@ -55,5 +50,5 @@ export function ConfirmDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

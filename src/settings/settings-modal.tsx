@@ -3,12 +3,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog"
-import { SettingsPanel } from "./settings-panel"
-import { useAppStore, type AppState } from "../stores/appStore"
+} from "../components/ui/dialog";
+import { SettingsPanel } from "./settings-panel";
+import { useAppStore, type AppState } from "../stores/appStore";
 
 export function SettingsModal() {
-  const onBack = useAppStore((state: AppState) => state.closeSettings)
+  const onBack = useAppStore((state: AppState) => state.closeSettings);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onBack()}>
@@ -22,5 +22,5 @@ export function SettingsModal() {
         <SettingsPanel />
       </DialogContent>
     </Dialog>
-  )
+  );
 }

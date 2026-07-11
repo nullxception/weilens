@@ -1,27 +1,27 @@
-import { useEffect, useState } from "react"
-import { invoke } from "@tauri-apps/api/core"
-import { type DownloadItem, type WmPosition } from "../types/rpc"
-import type { PicDimension, PicInfo, WeiPost } from "../types/wei"
-import { useAppStore, type AppState } from "../stores/appStore"
-import type { GPSData } from "../types/gps"
-import { Card, CardContent } from "../components/ui/card"
-import { Button } from "../components/ui/button"
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { type DownloadItem, type WmPosition } from "../types/rpc";
+import type { PicDimension, PicInfo, WeiPost } from "../types/wei";
+import { useAppStore, type AppState } from "../stores/appStore";
+import type { GPSData } from "../types/gps";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import {
   Progress,
   ProgressLabel,
   ProgressValue,
-} from "../components/ui/progress"
-import { downloadPost } from "../lib/api"
-import LocationDialog from "./location-dialog"
+} from "../components/ui/progress";
+import { downloadPost } from "../lib/api";
+import LocationDialog from "./location-dialog";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "../components/ui/dropdown-menu"
-import { proxyImage } from "@/lib/proxy"
-import Masonry, { ResponsiveMasonry } from "react-responsive-masonry"
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
+} from "../components/ui/dropdown-menu";
+import { proxyImage } from "@/lib/proxy";
+import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import {
   DownloadIcon,
   EraserIcon,
@@ -29,8 +29,8 @@ import {
   MessageSquareQuoteIcon,
   RotateCwIcon,
   ThumbsUpIcon,
-} from "lucide-react"
-import type { Place } from "@/types/gps"
+} from "lucide-react";
+import type { Place } from "@/types/gps";
 import {
   Select,
   SelectContent,
@@ -39,96 +39,96 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select"
-import { ImageViewer } from "./image-viewer"
+} from "../components/ui/select";
+import { ImageViewer } from "./image-viewer";
 
 interface BlogCardProps {
-  blog: WeiPost
-  activeDisplayName?: string
+  blog: WeiPost;
+  activeDisplayName?: string;
 }
 
 function getAspectRatio(pdm: PicDimension | undefined): string {
-  if (!pdm || !pdm.width || !pdm.height) return "1 / 1"
-  return `${pdm.width} / ${pdm.height}`
+  if (!pdm || !pdm.width || !pdm.height) return "1 / 1";
+  return `${pdm.width} / ${pdm.height}`;
 }
 
 function getPreferredImage(info: PicInfo | undefined) {
   // largest > mw2000/original > large >
-  const pic = info?.largest ?? info?.mw2000 ?? info?.original ?? info?.large
+  const pic = info?.largest ?? info?.mw2000 ?? info?.original ?? info?.large;
   // largecover > bmiddle > thumbnail
-  const thumb = info?.largecover ?? info?.bmiddle ?? info?.thumbnail
+  const thumb = info?.largecover ?? info?.bmiddle ?? info?.thumbnail;
 
   return {
     url: pic?.url ?? "",
     thumb: thumb,
     videoUrl: info?.type === "livephoto" && info?.video ? info?.video : null,
     picId: info?.pic_id,
-  }
+  };
 }
 
 const wmPositions = [
   { label: "Top", value: "top" },
   { label: "Center", value: "center" },
   { label: "Bottom", value: "bottom" },
-]
+];
 
 export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const downloadLocation = useAppStore(
-    (state: AppState) => state.downloadLocation
-  )
-  const defaultWmPos = useAppStore((state: AppState) => state.wmPosition)
-  const activeUid = useAppStore((state: AppState) => state.activeUid)
-  const startDownload = useAppStore((state: AppState) => state.startDownload)
-  const clearDownload = useAppStore((state: AppState) => state.clearDownload)
+    (state: AppState) => state.downloadLocation,
+  );
+  const defaultWmPos = useAppStore((state: AppState) => state.wmPosition);
+  const activeUid = useAppStore((state: AppState) => state.activeUid);
+  const startDownload = useAppStore((state: AppState) => state.startDownload);
+  const clearDownload = useAppStore((state: AppState) => state.clearDownload);
   const downloadProgress = useAppStore(
-    (state: AppState) => state.downloads[blog.idstr] ?? null
-  )
+    (state: AppState) => state.downloads[blog.idstr] ?? null,
+  );
 
   const downloadItems = (blog.pic_ids ?? [])
     .map((picId) => {
-      const picData = blog.pic_infos?.[picId]
-      const info = getPreferredImage(picData)
-      return info ? { url: info.url, videoUrl: info.videoUrl } : null
+      const picData = blog.pic_infos?.[picId];
+      const info = getPreferredImage(picData);
+      return info ? { url: info.url, videoUrl: info.videoUrl } : null;
     })
-    .filter((item): item is DownloadItem => item !== null)
+    .filter((item): item is DownloadItem => item !== null);
 
   const locationTag = blog.tag_struct?.find(
-    (tag) => tag.otype === "place"
-  )?.tag_name
+    (tag) => tag.otype === "place",
+  )?.tag_name;
 
   // --- Blog place (persisted per post) ---
   const blogPlaceKey =
-    blog.user?.id != null ? `${blog.user.id}_${blog.mblogid}` : null
-  const [storedBlogPlace, setStoredBlogPlace] = useState<Place | null>(null)
-  const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null)
-  const [locationDialogOpen, setLocationDialogOpen] = useState(false)
-  const [wmPosition, setWmPosition] = useState<WmPosition>(defaultWmPos)
-  const [viewerOpen, setViewerOpen] = useState(false)
-  const [viewerIndex, setViewerIndex] = useState(0)
+    blog.user?.id != null ? `${blog.user.id}_${blog.mblogid}` : null;
+  const [storedBlogPlace, setStoredBlogPlace] = useState<Place | null>(null);
+  const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null);
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [wmPosition, setWmPosition] = useState<WmPosition>(defaultWmPos);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   useEffect(() => {
     if (!blogPlaceKey) {
-      setStoredBlogPlace(null)
-      return
+      setStoredBlogPlace(null);
+      return;
     }
-    const [userId, mblogid] = blogPlaceKey.split("_")
+    const [userId, mblogid] = blogPlaceKey.split("_");
     invoke<Place>("get_place_by_post", { userId, mblogid })
       .then((place) => {
-        setStoredBlogPlace(place)
-        setGpsLocation({ lat: place.lat, lon: place.lon })
+        setStoredBlogPlace(place);
+        setGpsLocation({ lat: place.lat, lon: place.lon });
       })
       .catch(() => {
-        setStoredBlogPlace(null)
-      })
-  }, [blogPlaceKey])
+        setStoredBlogPlace(null);
+      });
+  }, [blogPlaceKey]);
 
   const clearProgressLater = () => {
-    setTimeout(() => clearDownload(blog.idstr), 3000)
-  }
+    setTimeout(() => clearDownload(blog.idstr), 3000);
+  };
 
   const handleDownload = async (loc?: GPSData | null) => {
-    if (loc) setGpsLocation(loc)
-    startDownload(blog.idstr, downloadItems.length)
+    if (loc) setGpsLocation(loc);
+    startDownload(blog.idstr, downloadItems.length);
 
     try {
       await downloadPost({
@@ -139,38 +139,38 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
         downloadDir: downloadLocation || undefined,
         location: loc ?? gpsLocation ?? undefined,
         wmPosition,
-      })
+      });
     } catch (error) {
-      console.error("Failed to start download", error)
-      clearProgressLater()
+      console.error("Failed to start download", error);
+      clearProgressLater();
     }
-  }
+  };
 
-  const completed = downloadProgress?.completed ?? 0
-  const failed = downloadProgress?.failed ?? 0
+  const completed = downloadProgress?.completed ?? 0;
+  const failed = downloadProgress?.failed ?? 0;
   const downloading = downloadProgress
     ? downloadProgress.total - completed - failed
-    : 0
-  const finished = completed + failed
+    : 0;
+  const finished = completed + failed;
   const progressPercent = downloadProgress
     ? Math.round((finished / downloadProgress.total) * 100)
-    : 0
+    : 0;
 
   const isReposted = Boolean(
-    activeUid && blog.user?.idstr && blog.user.idstr !== activeUid
-  )
+    activeUid && blog.user?.idstr && blog.user.idstr !== activeUid,
+  );
 
   const viewerImages = (blog.pic_ids ?? [])
     .map((picId) => {
-      const picData = blog.pic_infos?.[picId]
-      const info = getPreferredImage(picData)
-      if (!info.url) return null
+      const picData = blog.pic_infos?.[picId];
+      const info = getPreferredImage(picData);
+      if (!info.url) return null;
       return {
         url: info.url,
         aspectRatio: getAspectRatio(info.thumb ?? undefined),
-      }
+      };
     })
-    .filter((img): img is { url: string; aspectRatio: string } => img !== null)
+    .filter((img): img is { url: string; aspectRatio: string } => img !== null);
 
   return (
     <div className="flex flex-col gap-1">
@@ -224,15 +224,15 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                 blog.pic_ids.length > 0 &&
                 blog.pic_infos &&
                 blog.pic_ids.map((picId, idx) => {
-                  const picData = blog.pic_infos?.[picId]
-                  const info = getPreferredImage(picData)
+                  const picData = blog.pic_infos?.[picId];
+                  const info = getPreferredImage(picData);
                   return info.thumb ? (
                     <div
                       key={picId}
                       className="relative w-full cursor-pointer overflow-hidden rounded-md border border-border transition-opacity hover:opacity-90"
                       onClick={() => {
-                        setViewerIndex(idx)
-                        setViewerOpen(true)
+                        setViewerIndex(idx);
+                        setViewerOpen(true);
                       }}
                     >
                       <img
@@ -249,7 +249,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                           </div>
                         )}
                     </div>
-                  ) : null
+                  ) : null;
                 })}
             </Masonry>
           </ResponsiveMasonry>
@@ -354,20 +354,20 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                       onOpenChange={setLocationDialogOpen}
                       suggestedLocation={locationTag}
                       onSelect={(p) => {
-                        setStoredBlogPlace(p)
-                        setGpsLocation({ lat: p.lat, lon: p.lon })
+                        setStoredBlogPlace(p);
+                        setGpsLocation({ lat: p.lat, lon: p.lon });
                         if (blog.user?.id != null) {
                           invoke("set_blog_place", {
                             userId: String(blog.user.id),
                             mblogid: blog.mblogid,
                             place: p,
-                          }).catch(console.error)
+                          }).catch(console.error);
                         }
 
                         void handleDownload({
                           lat: p.lat,
                           lon: p.lon,
-                        })
+                        });
                       }}
                     />
                   </div>
@@ -384,5 +384,5 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
         onOpenChange={setViewerOpen}
       />
     </div>
-  )
+  );
 }

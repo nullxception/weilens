@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
+import { useEffect } from "react";
 
-const DEBUG_EVENT_NAME = "ctui:debug"
-const EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"])
+const DEBUG_EVENT_NAME = "ctui:debug";
+const EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
 
 function isModifiedClick(event: MouseEvent) {
   return (
@@ -13,41 +13,41 @@ function isModifiedClick(event: MouseEvent) {
     event.ctrlKey ||
     event.shiftKey ||
     event.altKey
-  )
+  );
 }
 
 function shouldOpenExternally(anchor: HTMLAnchorElement) {
-  const href = anchor.getAttribute("href")
+  const href = anchor.getAttribute("href");
 
   if (!href || href.startsWith("#") || anchor.hasAttribute("download")) {
-    return false
+    return false;
   }
 
   try {
-    const url = new URL(anchor.href, window.location.href)
+    const url = new URL(anchor.href, window.location.href);
 
     if (!EXTERNAL_PROTOCOLS.has(url.protocol)) {
-      return false
+      return false;
     }
 
     if (url.protocol === "mailto:" || url.protocol === "tel:") {
-      return true
+      return true;
     }
 
-    return url.origin !== window.location.origin
+    return url.origin !== window.location.origin;
   } catch {
-    return false
+    return false;
   }
 }
 
 async function openExternalLink(href: string) {
-  const { openUrl } = await import("@tauri-apps/plugin-opener")
-  await openUrl(href)
+  const { openUrl } = await import("@tauri-apps/plugin-opener");
+  await openUrl(href);
 }
 
 function emitExternalLinkDebugEvent(href: string) {
   if (typeof window === "undefined") {
-    return
+    return;
   }
 
   window.dispatchEvent(
@@ -58,44 +58,44 @@ function emitExternalLinkDebugEvent(href: string) {
         href,
         timestamp: new Date().toISOString(),
       },
-    })
-  )
+    }),
+  );
 }
 
 export function ExternalLinkGuard() {
   useEffect(() => {
     function handleClick(event: MouseEvent) {
       if (isModifiedClick(event)) {
-        return
+        return;
       }
 
-      const target = event.target
+      const target = event.target;
 
       if (!(target instanceof Element)) {
-        return
+        return;
       }
 
-      const anchor = target.closest("a[href]")
+      const anchor = target.closest("a[href]");
 
       if (!(anchor instanceof HTMLAnchorElement)) {
-        return
+        return;
       }
 
       if (!shouldOpenExternally(anchor)) {
-        return
+        return;
       }
 
-      event.preventDefault()
-      emitExternalLinkDebugEvent(anchor.href)
-      void openExternalLink(anchor.href)
+      event.preventDefault();
+      emitExternalLinkDebugEvent(anchor.href);
+      void openExternalLink(anchor.href);
     }
 
-    document.addEventListener("click", handleClick, true)
+    document.addEventListener("click", handleClick, true);
 
     return () => {
-      document.removeEventListener("click", handleClick, true)
-    }
-  }, [])
+      document.removeEventListener("click", handleClick, true);
+    };
+  }, []);
 
-  return null
+  return null;
 }

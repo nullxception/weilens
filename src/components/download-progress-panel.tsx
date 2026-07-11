@@ -1,15 +1,15 @@
-import { useAppStore, type AppState } from "@/stores/appStore"
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
-import { Progress } from "./ui/progress"
-import { useEffect } from "react"
-import { listen } from "@tauri-apps/api/event"
-import type { DownloadProgressPayload } from "@/types/rpc"
+import { useAppStore, type AppState } from "@/stores/appStore";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Progress } from "./ui/progress";
+import { useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
+import type { DownloadProgressPayload } from "@/types/rpc";
 
 export function DownloadProgressPanel() {
-  const downloads = useAppStore((state: AppState) => state.downloads)
+  const downloads = useAppStore((state: AppState) => state.downloads);
   const updateDownloadProgress = useAppStore(
-    (state: AppState) => state.updateDownloadProgress
-  )
+    (state: AppState) => state.updateDownloadProgress,
+  );
 
   useEffect(() => {
     const unlistenPromise = listen<DownloadProgressPayload>(
@@ -18,32 +18,32 @@ export function DownloadProgressPanel() {
         updateDownloadProgress(
           ev.payload.postId,
           ev.payload.index,
-          ev.payload.status
-        )
+          ev.payload.status,
+        );
 
         // Auto-clear after all items finish
         const updatedProgress =
-          useAppStore.getState().downloads[ev.payload.postId]
+          useAppStore.getState().downloads[ev.payload.postId];
         if (updatedProgress) {
           const allFinished =
             updatedProgress.completed + updatedProgress.failed ===
-            updatedProgress.total
+            updatedProgress.total;
           if (allFinished) {
             setTimeout(
               () => useAppStore.getState().clearDownload(ev.payload.postId),
-              3000
-            )
+              3000,
+            );
           }
         }
-      }
-    )
+      },
+    );
     return () => {
-      unlistenPromise.then((unlisten) => unlisten())
-    }
-  }, [])
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
 
-  const entries = Object.values(downloads)
-  if (entries.length === 0) return null
+  const entries = Object.values(downloads);
+  if (entries.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-2">
@@ -54,10 +54,11 @@ export function DownloadProgressPanel() {
 
       {/* Per-post progress */}
       {entries.map((d) => {
-        const finished = d.completed + d.failed
-        const percent = d.total > 0 ? Math.round((finished / d.total) * 100) : 0
-        const isAllDone = finished === d.total
-        const hasError = d.failed > 0
+        const finished = d.completed + d.failed;
+        const percent =
+          d.total > 0 ? Math.round((finished / d.total) * 100) : 0;
+        const isAllDone = finished === d.total;
+        const hasError = d.failed > 0;
 
         return (
           <div
@@ -90,8 +91,8 @@ export function DownloadProgressPanel() {
               </span>
             )}
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }

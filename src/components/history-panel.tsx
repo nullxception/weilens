@@ -1,23 +1,23 @@
-import { useState } from "react"
-import { TrashIcon, X } from "lucide-react"
-import { Button } from "./ui/button"
-import { ConfirmDialog } from "./ui/confirm-dialog"
-import { proxyImage } from "@/lib/proxy"
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
-import { useAppStore, type AppState } from "../stores/appStore"
+import { useState } from "react";
+import { TrashIcon, X } from "lucide-react";
+import { Button } from "./ui/button";
+import { ConfirmDialog } from "./ui/confirm-dialog";
+import { proxyImage } from "@/lib/proxy";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { useAppStore, type AppState } from "../stores/appStore";
 
 export interface CheckedProfile {
-  uid: string
-  screenName: string
-  profileImageUrl: string
-  timestamp: number
+  uid: string;
+  screenName: string;
+  profileImageUrl: string;
+  timestamp: number;
 }
 
 interface HistoryPanelProps {
-  history: CheckedProfile[]
-  onProfileClick: (uid: string) => void
-  onRemove: (uid: string) => void
-  onClear: () => void
+  history: CheckedProfile[];
+  onProfileClick: (uid: string) => void;
+  onRemove: (uid: string) => void;
+  onClear: () => void;
 }
 
 export function HistoryPanel({
@@ -26,12 +26,12 @@ export function HistoryPanel({
   onRemove,
   onClear,
 }: HistoryPanelProps) {
-  const activeUid = useAppStore((state: AppState) => state.activeUid)
+  const activeUid = useAppStore((state: AppState) => state.activeUid);
 
-  const [confirmClearOpen, setConfirmClearOpen] = useState(false)
-  const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null)
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);
 
-  if (history.length === 0) return null
+  if (history.length === 0) return null;
 
   return (
     <>
@@ -46,12 +46,14 @@ export function HistoryPanel({
 
       <ConfirmDialog
         open={confirmRemoveUid !== null}
-        onOpenChange={(o) => { if (!o) setConfirmRemoveUid(null) }}
+        onOpenChange={(o) => {
+          if (!o) setConfirmRemoveUid(null);
+        }}
         title="Remove from history?"
         description="This profile will be removed from your recent history."
         confirmLabel="Remove"
         onConfirm={() => {
-          if (confirmRemoveUid !== null) onRemove(confirmRemoveUid)
+          if (confirmRemoveUid !== null) onRemove(confirmRemoveUid);
         }}
       />
 
@@ -60,7 +62,12 @@ export function HistoryPanel({
           <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
             Recently
           </h2>
-          <Button type="button" variant="destructive" size="xs" onClick={() => setConfirmClearOpen(true)}>
+          <Button
+            type="button"
+            variant="destructive"
+            size="xs"
+            onClick={() => setConfirmClearOpen(true)}
+          >
             <TrashIcon />
             Clear
           </Button>
@@ -68,7 +75,7 @@ export function HistoryPanel({
 
         <div className="flex flex-col gap-1.5">
           {history.map((profile) => {
-            const isActive = activeUid === profile.uid
+            const isActive = activeUid === profile.uid;
             return (
               <div
                 key={profile.uid}
@@ -106,8 +113,8 @@ export function HistoryPanel({
                   variant="ghost"
                   size="icon-xs"
                   onClick={(e) => {
-                    e.stopPropagation()
-                    setConfirmRemoveUid(profile.uid)
+                    e.stopPropagation();
+                    setConfirmRemoveUid(profile.uid);
                   }}
                   className="scale-90 hover:bg-destructive/10 hover:text-destructive md:opacity-0 md:group-hover:scale-100 md:group-hover:opacity-100"
                   aria-label="Remove from history"
@@ -115,10 +122,10 @@ export function HistoryPanel({
                   <X className="h-3 w-3" />
                 </Button>
               </div>
-            )
+            );
           })}
         </div>
       </div>
     </>
-  )
+  );
 }

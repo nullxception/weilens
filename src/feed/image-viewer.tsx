@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useState } from "react"
-import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog"
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { Button } from "../components/ui/button"
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
-import { proxyImage } from "@/lib/proxy"
+import { useCallback, useEffect, useState } from "react";
+import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { Button } from "../components/ui/button";
+import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react";
+import { proxyImage } from "@/lib/proxy";
 
 export interface ImageItem {
-  url: string
-  thumbUrl?: string
-  aspectRatio?: string
+  url: string;
+  thumbUrl?: string;
+  aspectRatio?: string;
 }
 
 interface ImageViewerProps {
-  images: ImageItem[]
-  initialIndex?: number
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  images: ImageItem[];
+  initialIndex?: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function ImageViewer({
@@ -24,29 +24,29 @@ export function ImageViewer({
   open,
   onOpenChange,
 }: ImageViewerProps) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex)
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
   useEffect(() => {
-    if (open) setCurrentIndex(initialIndex)
-  }, [open, initialIndex])
+    if (open) setCurrentIndex(initialIndex);
+  }, [open, initialIndex]);
 
   const goNext = useCallback(() => {
-    setCurrentIndex((i) => (i + 1) % images.length)
-  }, [images.length])
+    setCurrentIndex((i) => (i + 1) % images.length);
+  }, [images.length]);
 
   const goPrev = useCallback(() => {
-    setCurrentIndex((i) => (i - 1 + images.length) % images.length)
-  }, [images.length])
+    setCurrentIndex((i) => (i - 1 + images.length) % images.length);
+  }, [images.length]);
 
-  const goFirst = useCallback(() => setCurrentIndex(0), [])
+  const goFirst = useCallback(() => setCurrentIndex(0), []);
   const goLast = useCallback(
     () => setCurrentIndex(images.length - 1),
-    [images.length]
-  )
+    [images.length],
+  );
 
-  if (images.length === 0) return null
+  if (images.length === 0) return null;
 
-  const current = images[currentIndex]
+  const current = images[currentIndex];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -55,11 +55,11 @@ export function ImageViewer({
         <DialogPrimitive.Popup
           className="fixed inset-0 z-50 flex items-center justify-center outline-none"
           onKeyDown={(e) => {
-            if (e.key === "ArrowRight" || e.key === "l") goNext()
-            else if (e.key === "ArrowLeft" || e.key === "h") goPrev()
-            else if (e.key === "Home") goFirst()
-            else if (e.key === "End") goLast()
-            else if (e.key === "Escape") onOpenChange(false)
+            if (e.key === "ArrowRight" || e.key === "l") goNext();
+            else if (e.key === "ArrowLeft" || e.key === "h") goPrev();
+            else if (e.key === "Home") goFirst();
+            else if (e.key === "End") goLast();
+            else if (e.key === "Escape") onOpenChange(false);
           }}
         >
           {/* Close */}
@@ -114,5 +114,5 @@ export function ImageViewer({
         </DialogPrimitive.Popup>
       </DialogPortal>
     </Dialog>
-  )
+  );
 }

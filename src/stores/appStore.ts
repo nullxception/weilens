@@ -1,103 +1,103 @@
-import { create } from "zustand"
-import { StorageKeys } from "../storage-keys"
-import { invoke } from "@tauri-apps/api/core"
-import { NominatimResultSchema, PlaceSchema, type Place } from "@/types/gps"
-import type { WmPosition } from "@/types/rpc"
+import { create } from "zustand";
+import { StorageKeys } from "../storage-keys";
+import { invoke } from "@tauri-apps/api/core";
+import { NominatimResultSchema, PlaceSchema, type Place } from "@/types/gps";
+import type { WmPosition } from "@/types/rpc";
 
 export interface CheckedProfile {
-  uid: string
-  screenName: string
-  profileImageUrl: string
-  timestamp: number
+  uid: string;
+  screenName: string;
+  profileImageUrl: string;
+  timestamp: number;
 }
 
 export interface PostDownloadState {
-  postId: string
-  total: number
-  completed: number
-  failed: number
-  items: Record<number, "downloading" | "completed" | "failed">
+  postId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  items: Record<number, "downloading" | "completed" | "failed">;
 }
 
 export interface AppState {
   /** Raw cookie string as entered by the user. */
-  cookie: string
+  cookie: string;
   /**
    * Cookie ready to use as an HTTP header value.
    * Netscape/cookie-jar format is automatically converted to
    * `name=value; name2=value2` on store write.
    */
-  parsedCookie: string
-  downloadLocation: string
-  wmPosition: WmPosition
-  history: CheckedProfile[]
-  activeUid: string
-  activeView: "search" | "settings"
-  pendingLookupUid: string | null
-  isSidebarOpen: boolean
-  historyOnSidebar: boolean
-  savedMessage: string
-  setCookie: (cookie: string) => void
-  setActiveUid: (uid: string) => void
-  setDownloadLocation: (downloadLocation: string) => void
-  setWmPosition: (wmPosition: WmPosition) => void
-  setActiveView: (view: "search" | "settings") => void
-  setPendingLookupUid: (uid: string | null) => void
-  setSidebarOpen: (isOpen: boolean) => void
-  setHistoryOnSidebar: (value: boolean) => void
-  setSavedMessage: (message: string) => void
-  saveCookie: () => void
-  closeSettings: () => void
-  openHistoryProfile: (uid: string) => void
-  toggleSidebar: () => void
+  parsedCookie: string;
+  downloadLocation: string;
+  wmPosition: WmPosition;
+  history: CheckedProfile[];
+  activeUid: string;
+  activeView: "search" | "settings";
+  pendingLookupUid: string | null;
+  isSidebarOpen: boolean;
+  historyOnSidebar: boolean;
+  savedMessage: string;
+  setCookie: (cookie: string) => void;
+  setActiveUid: (uid: string) => void;
+  setDownloadLocation: (downloadLocation: string) => void;
+  setWmPosition: (wmPosition: WmPosition) => void;
+  setActiveView: (view: "search" | "settings") => void;
+  setPendingLookupUid: (uid: string | null) => void;
+  setSidebarOpen: (isOpen: boolean) => void;
+  setHistoryOnSidebar: (value: boolean) => void;
+  setSavedMessage: (message: string) => void;
+  saveCookie: () => void;
+  closeSettings: () => void;
+  openHistoryProfile: (uid: string) => void;
+  toggleSidebar: () => void;
   addToHistory: (
     uid: string,
     screenName: string,
-    profileImageUrl: string
-  ) => void
-  removeFromHistory: (uid: string) => void
-  clearHistory: () => void
-  downloads: Record<string, PostDownloadState>
-  startDownload: (postId: string, total: number) => void
+    profileImageUrl: string,
+  ) => void;
+  removeFromHistory: (uid: string) => void;
+  clearHistory: () => void;
+  downloads: Record<string, PostDownloadState>;
+  startDownload: (postId: string, total: number) => void;
   updateDownloadProgress: (
     postId: string,
     index: number,
-    status: "downloading" | "completed" | "failed"
-  ) => void
-  clearDownload: (postId: string) => void
-  clearDownloads: () => void
-  initStore: () => Promise<void>
+    status: "downloading" | "completed" | "failed",
+  ) => void;
+  clearDownload: (postId: string) => void;
+  clearDownloads: () => void;
+  initStore: () => Promise<void>;
 }
 
 type NetscapeCookie = {
-  domain: string
-  includeSubdomains: boolean
-  path: string
-  secure: boolean
-  expires: number
-  name: string
-  value: string
-  httpOnly: boolean
-}
+  domain: string;
+  includeSubdomains: boolean;
+  path: string;
+  secure: boolean;
+  expires: number;
+  name: string;
+  value: string;
+  httpOnly: boolean;
+};
 
 function parseNetscapeCookies(text: string): NetscapeCookie[] {
-  const cookies: NetscapeCookie[] = []
+  const cookies: NetscapeCookie[] = [];
 
   for (let line of text.split("\n")) {
     if (
       !line.trim() ||
       (line.startsWith("#") && !line.startsWith("#HttpOnly_"))
     ) {
-      continue
+      continue;
     }
 
-    let isHttpOnly = false
+    let isHttpOnly = false;
     if (line.startsWith("#HttpOnly_")) {
-      line = line.replace("#HttpOnly_", "")
-      isHttpOnly = true
+      line = line.replace("#HttpOnly_", "");
+      isHttpOnly = true;
     }
 
-    const fields = line.split("\t")
+    const fields = line.split("\t");
     if (fields.length >= 7) {
       cookies.push({
         domain: fields[0].trim(),
@@ -108,11 +108,11 @@ function parseNetscapeCookies(text: string): NetscapeCookie[] {
         name: fields[5].trim(),
         value: fields[6].trim().replace(/\r$/, ""),
         httpOnly: isHttpOnly,
-      })
+      });
     }
   }
 
-  return cookies
+  return cookies;
 }
 
 /**
@@ -121,62 +121,62 @@ function parseNetscapeCookies(text: string): NetscapeCookie[] {
  * unchanged.
  */
 export function toHttpCookieHeader(cookie: string): string {
-  const isNetscapeCookie = cookie.includes("TRUE") || cookie.includes("FALSE")
+  const isNetscapeCookie = cookie.includes("TRUE") || cookie.includes("FALSE");
   if (cookie.includes("/") && isNetscapeCookie) {
     return parseNetscapeCookies(cookie)
       .filter((c) => c.domain.includes("weibo."))
       .map((c) => `${c.name}=${c.value}`)
-      .join("; ")
+      .join("; ");
   }
-  return cookie
+  return cookie;
 }
 
 function readCookieFromStorage() {
   try {
-    return localStorage.getItem(StorageKeys.COOKIE) ?? ""
+    return localStorage.getItem(StorageKeys.COOKIE) ?? "";
   } catch {
-    return ""
+    return "";
   }
 }
 
 function readDownloadLocationFromStorage() {
   try {
-    return localStorage.getItem(StorageKeys.DOWNLOAD_PATH) ?? ""
+    return localStorage.getItem(StorageKeys.DOWNLOAD_PATH) ?? "";
   } catch {
-    return ""
+    return "";
   }
 }
 
 function readWmPositionFromStorage(): WmPosition {
   try {
-    const val = localStorage.getItem(StorageKeys.WM_POSITION)
-    if (val === "top" || val === "center" || val === "bottom") return val
-    return "bottom"
+    const val = localStorage.getItem(StorageKeys.WM_POSITION);
+    if (val === "top" || val === "center" || val === "bottom") return val;
+    return "bottom";
   } catch {
-    return "bottom"
+    return "bottom";
   }
 }
 
 function readHistoryFromStorage(): CheckedProfile[] {
   try {
-    const saved = localStorage.getItem(StorageKeys.PROFILE_HISTORY)
-    return saved ? JSON.parse(saved) : []
+    const saved = localStorage.getItem(StorageKeys.PROFILE_HISTORY);
+    return saved ? JSON.parse(saved) : [];
   } catch {
-    return []
+    return [];
   }
 }
 
 function readPlacesFromStorage(): Place[] {
   try {
-    const recents = localStorage.getItem(StorageKeys.RECENT_PLACES)
+    const recents = localStorage.getItem(StorageKeys.RECENT_PLACES);
     const recentPlaces = recents
       ? NominatimResultSchema.array().parse(JSON.parse(recents))
-      : []
+      : [];
 
-    const saved = localStorage.getItem(StorageKeys.PLACES)
+    const saved = localStorage.getItem(StorageKeys.PLACES);
     const savedPlaces = saved
       ? PlaceSchema.array().parse(JSON.parse(saved))
-      : []
+      : [];
     return [
       ...recentPlaces.map((p) => ({
         lat: p.lat,
@@ -184,26 +184,26 @@ function readPlacesFromStorage(): Place[] {
         name: p.display_name,
       })),
       ...savedPlaces,
-    ]
+    ];
   } catch {
-    return []
+    return [];
   }
 }
 
 function readBlogPlacesFromStorage(): Record<string, Place> {
   try {
-    const saved = localStorage.getItem(StorageKeys.BLOG_PLACES)
-    return saved ? JSON.parse(saved) : {}
+    const saved = localStorage.getItem(StorageKeys.BLOG_PLACES);
+    return saved ? JSON.parse(saved) : {};
   } catch {
-    return {}
+    return {};
   }
 }
 
 function writeHistoryToStorage(history: CheckedProfile[]) {
   try {
-    localStorage.setItem(StorageKeys.PROFILE_HISTORY, JSON.stringify(history))
+    localStorage.setItem(StorageKeys.PROFILE_HISTORY, JSON.stringify(history));
   } catch (error) {
-    console.error("Failed to save history to localStorage:", error)
+    console.error("Failed to save history to localStorage:", error);
   }
 }
 
@@ -216,9 +216,9 @@ export const useAppStore = create<AppState>((set) => ({
   downloads: {},
   startDownload: (postId: string, total: number) =>
     set((state: AppState) => {
-      const items: Record<number, "downloading" | "completed" | "failed"> = {}
+      const items: Record<number, "downloading" | "completed" | "failed"> = {};
       for (let i = 0; i < total; i++) {
-        items[i] = "downloading"
+        items[i] = "downloading";
       }
       return {
         downloads: {
@@ -231,24 +231,24 @@ export const useAppStore = create<AppState>((set) => ({
             items,
           },
         },
-      }
+      };
     }),
   updateDownloadProgress: (
     postId: string,
     index: number,
-    status: "downloading" | "completed" | "failed"
+    status: "downloading" | "completed" | "failed",
   ) =>
     set((state: AppState) => {
-      const postDownload = state.downloads[postId]
-      if (!postDownload) return {}
+      const postDownload = state.downloads[postId];
+      if (!postDownload) return {};
 
-      const items = { ...postDownload.items, [index]: status }
-      let completed = 0
-      let failed = 0
+      const items = { ...postDownload.items, [index]: status };
+      let completed = 0;
+      let failed = 0;
       Object.values(items).forEach((s) => {
-        if (s === "completed") completed++
-        if (s === "failed") failed++
-      })
+        if (s === "completed") completed++;
+        if (s === "failed") failed++;
+      });
 
       return {
         downloads: {
@@ -260,13 +260,13 @@ export const useAppStore = create<AppState>((set) => ({
             items,
           },
         },
-      }
+      };
     }),
   clearDownload: (postId: string) =>
     set((state: AppState) => {
-      const next = { ...state.downloads }
-      delete next[postId]
-      return { downloads: next }
+      const next = { ...state.downloads };
+      delete next[postId];
+      return { downloads: next };
     }),
   clearDownloads: () => set({ downloads: {} }),
   activeUid: "",
@@ -277,30 +277,30 @@ export const useAppStore = create<AppState>((set) => ({
   savedMessage: "",
   setCookie: (cookie: string) => {
     try {
-      localStorage.setItem(StorageKeys.COOKIE, cookie)
+      localStorage.setItem(StorageKeys.COOKIE, cookie);
     } catch (error) {
-      console.error("Failed to save cookie to localStorage:", error)
+      console.error("Failed to save cookie to localStorage:", error);
     }
 
-    set({ cookie, parsedCookie: toHttpCookieHeader(cookie) })
+    set({ cookie, parsedCookie: toHttpCookieHeader(cookie) });
   },
   setDownloadLocation: (downloadLocation: string) => {
     try {
-      localStorage.setItem(StorageKeys.DOWNLOAD_PATH, downloadLocation)
+      localStorage.setItem(StorageKeys.DOWNLOAD_PATH, downloadLocation);
     } catch (error) {
-      console.error("Failed to save download location to localStorage:", error)
+      console.error("Failed to save download location to localStorage:", error);
     }
 
-    set({ downloadLocation })
+    set({ downloadLocation });
   },
   setWmPosition: (wmPosition: WmPosition) => {
     try {
-      localStorage.setItem(StorageKeys.WM_POSITION, wmPosition)
+      localStorage.setItem(StorageKeys.WM_POSITION, wmPosition);
     } catch (error) {
-      console.error("Failed to save WM position to localStorage:", error)
+      console.error("Failed to save WM position to localStorage:", error);
     }
 
-    set({ wmPosition })
+    set({ wmPosition });
   },
   setActiveUid: (activeUid: string) => set({ activeUid }),
   setActiveView: (activeView: "search" | "settings") => set({ activeView }),
@@ -310,8 +310,8 @@ export const useAppStore = create<AppState>((set) => ({
   setHistoryOnSidebar: (historyOnSidebar: boolean) => set({ historyOnSidebar }),
   setSavedMessage: (savedMessage: string) => set({ savedMessage }),
   saveCookie: () => {
-    set({ savedMessage: "Cookie saved locally." })
-    window.setTimeout(() => set({ savedMessage: "" }), 2000)
+    set({ savedMessage: "Cookie saved locally." });
+    window.setTimeout(() => set({ savedMessage: "" }), 2000);
   },
   closeSettings: () => set({ activeView: "search" }),
   openHistoryProfile: (uid: string) =>
@@ -325,7 +325,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((state: AppState) => ({ isSidebarOpen: !state.isSidebarOpen })),
   addToHistory: (uid: string, screenName: string, profileImageUrl: string) =>
     set((state: AppState) => {
-      const filtered = state.history.filter((item) => item.uid !== uid)
+      const filtered = state.history.filter((item) => item.uid !== uid);
       const nextHistory = [
         {
           uid,
@@ -334,62 +334,62 @@ export const useAppStore = create<AppState>((set) => ({
           timestamp: Date.now(),
         },
         ...filtered,
-      ]
+      ];
 
-      writeHistoryToStorage(nextHistory)
+      writeHistoryToStorage(nextHistory);
 
-      return { history: nextHistory }
+      return { history: nextHistory };
     }),
   removeFromHistory: (uid: string) =>
     set((state: AppState) => {
-      const nextHistory = state.history.filter((item) => item.uid !== uid)
-      writeHistoryToStorage(nextHistory)
+      const nextHistory = state.history.filter((item) => item.uid !== uid);
+      writeHistoryToStorage(nextHistory);
 
-      return { history: nextHistory }
+      return { history: nextHistory };
     }),
   clearHistory: () => {
     try {
-      localStorage.removeItem(StorageKeys.PROFILE_HISTORY)
+      localStorage.removeItem(StorageKeys.PROFILE_HISTORY);
     } catch (error) {
-      console.error("Failed to clear history from localStorage:", error)
+      console.error("Failed to clear history from localStorage:", error);
     }
 
-    set({ history: [] })
+    set({ history: [] });
   },
   initStore: async () => {
     try {
       const { total } = await invoke<{ places: Place[]; total: number }>(
         "list_places",
-        { limit: 10, offset: 0 }
-      )
+        { limit: 10, offset: 0 },
+      );
 
       // If SQLite is empty, check if we have data in localStorage to migrate
       if (total === 0) {
-        const localSaved = readPlacesFromStorage()
-        const localBlog = readBlogPlacesFromStorage()
+        const localSaved = readPlacesFromStorage();
+        const localBlog = readBlogPlacesFromStorage();
 
         if (localSaved.length > 0 || Object.keys(localBlog).length > 0) {
           // Migrate local saved places to SQLite
           for (const sp of localSaved) {
-            await invoke("add_place", { place: sp })
+            await invoke("add_place", { place: sp });
           }
           // Migrate local blog places to SQLite
           for (const [key, bp] of Object.entries(localBlog)) {
-            const idx = key.indexOf("_")
+            const idx = key.indexOf("_");
             if (idx !== -1) {
-              const userId = key.substring(0, idx)
-              const mblogid = key.substring(idx + 1)
-              await invoke("set_blog_place", { userId, mblogid, place: bp })
+              const userId = key.substring(0, idx);
+              const mblogid = key.substring(idx + 1);
+              await invoke("set_blog_place", { userId, mblogid, place: bp });
             }
           }
           // Clear localStorage
-          localStorage.removeItem(StorageKeys.PLACES)
-          localStorage.removeItem(StorageKeys.BLOG_PLACES)
-          return
+          localStorage.removeItem(StorageKeys.PLACES);
+          localStorage.removeItem(StorageKeys.BLOG_PLACES);
+          return;
         }
       }
     } catch (err) {
-      console.error("Failed to initialize places from SQLite:", err)
+      console.error("Failed to initialize places from SQLite:", err);
     }
   },
-}))
+}));

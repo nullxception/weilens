@@ -1,23 +1,23 @@
-import { useState } from "react"
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "../components/ui/dialog"
-import { Button } from "../components/ui/button"
-import { useAppStore, type AppState } from "../stores/appStore"
+} from "../components/ui/dialog";
+import { Button } from "../components/ui/button";
+import { useAppStore, type AppState } from "../stores/appStore";
 
 export function CookieSetupDialog() {
-  const cookie = useAppStore((state: AppState) => state.cookie)
-  const setActiveView = useAppStore((state: AppState) => state.setActiveView)
-  const [isOpen, setIsOpen] = useState(!cookie)
+  const cookie = useAppStore((state: AppState) => state.cookie);
+  const setActiveView = useAppStore((state: AppState) => state.setActiveView);
+  const [isOpen, setIsOpen] = useState(!cookie);
 
   const handleGoToSettings = () => {
-    setActiveView("settings")
-    setIsOpen(false)
-  }
+    setActiveView("settings");
+    setIsOpen(false);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -37,5 +37,5 @@ export function CookieSetupDialog() {
         </Button>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
