@@ -1,14 +1,16 @@
 import { create } from "zustand";
 
+export type ViewKey = "search" | "settings" | "explore" | "downloads";
+
 interface UiState {
   activeUid: string;
-  activeView: "search" | "settings";
+  activeView: ViewKey;
   pendingLookupUid: string | null;
   isSidebarOpen: boolean;
   historyOnSidebar: boolean;
 
   setActiveUid: (uid: string) => void;
-  setActiveView: (view: "search" | "settings") => void;
+  setActiveView: (view: ViewKey) => void;
   setPendingLookupUid: (uid: string | null) => void;
   setSidebarOpen: (isOpen: boolean) => void;
   setHistoryOnSidebar: (value: boolean) => void;
@@ -26,7 +28,7 @@ export const useUiStore = create<UiState>((set) => ({
   historyOnSidebar: false,
 
   setActiveUid: (activeUid: string) => set({ activeUid }),
-  setActiveView: (activeView: "search" | "settings") => set({ activeView }),
+  setActiveView: (activeView: ViewKey) => set({ activeView }),
   setPendingLookupUid: (pendingLookupUid: string | null) =>
     set({ pendingLookupUid }),
   setSidebarOpen: (isSidebarOpen: boolean) => set({ isSidebarOpen }),

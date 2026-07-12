@@ -1,11 +1,15 @@
-import { useCallback, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { BlogFeed } from "./feed/blog-feed";
 import { AppShell } from "./components/app-shell";
 import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
 import { useProfileLookup } from "./hooks/use-profile-lookup";
 import { useUiStore } from "./stores/useUiStore";
 import { usePlacesStore } from "./stores/usePlacesStore";
+import { Skeleton } from "./components/ui/skeleton";
+
+const BlogFeed = React.lazy(() =>
+  import("./feed/blog-feed").then((m) => ({ default: m.BlogFeed })),
+);
 
 function App() {
   const {
@@ -100,15 +104,26 @@ function App() {
         onOpenSettings={() => setActiveView("settings")}
         historyOnSidebar={historyOnSidebar}
       >
-        <BlogFeed
-          blogs={blogs}
-          result={result}
-          error={error}
-          isLoading={isLoading}
-          hasMore={hasMore}
-          onLoadMore={handleNextPage}
-          activeDisplayName={activeDisplayName}
-        />
+        <Suspense
+          fallback={
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          }
+        >
+          {activeView === "search" && (
+            <BlogFeed
+              blogs={blogs}
+              result={result}
+              error={error}
+              isLoading={isLoading}
+              hasMore={hasMore}
+              onLoadMore={handleNextPage}
+              activeDisplayName={activeDisplayName}
+            />
+          )}
+        </Suspense>
       </AppShell>
     </>
   );
