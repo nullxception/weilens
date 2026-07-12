@@ -1,4 +1,5 @@
 import { proxyImage } from "@/lib/proxy";
+import { useUiStore } from "../stores/useUiStore";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import type { BlogPost } from "../types/remote";
 
@@ -17,9 +18,16 @@ export function BlogCardHeader({ blog }: BlogCardHeaderProps) {
       </Avatar>
 
       <div>
-        <p className="text-sm font-semibold text-foreground">
+        <button
+          className="text-sm font-semibold text-foreground hover:underline"
+          onClick={() => {
+            if (blog.user?.idstr) {
+              useUiStore.getState().openHistoryProfile(blog.user.idstr);
+            }
+          }}
+        >
           {blog.user?.screen_name || "Unknown User"}
-        </p>
+        </button>
         <p className="text-xs text-muted-foreground">
           {blog.created_at}{" "}
           {blog.region_name ? `• ${blog.region_name}` : ""}
