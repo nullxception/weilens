@@ -112,7 +112,7 @@ export function BlogCardDownloadActions({
     <div className="flex items-center gap-2">
       {downloadProgress ? (
         <div className="flex items-center gap-1.5">
-          <Progress value={progressPercent} className="w-56">
+          <Progress value={progressPercent} className="w-36">
             <ProgressLabel>
               {finished}/{downloadProgress.total}
               {downloading > 0 && ` • ${downloading}`}
