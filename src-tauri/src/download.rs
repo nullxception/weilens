@@ -38,6 +38,7 @@ fn emit_cancelled(app: &tauri::AppHandle, post_id: &str, index: usize, total: us
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn process_motion(
     client: &reqwest::Client,
     video_url: &str,
@@ -102,9 +103,10 @@ async fn process_motion(
         return Err("cancelled".to_string());
     }
 
-    mux(image_bytes, &video_bytes, &mime).map_err(|e| format!("Mux failed: {}", e))
+    mux(image_bytes, &video_bytes, mime).map_err(|e| format!("Mux failed: {}", e))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn download(
     app_handle: &tauri::AppHandle,
     post_id: &str,
@@ -293,7 +295,10 @@ pub async fn download(
                     total,
                     e
                 );
-                warning = Some(format!("Motion photo mux failed: {}, saved as still image", e));
+                warning = Some(format!(
+                    "Motion photo mux failed: {}, saved as still image",
+                    e
+                ));
                 buffer.clone()
             });
             log::info!(
@@ -377,6 +382,7 @@ pub fn default_download_dir() -> String {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn download_post(
     app_handle: tauri::AppHandle,
     uid: String,
@@ -396,7 +402,7 @@ pub async fn download_post(
         &uid
     };
 
-    let created_at_dt = parse_date(&created_at).unwrap_or_else(|| chrono::Utc::now());
+    let created_at_dt = parse_date(&created_at).unwrap_or_else(chrono::Utc::now);
     let date_segment = get_date_folder(&created_at_dt);
 
     let resolved_download_dir = base_dir.join(uid_segment).join(date_segment);
@@ -440,7 +446,6 @@ pub async fn download_post(
     for (index, item) in items.iter().enumerate() {
         let app = app_handle.clone();
         let post_id_clone = post_id.clone();
-        let created_at_dt_clone = created_at_dt.clone();
         let resolved_dir = resolved_download_dir.to_path_buf();
         let location_clone = location.clone();
         let wm_position_clone = wm_position.clone();
@@ -477,7 +482,7 @@ pub async fn download_post(
                 match download(
                     &app,
                     &post_id_clone,
-                    &created_at_dt_clone,
+                    &created_at_dt,
                     item_url.clone(),
                     item_video.clone(),
                     index,
