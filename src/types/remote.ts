@@ -29,12 +29,12 @@ export const PicInfoSchema = z.object({
   video: z.string().optional().nullish(),
 });
 
-export const WeiPostTagSchema = z.object({
+export const PostTagSchema = z.object({
   tag_name: z.string(),
   otype: z.string().optional(),
 });
 
-export const WeiPostSchema = z.object({
+export const PostSchema = z.object({
   created_at: z.string(),
   id: z.number(),
   idstr: z.string(),
@@ -48,19 +48,19 @@ export const WeiPostSchema = z.object({
   attitudes_count: z.number().optional(),
   text: z.string(),
   region_name: z.string().optional(),
-  tag_struct: z.array(WeiPostTagSchema).optional(),
+  tag_struct: z.array(PostTagSchema).optional(),
 });
 
-export const WeiDataSchema = z.object({
+export const BlogDataSchema = z.object({
   since_id: z.string().optional(),
-  list: z.array(WeiPostSchema),
+  list: z.array(PostSchema),
 });
 
-export const WeiResponseSchema = z.object({ data: WeiDataSchema });
+export const BlogResponseSchema = z.object({ data: BlogDataSchema });
 
 export type User = z.infer<typeof UserSchema>;
 export type PicDimension = z.infer<typeof PicDimensionSchema>;
 export type PicInfo = z.infer<typeof PicInfoSchema>;
-export type WeiPost = z.infer<typeof WeiPostSchema>;
-export type WeiData = z.infer<typeof WeiDataSchema>;
-export type WeiResponse = z.infer<typeof WeiResponseSchema>;
+export type BlogPost = z.infer<typeof PostSchema>;
+export type BlogData = z.infer<typeof BlogDataSchema>;
+export type BlogResponse = z.infer<typeof BlogResponseSchema>;

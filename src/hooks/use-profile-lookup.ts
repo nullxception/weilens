@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { WeiResponseSchema, type WeiPost } from "../types/wei";
+import { BlogResponseSchema, type BlogPost } from "../types/remote";
 import { useAppStore, type AppState } from "../stores/appStore";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
@@ -58,7 +58,7 @@ async function fetchProfile(
 
   const body = await response.text();
   const parsedJson = JSON.parse(body);
-  const validationResult = WeiResponseSchema.safeParse(parsedJson);
+  const validationResult = BlogResponseSchema.safeParse(parsedJson);
 
   if (!validationResult.success) {
     console.error("Zod validation error:", validationResult.error);
@@ -75,9 +75,9 @@ async function fetchProfile(
   };
 }
 
-export function useWeiLookup() {
+export function useProfileLookup() {
   const [uid, setUid] = useState("");
-  const [blogs, setBlogs] = useState<WeiPost[]>([]);
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
   const [activeDisplayName, setActiveDisplayName] = useState("");
   const [result, setResult] = useState("");
   const [error, setError] = useState("");

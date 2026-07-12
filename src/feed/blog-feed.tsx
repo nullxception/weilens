@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { WeiPost } from "../types/wei";
+import type { BlogPost } from "../types/remote";
 import { useAppStore, type AppState } from "../stores/appStore";
 import { BlogCard } from "./blog-card";
 import { HistoryPanel } from "../components/history-panel";
@@ -7,7 +7,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 
 interface BlogFeedProps {
-  blogs: WeiPost[];
+  blogs: BlogPost[];
   result: string;
   error: string;
   isLoading: boolean;

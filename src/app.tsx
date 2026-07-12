@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { BlogFeed } from "./feed/blog-feed";
 import { AppShell } from "./components/app-shell";
 import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
-import { useWeiLookup } from "./hooks/use-wei-Lookup";
+import { useProfileLookup } from "./hooks/use-profile-lookup";
 import { useAppStore, type AppState } from "./stores/appStore";
 
 function App() {
@@ -17,7 +17,7 @@ function App() {
     hasMore,
     checkUid,
     handleNextPage,
-  } = useWeiLookup();
+  } = useProfileLookup();
 
   const setActiveUid = useAppStore((state: AppState) => state.setActiveUid);
   const activeView = useAppStore((state: AppState) => state.activeView);

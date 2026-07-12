@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { type DownloadItem, type WmPosition } from "../types/rpc";
-import type { PicDimension, PicInfo, WeiPost } from "../types/wei";
+import type { PicDimension, PicInfo, BlogPost } from "../types/remote";
 import { useAppStore, type AppState } from "../stores/appStore";
 import type { GPSData } from "../types/gps";
 import { Card, CardContent } from "../components/ui/card";
@@ -46,7 +46,7 @@ import {
 import { ImageViewer } from "./image-viewer";
 
 interface BlogCardProps {
-  blog: WeiPost;
+  blog: BlogPost;
   activeDisplayName?: string;
 }
 
