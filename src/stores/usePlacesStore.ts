@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { StorageKeys } from "../storage-keys";
-import { invoke } from "@tauri-apps/api/core";
 import { NominatimResultSchema, PlaceSchema, type Place } from "@/types/gps";
+import { addPlace, listPlaces, setBlogPlace } from "@/lib/api";
 
 function readPlacesFromStorage(): Place[] {
   try {
@@ -43,10 +43,7 @@ interface PlacesState {
 export const usePlacesStore = create<PlacesState>(() => ({
   initStore: async () => {
     try {
-      const { total } = await invoke<{ places: Place[]; total: number }>(
-        "list_places",
-        { limit: 10, offset: 0 },
-      );
+      const { total } = await listPlaces({ limit: 10, offset: 0 });
 
       // If SQLite is empty, check if we have data in localStorage to migrate
       if (total === 0) {
@@ -56,7 +53,7 @@ export const usePlacesStore = create<PlacesState>(() => ({
         if (localSaved.length > 0 || Object.keys(localBlog).length > 0) {
           // Migrate local saved places to SQLite
           for (const sp of localSaved) {
-            await invoke("add_place", { place: sp });
+            await addPlace(sp);
           }
           // Migrate local blog places to SQLite
           for (const [key, bp] of Object.entries(localBlog)) {
@@ -64,7 +61,7 @@ export const usePlacesStore = create<PlacesState>(() => ({
             if (idx !== -1) {
               const userId = key.substring(0, idx);
               const mblogid = key.substring(idx + 1);
-              await invoke("set_blog_place", { userId, mblogid, place: bp });
+              await setBlogPlace(userId, mblogid, bp);
             }
           }
           // Clear localStorage

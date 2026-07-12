@@ -17,8 +17,8 @@ import {
 import { ScrollArea } from "../components/ui/scroll-area";
 import { useCallback, useEffect, useState } from "react";
 import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps";
-import { invoke } from "@tauri-apps/api/core";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { addPlace, listPlaces, searchPlace } from "../lib/api";
 import {
   BookmarkIcon,
   GlobeIcon,
@@ -65,7 +65,7 @@ async function searchNominatim(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=${limit}`,
       { headers: { Accept: "application/json" } },
     ),
-    invoke<Place[]>("search_place", { for: q }).catch(() => [] as Place[]),
+    searchPlace(q).catch(() => [] as Place[]),
   ]);
 
   if (!nominatimRes.ok)
@@ -132,11 +132,7 @@ export default function LocationDialog({
   } = useInfiniteQuery({
     queryKey: ["places"],
     queryFn: async ({ pageParam }) => {
-      const res = await invoke<{
-        places: Place[];
-        total: number;
-      }>("list_places", { limit: PAGE_SIZE, offset: pageParam });
-      return res;
+      return await listPlaces({ limit: PAGE_SIZE, offset: pageParam });
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
@@ -226,12 +222,10 @@ export default function LocationDialog({
     if (!pendingCoord) return;
     const trimmed = saveName.trim();
     if (trimmed) {
-      invoke("add_place", {
-        place: {
-          name: trimmed,
-          lat: pendingCoord.lat,
-          lon: pendingCoord.lon,
-        },
+      addPlace({
+        name: trimmed,
+        lat: pendingCoord.lat,
+        lon: pendingCoord.lon,
       }).catch(console.error);
       queryClient.invalidateQueries({ queryKey: ["places"] });
     }
@@ -395,12 +389,10 @@ export default function LocationDialog({
                     key={`${p.place.lat}-${p.place.lon}-${String(p.place.name).slice(0, 30)}`}
                     className="flex w-full cursor-pointer flex-row items-center gap-2 rounded-sm p-3 transition-colors hover:bg-muted/50"
                     onClick={() => {
-                      invoke("add_place", {
-                        place: {
-                          name: p.place.name,
-                          lat: p.place.lat,
-                          lon: p.place.lon,
-                        },
+                      addPlace({
+                        name: p.place.name,
+                        lat: p.place.lat,
+                        lon: p.place.lon,
                       }).catch(console.error);
                       queryClient.invalidateQueries({ queryKey: ["places"] });
                       onSelect?.(p.place);

@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { type DownloadItem, type WmPosition } from "../types/rpc";
 import type { PicDimension, PicInfo, BlogPost } from "../types/remote";
 import { useDownloadsStore } from "../stores/useDownloadsStore";
 import { useSettingsStore } from "../stores/useSettingsStore";
 import { useUiStore } from "../stores/useUiStore";
-import type { GPSData } from "../types/gps";
+import type { GPSData, Place } from "../types/gps";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import {
@@ -13,7 +12,12 @@ import {
   ProgressLabel,
   ProgressValue,
 } from "../components/ui/progress";
-import { downloadPost, cancelDownloadPost } from "../lib/api";
+import {
+  downloadPost,
+  cancelDownloadPost,
+  getPlaceByPost,
+  setBlogPlace,
+} from "../lib/api";
 import LocationDialog from "./location-dialog";
 import {
   DropdownMenu,
@@ -35,7 +39,6 @@ import {
   ThumbsUpIcon,
   XCircleIcon,
 } from "lucide-react";
-import type { Place } from "@/types/gps";
 import {
   Select,
   SelectContent,
@@ -116,7 +119,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
       return;
     }
     const [userId, mblogid] = blogPlaceKey.split("_");
-    invoke<Place>("get_place_by_post", { userId, mblogid })
+    getPlaceByPost(userId, mblogid)
       .then((place) => {
         setStoredBlogPlace(place);
         setGpsLocation({ lat: place.lat, lon: place.lon });
@@ -387,11 +390,11 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                         setStoredBlogPlace(p);
                         setGpsLocation({ lat: p.lat, lon: p.lon });
                         if (blog.user?.id != null) {
-                          invoke("set_blog_place", {
-                            userId: String(blog.user.id),
-                            mblogid: blog.mblogid,
-                            place: p,
-                          }).catch(console.error);
+                          setBlogPlace(
+                            String(blog.user.id),
+                            blog.mblogid,
+                            p,
+                          ).catch(console.error);
                         }
 
                         void handleDownload({
