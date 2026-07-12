@@ -1,0 +1,16 @@
+[
+  {
+    "label": "tauri: dev",
+    "command": "bun",
+    "args": ["run", "tauri", "dev"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  },
+  {
+    "label": "tauri: build",
+    "command": "bun",
+    "args": ["run", "tauri", "build"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  }
+]
