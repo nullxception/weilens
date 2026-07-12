@@ -34,8 +34,9 @@ export function DownloadProgressPanel() {
             updatedProgress.total;
           if (allFinished) {
             setTimeout(
-              () => useDownloadsStore.getState().clearDownload(ev.payload.postId),
-              3000,
+              () =>
+                useDownloadsStore.getState().clearDownload(ev.payload.postId),
+              600,
             );
           }
         }
