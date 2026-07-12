@@ -42,6 +42,7 @@ async fn process_motion(
     video_url: &str,
     image_bytes: &[u8],
     config: &DownloadConfig,
+    user_agent: &str,
     index: usize,
     total: usize,
     post_id: &str,
@@ -64,7 +65,7 @@ async fn process_motion(
             .get(video_url)
             .timeout(Duration::from_secs(config.request_timeout_secs))
             .header("Referer", &config.referer)
-            .header("User-Agent", &config.user_agent)
+            .header("User-Agent", user_agent)
             .send() => res.map_err(|e| format!("Video request failed: {}", e)),
         _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
     }?;
@@ -116,6 +117,7 @@ pub async fn download(
     wm_position: &str,
     client: reqwest::Client,
     config: DownloadConfig,
+    user_agent: &str,
     cancellation_token: CancellationToken,
 ) -> Result<Vec<String>, String> {
     let mut saved_paths = Vec::new();
@@ -150,7 +152,7 @@ pub async fn download(
         .get(&item_url)
         .timeout(Duration::from_secs(config.request_timeout_secs))
         .header("Referer", &config.referer)
-        .header("User-Agent", &config.user_agent);
+        .header("User-Agent", user_agent);
     let response = tokio::select! {
         res = req.send() => res.map_err(|e| {
             let err = DownloadError::Request(format!("Request failed: {}", e)).to_string();
@@ -185,7 +187,7 @@ pub async fn download(
                 .get(no_wm_url)
                 .timeout(Duration::from_secs(config.request_timeout_secs))
                 .header("Referer", &config.referer)
-                .header("User-Agent", &config.user_agent);
+                .header("User-Agent", user_agent);
             let res_no_wm = tokio::select! {
                 res = req_no_wm.send() => res,
                 _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
@@ -273,6 +275,7 @@ pub async fn download(
                 video_url,
                 &buffer,
                 &config,
+                user_agent,
                 index,
                 total,
                 post_id,
@@ -400,6 +403,12 @@ pub async fn download_post(
     let total = items.len();
 
     let client = app_handle.state::<reqwest::Client>().inner().clone();
+    let user_agent = app_handle
+        .state::<crate::types::AppState>()
+        .user_agent
+        .read()
+        .map(|s| s.clone())
+        .unwrap_or_else(|_| "Mozilla/5.0".to_string());
     let semaphore = Arc::new(Semaphore::new(config.effective_max_concurrency()));
 
     let cancellation_token = CancellationToken::new();
@@ -433,6 +442,7 @@ pub async fn download_post(
         let client_clone = client.clone();
         let sem = semaphore.clone();
         let config_clone = config.clone();
+        let user_agent_clone = user_agent.clone();
         let token = cancellation_token.clone();
 
         let item_url = item.url.clone();
@@ -472,6 +482,7 @@ pub async fn download_post(
                     &wm_position_clone,
                     client_clone.clone(),
                     config_clone.clone(),
+                    &user_agent_clone,
                     token.clone(),
                 )
                 .await

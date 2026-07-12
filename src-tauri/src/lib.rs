@@ -15,10 +15,10 @@ use crate::download::{
     cancel_download_post, choose_download_dir, default_download_dir, download_post,
 };
 use crate::image::handle_image_proxy;
-use crate::types::DownloadCancellationState;
+use crate::types::{AppState, DownloadCancellationState, FALLBACK_USER_AGENT};
 use log::LevelFilter;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, RwLock};
 use tauri::{webview::PageLoadEvent, Manager};
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_opener::OpenerExt;
@@ -50,17 +50,28 @@ fn external_navigation_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin
         .build()
 }
 
+#[tauri::command]
+fn set_user_agent(state: tauri::State<AppState>, ua: String) {
+    if let Ok(mut current) = state.user_agent.write() {
+        *current = ua;
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Shared concurrent connection pool wrapper
     let http_client = reqwest::Client::builder()
         .pool_max_idle_per_host(15)
         .build()
         .unwrap();
 
+    let user_agent = Arc::new(RwLock::new(FALLBACK_USER_AGENT.to_string()));
+
     tauri::Builder::default()
         .manage(http_client.clone())
         .manage(DownloadCancellationState(Mutex::new(HashMap::new())))
+        .manage(AppState {
+            user_agent: user_agent.clone(),
+        })
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_http::init())
         .plugin(
@@ -82,6 +93,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            set_user_agent,
             download_post,
             cancel_download_post,
             choose_download_dir,
@@ -104,9 +116,10 @@ pub fn run() {
             "img-proxy",
             move |_context, request, responder| {
                 let client = http_client.clone();
+                let user_agent = user_agent.clone();
 
                 tauri::async_runtime::spawn(async move {
-                    handle_image_proxy(client, request, responder).await;
+                    handle_image_proxy(client, request, responder, &user_agent).await;
                 });
             },
         )

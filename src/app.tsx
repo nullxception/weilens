@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { BlogFeed } from "./feed/blog-feed";
 import { AppShell } from "./components/app-shell";
 import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
@@ -38,6 +39,7 @@ function App() {
 
   useEffect(() => {
     initStore();
+    invoke("set_user_agent", { ua: navigator.userAgent });
   }, [initStore]);
 
   useEffect(() => {

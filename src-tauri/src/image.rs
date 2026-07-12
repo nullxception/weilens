@@ -1,7 +1,6 @@
+use std::sync::{Arc, RwLock};
 use tauri::{http::header::REFERER, http::Request, http::Response, UriSchemeResponder};
 use url::Url;
-
-use crate::types::DEFAULT_USER_AGENT;
 
 pub enum WmPosition {
     Top,
@@ -53,6 +52,7 @@ pub async fn handle_image_proxy(
     client: reqwest::Client,
     request: Request<Vec<u8>>,
     responder: UriSchemeResponder,
+    user_agent: &Arc<RwLock<String>>,
 ) {
     let uri_string = request.uri().to_string();
 
@@ -86,10 +86,15 @@ pub async fn handle_image_proxy(
         target_url.host_str().unwrap_or("")
     );
 
+    let ua = user_agent
+        .read()
+        .map(|s| s.clone())
+        .unwrap_or_else(|_| "Mozilla/5.0".to_string());
+
     let network_result = client
         .get(target_url.as_str())
         .header(REFERER, &referer_host)
-        .header("User-Agent", DEFAULT_USER_AGENT.to_string())
+        .header("User-Agent", ua)
         .send()
         .await;
 

@@ -7,8 +7,8 @@ use thiserror::Error;
 use tokio_util::sync::CancellationToken;
 
 pub const DEFAULT_REFERER: &str = "https://weibo.com/";
-pub const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 pub const DEFAULT_DOWNLOAD_ROOT_NAME: &str = "WeiLens";
+pub const FALLBACK_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 
 #[derive(Debug, Clone)]
 pub struct DownloadConfig {
@@ -18,7 +18,6 @@ pub struct DownloadConfig {
     pub retry_max_delay_ms: u64,
     pub request_timeout_secs: u64,
     pub referer: String,
-    pub user_agent: String,
     pub download_root_name: String,
 }
 
@@ -31,8 +30,6 @@ impl Default for DownloadConfig {
             retry_max_delay_ms: env_value("WEI_RETRY_MAX_DELAY_MS", 153600),
             request_timeout_secs: env_value("WEI_REQUEST_TIMEOUT_SECS", 30),
             referer: env::var("WEI_REFERER").unwrap_or_else(|_| DEFAULT_REFERER.to_string()),
-            user_agent: env::var("WEI_USER_AGENT")
-                .unwrap_or_else(|_| DEFAULT_USER_AGENT.to_string()),
             download_root_name: env::var("WEI_DOWNLOAD_ROOT_NAME")
                 .unwrap_or_else(|_| DEFAULT_DOWNLOAD_ROOT_NAME.to_string()),
         }
@@ -89,7 +86,6 @@ mod tests {
             retry_max_delay_ms: 200,
             request_timeout_secs: 10,
             referer: DEFAULT_REFERER.to_string(),
-            user_agent: DEFAULT_USER_AGENT.to_string(),
             download_root_name: DEFAULT_DOWNLOAD_ROOT_NAME.to_string(),
         };
 
@@ -122,3 +118,7 @@ pub struct DownloadProgressPayload {
 }
 
 pub struct DownloadCancellationState(pub Mutex<HashMap<String, CancellationToken>>);
+
+pub struct AppState {
+    pub user_agent: std::sync::Arc<std::sync::RwLock<String>>,
+}

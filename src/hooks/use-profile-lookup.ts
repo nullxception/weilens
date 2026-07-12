@@ -32,8 +32,7 @@ async function fetchProfile(
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-origin",
     "server-version": "v2026.06.30.1",
-    "user-agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+    "user-agent": navigator.userAgent,
     "x-requested-with": "XMLHttpRequest",
     cookie: cookie,
   };
