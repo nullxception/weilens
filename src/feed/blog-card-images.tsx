@@ -37,6 +37,7 @@ export function BlogCardImages({ blog, onImageClick }: BlogCardImagesProps) {
                 alt=""
                 style={{ aspectRatio: getAspectRatio(info.thumb) }}
                 className="w-full object-contain"
+                loading="lazy"
               />
               {data?.type === "livephoto" && data?.video != null && (
                 <div className="pointer-events-none absolute top-1.5 left-1.5 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-[2px] select-none">
