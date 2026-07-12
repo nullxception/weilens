@@ -115,6 +115,8 @@ pub struct DownloadProgressPayload {
     pub status: String,
     pub url: String,
     pub saved_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
 }
 
 pub struct DownloadCancellationState(pub Mutex<HashMap<String, CancellationToken>>);

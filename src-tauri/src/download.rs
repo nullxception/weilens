@@ -33,6 +33,7 @@ fn emit_cancelled(app: &tauri::AppHandle, post_id: &str, index: usize, total: us
             status: "cancelled".to_string(),
             url: url.to_string(),
             saved_path: None,
+            warning: None,
         },
     );
 }
@@ -119,10 +120,11 @@ pub async fn download(
     config: DownloadConfig,
     user_agent: &str,
     cancellation_token: CancellationToken,
-) -> Result<Vec<String>, String> {
+) -> Result<(Vec<String>, Option<String>), String> {
     let mut saved_paths = Vec::new();
     let is_motion = item_video_url.is_some();
     let no_watermark_url = get_no_watermark_url(&item_url);
+    let mut warning = None;
 
     log::info!(
         "[Post {}:{}/{}] Starting download. URL: {}",
@@ -141,6 +143,7 @@ pub async fn download(
             status: "downloading".to_string(),
             url: item_url.clone(),
             saved_path: None,
+            warning: None,
         },
     );
 
@@ -290,6 +293,7 @@ pub async fn download(
                     total,
                     e
                 );
+                warning = Some(format!("Motion photo mux failed: {}, saved as still image", e));
                 buffer.clone()
             });
             log::info!(
@@ -341,12 +345,13 @@ pub async fn download(
             status: "completed".to_string(),
             url: item_url.clone(),
             saved_path: Some(target_path.to_string_lossy().to_string()),
+            warning: warning.clone(),
         },
     );
 
     log::info!("[Post {}:{}/{}] Completed", post_id, index + 1, total);
 
-    Ok(saved_paths)
+    Ok((saved_paths, warning))
 }
 
 #[tauri::command]
@@ -534,6 +539,7 @@ pub async fn download_post(
                                 status: "failed".to_string(),
                                 url: item_url.clone(),
                                 saved_path: None,
+                                warning: None,
                             },
                         );
                         break Err(e);
@@ -547,7 +553,7 @@ pub async fn download_post(
 
     for handle in handles {
         match handle.await {
-            Ok(Ok(paths)) => saved_paths.extend(paths),
+            Ok(Ok((paths, _))) => saved_paths.extend(paths),
             Ok(Err(e)) if e == "cancelled" => {
                 log::info!("Download item cancelled");
             }

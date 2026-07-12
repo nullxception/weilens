@@ -169,14 +169,11 @@ pub fn set_blog_place(
     place: Place,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT OR IGNORE INTO places (lat, lon, name) VALUES (?1, ?2, ?3)",
-        params![place.lat, place.lon, place.name],
-    )
-    .map_err(|e| e.to_string())?;
     let place_id: i64 = conn
         .query_row(
-            "SELECT id FROM places WHERE lat = ?1 AND lon = ?2 AND name = ?3",
+            "INSERT INTO places (lat, lon, name) VALUES (?1, ?2, ?3)
+             ON CONFLICT(lat, lon, name) DO UPDATE SET lat = lat
+             RETURNING id",
             params![place.lat, place.lon, place.name],
             |row| row.get(0),
         )

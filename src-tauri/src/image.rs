@@ -1,4 +1,5 @@
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 use tauri::{http::header::REFERER, http::Request, http::Response, UriSchemeResponder};
 use url::Url;
 
@@ -93,6 +94,7 @@ pub async fn handle_image_proxy(
 
     let network_result = client
         .get(target_url.as_str())
+        .timeout(Duration::from_secs(15))
         .header(REFERER, &referer_host)
         .header("User-Agent", ua)
         .send()
