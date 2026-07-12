@@ -4,7 +4,8 @@ import { BlogFeed } from "./feed/blog-feed";
 import { AppShell } from "./components/app-shell";
 import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
 import { useProfileLookup } from "./hooks/use-profile-lookup";
-import { useAppStore, type AppState } from "./stores/appStore";
+import { useUiStore } from "./stores/useUiStore";
+import { usePlacesStore } from "./stores/usePlacesStore";
 
 function App() {
   const {
@@ -20,20 +21,20 @@ function App() {
     handleNextPage,
   } = useProfileLookup();
 
-  const setActiveUid = useAppStore((state: AppState) => state.setActiveUid);
-  const activeView = useAppStore((state: AppState) => state.activeView);
-  const setActiveView = useAppStore((state: AppState) => state.setActiveView);
-  const setHistoryOnSidebar = useAppStore(
-    (state: AppState) => state.setHistoryOnSidebar,
+  const setActiveUid = useUiStore((state) => state.setActiveUid);
+  const activeView = useUiStore((state) => state.activeView);
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const setHistoryOnSidebar = useUiStore(
+    (state) => state.setHistoryOnSidebar,
   );
-  const setSidebarOpen = useAppStore((state: AppState) => state.setSidebarOpen);
-  const pendingLookupUid = useAppStore(
-    (state: AppState) => state.pendingLookupUid,
+  const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
+  const pendingLookupUid = useUiStore(
+    (state) => state.pendingLookupUid,
   );
-  const setPendingLookupUid = useAppStore(
-    (state: AppState) => state.setPendingLookupUid,
+  const setPendingLookupUid = useUiStore(
+    (state) => state.setPendingLookupUid,
   );
-  const initStore = useAppStore((state: AppState) => state.initStore);
+  const initStore = usePlacesStore((state) => state.initStore);
   const historyOnSidebar =
     blogs.length > 0 || isLoading || Boolean(error) || Boolean(result);
 

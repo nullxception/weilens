@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { ConfirmDialog } from "./ui/confirm-dialog";
 import { proxyImage } from "@/lib/proxy";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { useAppStore, type AppState } from "../stores/appStore";
+import { useUiStore } from "../stores/useUiStore";
 
 export interface CheckedProfile {
   uid: string;
@@ -26,7 +26,7 @@ export function HistoryPanel({
   onRemove,
   onClear,
 }: HistoryPanelProps) {
-  const activeUid = useAppStore((state: AppState) => state.activeUid);
+  const activeUid = useUiStore((state) => state.activeUid);
 
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BlogResponseSchema, type BlogPost } from "../types/remote";
-import { useAppStore, type AppState } from "../stores/appStore";
+import { useAuthStore } from "../stores/useAuthStore";
+import { useHistoryStore } from "../stores/useHistoryStore";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
 async function fetchProfile(
@@ -85,9 +86,9 @@ export function useProfileLookup() {
   const [sinceId, setSinceId] = useState<string>();
 
   const queryClient = useQueryClient();
-  const cookie = useAppStore((state: AppState) => state.cookie);
-  const parsedCookie = useAppStore((state: AppState) => state.parsedCookie);
-  const addToHistory = useAppStore((state: AppState) => state.addToHistory);
+  const cookie = useAuthStore((state) => state.cookie);
+  const parsedCookie = useAuthStore((state) => state.parsedCookie);
+  const addToHistory = useHistoryStore((state) => state.addToHistory);
 
   async function checkUid(uidToCheck: string, targetPage = 1) {
     const targetUid = uidToCheck.trim();

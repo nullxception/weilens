@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { type DownloadItem, type WmPosition } from "../types/rpc";
 import type { PicDimension, PicInfo, BlogPost } from "../types/remote";
-import { useAppStore, type AppState } from "../stores/appStore";
+import { useDownloadsStore } from "../stores/useDownloadsStore";
+import { useSettingsStore } from "../stores/useSettingsStore";
+import { useUiStore } from "../stores/useUiStore";
 import type { GPSData } from "../types/gps";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -76,15 +78,13 @@ const wmPositions = [
 ];
 
 export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
-  const downloadLocation = useAppStore(
-    (state: AppState) => state.downloadLocation,
-  );
-  const defaultWmPos = useAppStore((state: AppState) => state.wmPosition);
-  const activeUid = useAppStore((state: AppState) => state.activeUid);
-  const startDownload = useAppStore((state: AppState) => state.startDownload);
-  const clearDownload = useAppStore((state: AppState) => state.clearDownload);
-  const downloadProgress = useAppStore(
-    (state: AppState) => state.downloads[blog.idstr] ?? null,
+  const downloadLocation = useSettingsStore((state) => state.downloadLocation);
+  const defaultWmPos = useSettingsStore((state) => state.wmPosition);
+  const activeUid = useUiStore((state) => state.activeUid);
+  const startDownload = useDownloadsStore((state) => state.startDownload);
+  const clearDownload = useDownloadsStore((state) => state.clearDownload);
+  const downloadProgress = useDownloadsStore(
+    (state) => state.downloads[blog.idstr] ?? null,
   );
 
   const downloadItems = (blog.pic_ids ?? [])

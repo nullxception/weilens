@@ -1,7 +1,7 @@
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { LoaderCircle, SearchIcon } from "lucide-react";
-import { useAppStore, type AppState } from "../stores/appStore";
+import { useUiStore } from "../stores/useUiStore";
 import { ButtonGroup } from "./ui/button-group";
 
 interface SearchFormProps {
@@ -29,7 +29,7 @@ export function SearchForm({
   onUidChange,
   onSubmit,
 }: SearchFormProps) {
-  const setActiveUid = useAppStore((state: AppState) => state.setActiveUid);
+  const setActiveUid = useUiStore((state) => state.setActiveUid);
 
   const handleUidChange = (value: string) => {
     onUidChange(extractUid(value));

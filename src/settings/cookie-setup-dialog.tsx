@@ -7,11 +7,12 @@ import {
   DialogDescription,
 } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
-import { useAppStore, type AppState } from "../stores/appStore";
+import { useAuthStore } from "../stores/useAuthStore";
+import { useUiStore } from "../stores/useUiStore";
 
 export function CookieSetupDialog() {
-  const cookie = useAppStore((state: AppState) => state.cookie);
-  const setActiveView = useAppStore((state: AppState) => state.setActiveView);
+  const cookie = useAuthStore((state) => state.cookie);
+  const setActiveView = useUiStore((state) => state.setActiveView);
   const [isOpen, setIsOpen] = useState(!cookie);
 
   const handleGoToSettings = () => {

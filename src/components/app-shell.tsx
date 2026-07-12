@@ -15,7 +15,8 @@ import {
 import { TooltipProvider } from "./ui/tooltip";
 import { SettingsIcon } from "lucide-react";
 import { DownloadProgressPanel } from "./download-progress-panel";
-import { useAppStore, type AppState } from "../stores/appStore";
+import { useUiStore } from "../stores/useUiStore";
+import { useHistoryStore } from "../stores/useHistoryStore";
 
 interface AppShellProps {
   uid: string;
@@ -52,13 +53,11 @@ function SidebarInner({
       }[];
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
-  const onHistoryClick = useAppStore(
-    (state: AppState) => state.openHistoryProfile,
+  const onHistoryClick = useUiStore((state) => state.openHistoryProfile);
+  const onRemoveFromHistory = useHistoryStore(
+    (state) => state.removeFromHistory,
   );
-  const onRemoveFromHistory = useAppStore(
-    (state: AppState) => state.removeFromHistory,
-  );
-  const onClearHistory = useAppStore((state: AppState) => state.clearHistory);
+  const onClearHistory = useHistoryStore((state) => state.clearHistory);
   const closeSidebar = () => {
     if (isMobile) {
       setOpenMobile(false);
@@ -121,8 +120,8 @@ export function AppShell({
   historyOnSidebar,
   children,
 }: AppShellProps) {
-  const activeView = useAppStore((state: AppState) => state.activeView);
-  const history = useAppStore((state: AppState) => state.history);
+  const activeView = useUiStore((state) => state.activeView);
+  const history = useHistoryStore((state) => state.history);
   const showHistory = history.length > 0 && historyOnSidebar;
 
   return (

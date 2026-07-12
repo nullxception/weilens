@@ -1,4 +1,4 @@
-import { useAppStore, type AppState } from "@/stores/appStore";
+import { useDownloadsStore } from "@/stores/useDownloadsStore";
 import { CheckCircle2, XCircle, Loader2, StopCircle } from "lucide-react";
 import { Progress } from "./ui/progress";
 import { Button } from "./ui/button";
@@ -8,9 +8,9 @@ import type { DownloadProgressPayload } from "@/types/rpc";
 import { cancelDownloadPost } from "@/lib/api";
 
 export function DownloadProgressPanel() {
-  const downloads = useAppStore((state: AppState) => state.downloads);
-  const updateDownloadProgress = useAppStore(
-    (state: AppState) => state.updateDownloadProgress,
+  const downloads = useDownloadsStore((state) => state.downloads);
+  const updateDownloadProgress = useDownloadsStore(
+    (state) => state.updateDownloadProgress,
   );
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export function DownloadProgressPanel() {
 
         // Auto-clear after all items finish
         const updatedProgress =
-          useAppStore.getState().downloads[ev.payload.postId];
+          useDownloadsStore.getState().downloads[ev.payload.postId];
         if (updatedProgress) {
           const allFinished =
             updatedProgress.completed +
@@ -34,7 +34,7 @@ export function DownloadProgressPanel() {
             updatedProgress.total;
           if (allFinished) {
             setTimeout(
-              () => useAppStore.getState().clearDownload(ev.payload.postId),
+              () => useDownloadsStore.getState().clearDownload(ev.payload.postId),
               3000,
             );
           }

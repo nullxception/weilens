@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BlogPost } from "../types/remote";
-import { useAppStore, type AppState } from "../stores/appStore";
+import { useUiStore } from "../stores/useUiStore";
+import { useHistoryStore } from "../stores/useHistoryStore";
 import { BlogCard } from "./blog-card";
 import { HistoryPanel } from "../components/history-panel";
 import { Card, CardContent } from "../components/ui/card";
@@ -49,15 +50,13 @@ export function BlogFeed({
     observer.observe(el);
     return () => observer.disconnect();
   }, [hasMore, onLoadMore]);
-  const activeUid = useAppStore((state: AppState) => state.activeUid);
-  const history = useAppStore((state: AppState) => state.history);
-  const onHistoryClick = useAppStore(
-    (state: AppState) => state.openHistoryProfile,
+  const activeUid = useUiStore((state) => state.activeUid);
+  const history = useHistoryStore((state) => state.history);
+  const onHistoryClick = useUiStore((state) => state.openHistoryProfile);
+  const onRemoveFromHistory = useHistoryStore(
+    (state) => state.removeFromHistory,
   );
-  const onRemoveFromHistory = useAppStore(
-    (state: AppState) => state.removeFromHistory,
-  );
-  const onClearHistory = useAppStore((state: AppState) => state.clearHistory);
+  const onClearHistory = useHistoryStore((state) => state.clearHistory);
 
   const visibleBlogs = showReposted
     ? blogs

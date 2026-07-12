@@ -11,7 +11,9 @@ import { Textarea } from "../components/ui/textarea";
 import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { chooseDownloadDir, defaultDownloadDir } from "../lib/api";
-import { useAppStore, type AppState } from "../stores/appStore";
+import { useAuthStore } from "../stores/useAuthStore";
+import { useUiStore } from "../stores/useUiStore";
+import { useSettingsStore } from "../stores/useSettingsStore";
 import { ButtonGroup } from "../components/ui/button-group";
 import { Suspense, use } from "react";
 import {
@@ -41,19 +43,17 @@ function DownloadPathInput({ savedLocation }: { savedLocation: string }) {
 }
 
 export function SettingsPanel() {
-  const cookie = useAppStore((state: AppState) => state.cookie);
-  const setCookie = useAppStore((state: AppState) => state.setCookie);
-  const downloadLocation = useAppStore(
-    (state: AppState) => state.downloadLocation,
+  const cookie = useAuthStore((state) => state.cookie);
+  const setCookie = useAuthStore((state) => state.setCookie);
+  const downloadLocation = useSettingsStore((state) => state.downloadLocation);
+  const setDownloadLocation = useSettingsStore(
+    (state) => state.setDownloadLocation,
   );
-  const setDownloadLocation = useAppStore(
-    (state: AppState) => state.setDownloadLocation,
-  );
-  const wmPosition = useAppStore((state: AppState) => state.wmPosition);
-  const setWmPosition = useAppStore((state: AppState) => state.setWmPosition);
-  const onBack = useAppStore((state: AppState) => state.closeSettings);
-  const savedMessage = useAppStore((state: AppState) => state.savedMessage);
-  const saveCookie = useAppStore((state: AppState) => state.saveCookie);
+  const wmPosition = useSettingsStore((state) => state.wmPosition);
+  const setWmPosition = useSettingsStore((state) => state.setWmPosition);
+  const onBack = useUiStore((state) => state.closeSettings);
+  const savedMessage = useAuthStore((state) => state.savedMessage);
+  const saveCookie = useAuthStore((state) => state.saveCookie);
 
   const handleChooseDownloadFolder = async () => {
     const selectedPath = await chooseDownloadDir(downloadLocation);
