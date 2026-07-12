@@ -24,7 +24,7 @@ pub fn mux(
 
     // NOTE: Data tag FIRST (video payload sits right after its own small
     // header, immediately following the JPEG), Version tag SECOND.
-    let tags = vec![
+    let tags = [
         SefTag {
             id: TAG_MOTION_PHOTO_DATA,
             name: "MotionPhoto_Data",
@@ -52,15 +52,14 @@ pub fn mux(
             video_padstart = tag_data.len() - start;
         }
 
-        tag_data.extend_from_slice(&tag.payload);
+        tag_data.extend_from_slice(tag.payload);
         tag_lengths.push((tag_data.len() - start) as u32);
     }
 
     let mut offsets = vec![0u32; tags.len()];
-    for i in 0..tags.len() {
-        let len = tag_lengths[i];
-        for j in 0..=i {
-            offsets[j] += len;
+    for (i, len) in tag_lengths.iter().enumerate() {
+        for offset in offsets.iter_mut().take(i + 1) {
+            *offset += len;
         }
     }
 
