@@ -177,7 +177,6 @@ export default function LocationDialog({
   }, [scrollViewport, checkAndLoadMore]);
 
   const {
-    data,
     isFetching,
     error: queryError,
     refetch,
@@ -202,7 +201,8 @@ export default function LocationDialog({
 
     setResults([]);
     try {
-      await refetch();
+      const { data } = await refetch();
+      if (data) setResults(data);
     } catch {
       // queryError will reflect the failure
     }
@@ -242,11 +242,7 @@ export default function LocationDialog({
   }, [confirmSelect, pendingCoord]);
 
   // Sync query results into local state so we can clear them between searches
-  useEffect(() => {
-    if (data && data !== results)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setResults(data);
-  }, [data, results]);
+  // (Effect removed in favor of manual updates in doSearch)
 
   const showRecent = !isFetching && places.length > 0 && results.length === 0;
 

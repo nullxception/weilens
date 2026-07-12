@@ -111,13 +111,10 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const [wmPosition, setWmPosition] = useState<WmPosition>(defaultWmPos);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [viewNonce, setViewNonce] = useState(0);
 
   useEffect(() => {
-    if (!blogPlaceKey) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStoredBlogPlace(null);
-      return;
-    }
+    if (!blogPlaceKey) return;
     const [userId, mblogid] = blogPlaceKey.split("_");
     getPlaceByPost(userId, mblogid)
       .then((place) => {
@@ -240,6 +237,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                       className="relative w-full cursor-pointer overflow-hidden rounded-md border border-border transition-opacity hover:opacity-90"
                       onClick={() => {
                         setViewerIndex(idx);
+                        setViewNonce((v) => v + 1);
                         setViewerOpen(true);
                       }}
                     >
@@ -411,6 +409,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
         </CardContent>
       </Card>
       <ImageViewer
+        key={viewNonce}
         images={viewerImages}
         initialIndex={viewerIndex}
         open={viewerOpen}

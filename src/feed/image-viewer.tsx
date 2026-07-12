@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Button } from "../components/ui/button";
@@ -25,13 +25,6 @@ export function ImageViewer({
   onOpenChange,
 }: ImageViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-
-  // Sync index when dialog opens with a new initial position
-  useEffect(() => {
-    if (open)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCurrentIndex(initialIndex);
-  }, [open, initialIndex]);
 
   const goNext = useCallback(() => {
     setCurrentIndex((i) => (i + 1) % images.length);
