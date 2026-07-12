@@ -14,14 +14,359 @@ use url::Url;
 use crate::dates::{get_date_folder, parse_date};
 use crate::dates::{get_exif_date_string, get_formatted_date};
 use crate::exif::write_exif;
-use crate::image::merge_strip_three_percent;
-use crate::image::StripPosition;
-use crate::motion::mux_motion_photo;
+use crate::image::dewatermark;
+use crate::image::WmPosition;
+use crate::motion::mux;
 use crate::types::{
     DownloadCancellationState, DownloadConfig, DownloadError, DownloadItem,
     DownloadProgressPayload, GpsData,
 };
 use crate::util::get_no_watermark_url;
+
+fn emit_cancelled(app: &tauri::AppHandle, post_id: &str, index: usize, total: usize, url: &str) {
+    let _ = app.emit(
+        "download-progress",
+        DownloadProgressPayload {
+            post_id: post_id.to_string(),
+            index,
+            total,
+            status: "cancelled".to_string(),
+            url: url.to_string(),
+            saved_path: None,
+        },
+    );
+}
+
+async fn process_motion(
+    client: &reqwest::Client,
+    video_url: &str,
+    image_bytes: &[u8],
+    config: &DownloadConfig,
+    index: usize,
+    total: usize,
+    post_id: &str,
+    cancellation_token: CancellationToken,
+) -> Result<Vec<u8>, String> {
+    log::info!(
+        "[Post {}:{}/{}] Fetching video from {}",
+        post_id,
+        index + 1,
+        total,
+        video_url
+    );
+
+    if cancellation_token.is_cancelled() {
+        return Err("cancelled".to_string());
+    }
+
+    let res = tokio::select! {
+        res = client
+            .get(video_url)
+            .timeout(Duration::from_secs(config.request_timeout_secs))
+            .header("Referer", &config.referer)
+            .header("User-Agent", &config.user_agent)
+            .send() => res.map_err(|e| format!("Video request failed: {}", e)),
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    }?;
+
+    if !res.status().is_success() {
+        return Err(format!("Video HTTP error: {}", res.status()));
+    }
+
+    let video_bytes = tokio::select! {
+        bytes = res.bytes() => bytes.map_err(|e| format!("Failed to read video bytes: {}", e)),
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    }?;
+
+    let url = Url::parse(video_url).unwrap();
+    let mime = match Path::new(url.path())
+        .extension()
+        .and_then(|ext| ext.to_str())
+    {
+        Some("mp4") | Some("MP4") => "video/mp4",
+        Some("mov") | Some("MOV") => "video/quicktime",
+        _ => return Err("Unsupported url video format! Must be mp4 or mov".into()),
+    };
+
+    log::info!(
+        "[Post {}:{}/{}] Muxing video ({} bytes) in memory",
+        post_id,
+        index + 1,
+        total,
+        video_bytes.len()
+    );
+
+    if cancellation_token.is_cancelled() {
+        return Err("cancelled".to_string());
+    }
+
+    mux(image_bytes, &video_bytes, &mime).map_err(|e| format!("Mux failed: {}", e))
+}
+
+pub async fn download(
+    app_handle: &tauri::AppHandle,
+    post_id: &str,
+    created_at_dt: &DateTime<Utc>,
+    item_url: String,
+    item_video_url: Option<String>,
+    index: usize,
+    total: usize,
+    resolved_download_dir: &Path,
+    location: Option<&GpsData>,
+    wm_position: &str,
+    client: reqwest::Client,
+    config: DownloadConfig,
+    cancellation_token: CancellationToken,
+) -> Result<Vec<String>, String> {
+    let mut saved_paths = Vec::new();
+    let is_motion = item_video_url.is_some();
+    let no_watermark_url = get_no_watermark_url(&item_url);
+
+    log::info!(
+        "[Post {}:{}/{}] Starting download. URL: {}",
+        post_id,
+        index + 1,
+        total,
+        item_url
+    );
+
+    let _ = app_handle.emit(
+        "download-progress",
+        DownloadProgressPayload {
+            post_id: post_id.to_string(),
+            index,
+            total,
+            status: "downloading".to_string(),
+            url: item_url.clone(),
+            saved_path: None,
+        },
+    );
+
+    if cancellation_token.is_cancelled() {
+        return Err("cancelled".to_string());
+    }
+
+    let req = client
+        .get(&item_url)
+        .timeout(Duration::from_secs(config.request_timeout_secs))
+        .header("Referer", &config.referer)
+        .header("User-Agent", &config.user_agent);
+    let response = tokio::select! {
+        res = req.send() => res.map_err(|e| {
+            let err = DownloadError::Request(format!("Request failed: {}", e)).to_string();
+            log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
+            err
+        })?,
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    };
+
+    if !response.status().is_success() {
+        let err = DownloadError::Http(format!("HTTP error: {}", response.status())).to_string();
+        log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
+        return Err(err);
+    }
+
+    let mut buffer = tokio::select! {
+        bytes = response.bytes() => bytes.map_err(|e| {
+            let err =
+                DownloadError::Request(format!("Failed to read response bytes: {}", e)).to_string();
+            log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
+            err
+        })?.to_vec(),
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    };
+
+    if let Some(ref no_wm_url) = no_watermark_url {
+        if no_wm_url != &item_url && !is_motion {
+            if cancellation_token.is_cancelled() {
+                return Err("cancelled".to_string());
+            }
+            let req_no_wm = client
+                .get(no_wm_url)
+                .timeout(Duration::from_secs(config.request_timeout_secs))
+                .header("Referer", &config.referer)
+                .header("User-Agent", &config.user_agent);
+            let res_no_wm = tokio::select! {
+                res = req_no_wm.send() => res,
+                _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+            };
+            if let Ok(res_no_wm) = res_no_wm {
+                if res_no_wm.status().is_success() {
+                    let no_wm_bytes = tokio::select! {
+                        bytes = res_no_wm.bytes() => bytes,
+                        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+                    };
+                    if let Ok(no_wm_bytes) = no_wm_bytes {
+                        if cancellation_token.is_cancelled() {
+                            return Err("cancelled".to_string());
+                        }
+                        let pos = match wm_position {
+                            "top" => WmPosition::Top,
+                            "center" => WmPosition::Center,
+                            "bottom" => WmPosition::Bottom,
+                            _ => WmPosition::Bottom,
+                        };
+                        if let Ok(merged) = dewatermark(&buffer, &no_wm_bytes, pos) {
+                            buffer = merged;
+                        } else {
+                            log::warn!(
+                                "[Post {}:{}/{}] Failed to merge watermark-free version",
+                                post_id,
+                                index + 1,
+                                total
+                            );
+                        }
+                    }
+                } else {
+                    log::warn!(
+                        "[Post {}:{}/{}] Watermark-free request returned status: {}",
+                        post_id,
+                        index + 1,
+                        total,
+                        res_no_wm.status()
+                    );
+                }
+            } else {
+                log::warn!(
+                    "[Post {}:{}/{}] Failed to request watermark-free image",
+                    post_id,
+                    index + 1,
+                    total
+                );
+            }
+        }
+    }
+
+    let extension = Path::new(&item_url)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| format!(".{}", ext))
+        .unwrap_or_else(|| ".jpg".to_string());
+
+    let formatted_date = get_formatted_date(created_at_dt, index as i64);
+    let image_filename = format!("{}{}", formatted_date, extension);
+    let target_path = resolved_download_dir.join(&image_filename);
+
+    let exif_date_str = get_exif_date_string(created_at_dt, index as i64);
+    if cancellation_token.is_cancelled() {
+        return Err("cancelled".to_string());
+    }
+    if let Err(e) = write_exif(&mut buffer, &exif_date_str, location, &extension) {
+        log::warn!(
+            "[Post {}:{}/{}] Failed to write EXIF metadata in memory: {}",
+            post_id,
+            index + 1,
+            total,
+            e
+        );
+    }
+
+    // For motion, mux the video into the image bytes in memory before
+    // writing to disk so we only need a single file write.
+    if is_motion {
+        if let Some(ref video_url) = item_video_url {
+            if cancellation_token.is_cancelled() {
+                return Err("cancelled".to_string());
+            }
+            buffer = process_motion(
+                &client,
+                video_url,
+                &buffer,
+                &config,
+                index,
+                total,
+                post_id,
+                cancellation_token.clone(),
+            )
+            .await
+            .unwrap_or_else(|e| {
+                log::error!(
+                    "[Post {}:{}/{}] mux failed, writing plain image: {}",
+                    post_id,
+                    index + 1,
+                    total,
+                    e
+                );
+                buffer.clone()
+            });
+            log::info!(
+                "[Post {}:{}/{}] muxed successfully, new size: {} bytes",
+                post_id,
+                index + 1,
+                total,
+                buffer.len()
+            );
+        }
+    }
+
+    if cancellation_token.is_cancelled() {
+        return Err("cancelled".to_string());
+    }
+    let write_path = target_path.clone();
+    let write_buf = buffer;
+    tokio::select! {
+        result = tokio::task::spawn_blocking(move || -> Result<(), String> {
+            let mut file = File::create(&write_path).map_err(|e| {
+                DownloadError::Io(e).to_string()
+            })?;
+            file.write_all(&write_buf).map_err(|e| {
+                DownloadError::Io(e).to_string()
+            })?;
+            Ok(())
+        }) => {
+            result.map_err(|e| format!("Join error: {}", e))??;
+        },
+        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
+    }
+
+    log::info!(
+        "[Post {}:{}/{}] Wrote image to {}",
+        post_id,
+        index + 1,
+        total,
+        target_path.display()
+    );
+
+    saved_paths.push(target_path.to_string_lossy().to_string());
+
+    let _ = app_handle.emit(
+        "download-progress",
+        DownloadProgressPayload {
+            post_id: post_id.to_string(),
+            index,
+            total,
+            status: "completed".to_string(),
+            url: item_url.clone(),
+            saved_path: Some(target_path.to_string_lossy().to_string()),
+        },
+    );
+
+    log::info!("[Post {}:{}/{}] Completed", post_id, index + 1, total);
+
+    Ok(saved_paths)
+}
+
+#[tauri::command]
+pub async fn choose_download_dir(starting_folder: Option<String>) -> Result<String, String> {
+    let mut dialog = rfd::FileDialog::new();
+    if let Some(ref folder) = starting_folder {
+        if !folder.is_empty() {
+            dialog = dialog.set_directory(Path::new(folder));
+        }
+    }
+    let result = dialog.pick_folder();
+    Ok(result
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn default_download_dir() -> String {
+    DownloadConfig::default()
+        .effective_download_root(None)
+        .to_string_lossy()
+        .into()
+}
 
 #[tauri::command]
 pub async fn download_post(
@@ -95,40 +440,26 @@ pub async fn download_post(
 
         let handle = tokio::spawn(async move {
             if token.is_cancelled() {
-                let _ = app.emit(
-                    "download-progress",
-                    DownloadProgressPayload {
-                        post_id: post_id_clone.clone(),
-                        index,
-                        total,
-                        status: "cancelled".to_string(),
-                        url: item_url.clone(),
-                        saved_path: None,
-                    },
-                );
+                emit_cancelled(&app, &post_id_clone, index, total, &item_url);
                 return Err("cancelled".to_string());
             }
 
-            let _permit = sem.acquire().await;
+            let _permit = tokio::select! {
+                permit = sem.acquire() => permit,
+                _ = token.cancelled() => {
+                    emit_cancelled(&app, &post_id_clone, index, total, &item_url);
+                    return Err("cancelled".to_string());
+                }
+            };
 
             let mut attempt = 0u32;
             loop {
                 if token.is_cancelled() {
-                    let _ = app.emit(
-                        "download-progress",
-                        DownloadProgressPayload {
-                            post_id: post_id_clone.clone(),
-                            index,
-                            total,
-                            status: "cancelled".to_string(),
-                            url: item_url.clone(),
-                            saved_path: None,
-                        },
-                    );
+                    emit_cancelled(&app, &post_id_clone, index, total, &item_url);
                     return Err("cancelled".to_string());
                 }
 
-                match download_item(
+                match download(
                     &app,
                     &post_id_clone,
                     &created_at_dt_clone,
@@ -147,17 +478,7 @@ pub async fn download_post(
                 {
                     Ok(paths) => break Ok(paths),
                     Err(e) if e == "cancelled" => {
-                        let _ = app.emit(
-                            "download-progress",
-                            DownloadProgressPayload {
-                                post_id: post_id_clone.clone(),
-                                index,
-                                total,
-                                status: "cancelled".to_string(),
-                                url: item_url.clone(),
-                                saved_path: None,
-                            },
-                        );
+                        emit_cancelled(&app, &post_id_clone, index, total, &item_url);
                         break Err(e);
                     }
                     Err(e) if attempt < config_clone.max_retries => {
@@ -179,17 +500,7 @@ pub async fn download_post(
                         tokio::select! {
                             _ = sleep(Duration::from_millis(delay_ms)) => {},
                             _ = token.cancelled() => {
-                                let _ = app.emit(
-                                    "download-progress",
-                                    DownloadProgressPayload {
-                                        post_id: post_id_clone.clone(),
-                                        index,
-                                        total,
-                                        status: "cancelled".to_string(),
-                                        url: item_url.clone(),
-                                        saved_path: None,
-                                    },
-                                );
+                                emit_cancelled(&app, &post_id_clone, index, total, &item_url);
                                 return Err("cancelled".to_string());
                             }
                         }
@@ -247,318 +558,7 @@ pub async fn download_post(
 }
 
 #[tauri::command]
-pub async fn choose_download_dir(starting_folder: Option<String>) -> Result<String, String> {
-    let mut dialog = rfd::FileDialog::new();
-    if let Some(ref folder) = starting_folder {
-        if !folder.is_empty() {
-            dialog = dialog.set_directory(Path::new(folder));
-        }
-    }
-    let result = dialog.pick_folder();
-    Ok(result
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default())
-}
-
-#[tauri::command]
-pub fn default_download_dir() -> String {
-    DownloadConfig::default()
-        .effective_download_root(None)
-        .to_string_lossy()
-        .into()
-}
-
-pub async fn download_item(
-    app_handle: &tauri::AppHandle,
-    post_id: &str,
-    created_at_dt: &DateTime<Utc>,
-    item_url: String,
-    item_video_url: Option<String>,
-    index: usize,
-    total: usize,
-    resolved_download_dir: &Path,
-    location: Option<&GpsData>,
-    wm_position: &str,
-    client: reqwest::Client,
-    config: DownloadConfig,
-    cancellation_token: CancellationToken,
-) -> Result<Vec<String>, String> {
-    let mut saved_paths = Vec::new();
-    let is_live_photo = item_video_url.is_some();
-    let no_watermark_url = get_no_watermark_url(&item_url);
-
-    log::info!(
-        "[Post {}:{}/{}] Starting download. URL: {}",
-        post_id,
-        index + 1,
-        total,
-        item_url
-    );
-
-    let _ = app_handle.emit(
-        "download-progress",
-        DownloadProgressPayload {
-            post_id: post_id.to_string(),
-            index,
-            total,
-            status: "downloading".to_string(),
-            url: item_url.clone(),
-            saved_path: None,
-        },
-    );
-
-    if cancellation_token.is_cancelled() {
-        return Err("cancelled".to_string());
-    }
-
-    let req = client
-        .get(&item_url)
-        .timeout(Duration::from_secs(config.request_timeout_secs))
-        .header("Referer", &config.referer)
-        .header("User-Agent", &config.user_agent);
-    let response = tokio::select! {
-        res = req.send() => res.map_err(|e| {
-            let err = DownloadError::Request(format!("Request failed: {}", e)).to_string();
-            log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
-            err
-        })?,
-        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
-    };
-
-    if !response.status().is_success() {
-        let err = DownloadError::Http(format!("HTTP error: {}", response.status())).to_string();
-        log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
-        return Err(err);
-    }
-
-    let mut buffer = tokio::select! {
-        bytes = response.bytes() => bytes.map_err(|e| {
-            let err =
-                DownloadError::Request(format!("Failed to read response bytes: {}", e)).to_string();
-            log::error!("[{}/{}] Post {} - {}", index + 1, total, post_id, err);
-            err
-        })?.to_vec(),
-        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
-    };
-
-    if let Some(ref no_wm_url) = no_watermark_url {
-        if no_wm_url != &item_url && !is_live_photo {
-            if cancellation_token.is_cancelled() {
-                return Err("cancelled".to_string());
-            }
-            let req_no_wm = client
-                .get(no_wm_url)
-                .timeout(Duration::from_secs(config.request_timeout_secs))
-                .header("Referer", &config.referer)
-                .header("User-Agent", &config.user_agent);
-            let res_no_wm = tokio::select! {
-                res = req_no_wm.send() => res,
-                _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
-            };
-            if let Ok(res_no_wm) = res_no_wm {
-                if res_no_wm.status().is_success() {
-                    let no_wm_bytes = tokio::select! {
-                        bytes = res_no_wm.bytes() => bytes,
-                        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
-                    };
-                    if let Ok(no_wm_bytes) = no_wm_bytes {
-                        let pos = match wm_position {
-                            "top" => StripPosition::Top,
-                            "center" => StripPosition::Center,
-                            "bottom" => StripPosition::Bottom,
-                            _ => StripPosition::Bottom,
-                        };
-                        if let Ok(merged) = merge_strip_three_percent(&buffer, &no_wm_bytes, pos) {
-                            buffer = merged;
-                        } else {
-                            log::warn!(
-                                "[Post {}:{}/{}] Failed to merge watermark-free version",
-                                post_id,
-                                index + 1,
-                                total
-                            );
-                        }
-                    }
-                } else {
-                    log::warn!(
-                        "[Post {}:{}/{}] Watermark-free request returned status: {}",
-                        post_id,
-                        index + 1,
-                        total,
-                        res_no_wm.status()
-                    );
-                }
-            } else {
-                log::warn!(
-                    "[Post {}:{}/{}] Failed to request watermark-free image",
-                    post_id,
-                    index + 1,
-                    total
-                );
-            }
-        }
-    }
-
-    let extension = Path::new(&item_url)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map(|ext| format!(".{}", ext))
-        .unwrap_or_else(|| ".jpg".to_string());
-
-    let formatted_date = get_formatted_date(created_at_dt, index as i64);
-    let image_filename = format!("{}{}", formatted_date, extension);
-    let target_path = resolved_download_dir.join(&image_filename);
-
-    let exif_date_str = get_exif_date_string(created_at_dt, index as i64);
-    if let Err(e) = write_exif(&mut buffer, &exif_date_str, location, &extension) {
-        log::warn!(
-            "[Post {}:{}/{}] Failed to write EXIF metadata in memory: {}",
-            post_id,
-            index + 1,
-            total,
-            e
-        );
-    }
-
-    // For live photos, mux the video into the image bytes in memory before
-    // writing to disk so we only need a single file write.
-    if is_live_photo {
-        if let Some(ref video_url) = item_video_url {
-            if cancellation_token.is_cancelled() {
-                return Err("cancelled".to_string());
-            }
-            buffer =
-                download_live_photo(&client, video_url, &buffer, &config, index, total, post_id, cancellation_token)
-                    .await
-                    .unwrap_or_else(|e| {
-                        log::error!(
-                            "[Post {}:{}/{}] Live photo mux failed, writing plain image: {}",
-                            post_id,
-                            index + 1,
-                            total,
-                            e
-                        );
-                        buffer.clone()
-                    });
-            log::info!(
-                "[Post {}:{}/{}] Live photo muxed successfully, new size: {} bytes",
-                post_id,
-                index + 1,
-                total,
-                buffer.len()
-            );
-        }
-    }
-
-    let mut file = File::create(&target_path).map_err(|e| {
-        let err = DownloadError::Io(e).to_string();
-        log::error!("[Post {}:{}/{}] - {}", post_id, index + 1, total, err);
-        err
-    })?;
-    file.write_all(&buffer).map_err(|e| {
-        let err = DownloadError::Io(e).to_string();
-        log::error!("[Post {}:{}/{}] - {}", post_id, index + 1, total, err);
-        err
-    })?;
-
-    log::info!(
-        "[Post {}:{}/{}] Wrote image to {}",
-        post_id,
-        index + 1,
-        total,
-        target_path.display()
-    );
-
-    saved_paths.push(target_path.to_string_lossy().to_string());
-
-    let _ = app_handle.emit(
-        "download-progress",
-        DownloadProgressPayload {
-            post_id: post_id.to_string(),
-            index,
-            total,
-            status: "completed".to_string(),
-            url: item_url.clone(),
-            saved_path: Some(target_path.to_string_lossy().to_string()),
-        },
-    );
-
-    log::info!("[Post {}:{}/{}] Completed", post_id, index + 1, total);
-
-    Ok(saved_paths)
-}
-
-/// Downloads the video component of a live photo and muxes it with the already-downloaded
-/// `image_bytes` entirely in memory.
-///
-/// Returns the muxed motion-photo bytes on success, or an error string on failure.
-async fn download_live_photo(
-    client: &reqwest::Client,
-    video_url: &str,
-    image_bytes: &[u8],
-    config: &DownloadConfig,
-    index: usize,
-    total: usize,
-    post_id: &str,
-    cancellation_token: CancellationToken,
-) -> Result<Vec<u8>, String> {
-    log::info!(
-        "[Post {}:{}/{}] Live Photo: Downloading video from {}",
-        post_id,
-        index + 1,
-        total,
-        video_url
-    );
-
-    if cancellation_token.is_cancelled() {
-        return Err("cancelled".to_string());
-    }
-
-    let res = tokio::select! {
-        res = client
-            .get(video_url)
-            .timeout(Duration::from_secs(config.request_timeout_secs))
-            .header("Referer", &config.referer)
-            .header("User-Agent", &config.user_agent)
-            .send() => res.map_err(|e| format!("Video request failed: {}", e)),
-        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
-    }?;
-
-    if !res.status().is_success() {
-        return Err(format!("Video HTTP error: {}", res.status()));
-    }
-
-    let video_bytes = tokio::select! {
-        bytes = res.bytes() => bytes.map_err(|e| format!("Failed to read video bytes: {}", e)),
-        _ = cancellation_token.cancelled() => return Err("cancelled".to_string()),
-    }?;
-
-    let url = Url::parse(video_url).unwrap();
-    let mime = match Path::new(url.path())
-        .extension()
-        .and_then(|ext| ext.to_str())
-    {
-        Some("mp4") | Some("MP4") => "video/mp4",
-        Some("mov") | Some("MOV") => "video/quicktime",
-        _ => return Err("Unsupported url video format! Must be mp4 or mov".into()),
-    };
-
-    log::info!(
-        "[Post {}:{}/{}]  - Muxing live photo video ({} bytes) in memory",
-        post_id,
-        index + 1,
-        total,
-        video_bytes.len()
-    );
-
-    mux_motion_photo(image_bytes, &video_bytes, &mime).map_err(|e| format!("Mux failed: {}", e))
-}
-
-#[tauri::command]
-pub fn cancel_download(
-    app_handle: tauri::AppHandle,
-    post_id: String,
-) -> Result<(), String> {
+pub fn cancel_download_post(app_handle: tauri::AppHandle, post_id: String) -> Result<(), String> {
     let state = app_handle.state::<DownloadCancellationState>();
     let map = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(token) = map.get(&post_id) {

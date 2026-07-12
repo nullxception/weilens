@@ -11,7 +11,7 @@ import {
   ProgressLabel,
   ProgressValue,
 } from "../components/ui/progress";
-import { downloadPost, cancelDownload } from "../lib/api";
+import { downloadPost, cancelDownloadPost } from "../lib/api";
 import LocationDialog from "./location-dialog";
 import {
   DropdownMenu,
@@ -317,7 +317,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                        onClick={() => void cancelDownload(blog.idstr)}
+                        onClick={() => void cancelDownloadPost(blog.idstr)}
                       >
                         <XCircleIcon className="h-4 w-4" />
                       </Button>

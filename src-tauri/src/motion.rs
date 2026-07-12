@@ -13,7 +13,7 @@ struct SefTag<'a> {
 /// accepted `mime`:
 /// - `video/mp4`
 /// - `video/quicktime`
-pub fn mux_motion_photo(
+pub fn mux(
     image_bytes: &[u8],
     video_bytes: &[u8],
     mime: &str,

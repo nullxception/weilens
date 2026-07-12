@@ -27,6 +27,6 @@ export async function downloadPost(params: {
   }>;
 }
 
-export async function cancelDownload(postId: string): Promise<void> {
-  return invoke("cancel_download", { postId });
+export async function cancelDownloadPost(postId: string): Promise<void> {
+  return invoke("cancel_download_post", { postId });
 }

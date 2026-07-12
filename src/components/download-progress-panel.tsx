@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { DownloadProgressPayload } from "@/types/rpc";
-import { cancelDownload } from "@/lib/api";
+import { cancelDownloadPost } from "@/lib/api";
 
 export function DownloadProgressPanel() {
   const downloads = useAppStore((state: AppState) => state.downloads);
@@ -28,7 +28,9 @@ export function DownloadProgressPanel() {
           useAppStore.getState().downloads[ev.payload.postId];
         if (updatedProgress) {
           const allFinished =
-            updatedProgress.completed + updatedProgress.failed + updatedProgress.cancelled ===
+            updatedProgress.completed +
+              updatedProgress.failed +
+              updatedProgress.cancelled ===
             updatedProgress.total;
           if (allFinished) {
             setTimeout(
@@ -96,7 +98,7 @@ export function DownloadProgressPanel() {
                     variant="ghost"
                     size="sm"
                     className="h-5 w-5 p-0 text-destructive hover:text-destructive"
-                    onClick={() => void cancelDownload(d.postId)}
+                    onClick={() => void cancelDownloadPost(d.postId)}
                   >
                     <XCircle className="h-3 w-3" />
                   </Button>

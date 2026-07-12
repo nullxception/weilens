@@ -3,16 +3,16 @@ use url::Url;
 
 use crate::types::DEFAULT_USER_AGENT;
 
-pub enum StripPosition {
+pub enum WmPosition {
     Top,
     Center,
     Bottom,
 }
 
-pub fn merge_strip_three_percent(
+pub fn dewatermark(
     wm_bytes: &[u8],
     no_wm_bytes: &[u8],
-    position: StripPosition,
+    position: WmPosition,
 ) -> Result<Vec<u8>, String> {
     use image::{GenericImage, GenericImageView};
 
@@ -28,9 +28,9 @@ pub fn merge_strip_three_percent(
     let strip_height = std::cmp::max(1, (height as f32 * 0.03).round() as u32);
 
     let start_y = match position {
-        StripPosition::Top => 0,
-        StripPosition::Center => (height.saturating_sub(strip_height)) / 2,
-        StripPosition::Bottom => height.saturating_sub(strip_height),
+        WmPosition::Top => 0,
+        WmPosition::Center => (height.saturating_sub(strip_height)) / 2,
+        WmPosition::Bottom => height.saturating_sub(strip_height),
     };
     let end_y = std::cmp::min(start_y + strip_height, height);
 
