@@ -1,25 +1,14 @@
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { proxyImage } from "@/lib/proxy";
-import type { BlogPost, PicDimension, PicInfo } from "../types/remote";
+import type { BlogPost } from "../types/remote";
+import { getAspectRatio, getPreferredImage } from "@/lib/remote";
 
 interface BlogCardImagesProps {
   blog: BlogPost;
   onImageClick: (idx: number) => void;
-  getPreferredImage: (info: PicInfo | undefined) => {
-    url: string;
-    thumb: PicDimension | undefined | null;
-    videoUrl: string | null;
-    picId: string | undefined;
-  };
-  getAspectRatio: (pdm: PicDimension | undefined) => string;
 }
 
-export function BlogCardImages({
-  blog,
-  onImageClick,
-  getPreferredImage,
-  getAspectRatio,
-}: BlogCardImagesProps) {
+export function BlogCardImages({ blog, onImageClick }: BlogCardImagesProps) {
   if (!blog.pic_ids || blog.pic_ids.length === 0) return null;
 
   return (
@@ -33,12 +22,13 @@ export function BlogCardImages({
       }}
     >
       <Masonry gutter="16px">
-        {blog.pic_ids.map((picId, idx) => {
-          const picData = blog.pic_infos?.[picId];
-          const info = getPreferredImage(picData);
+        {blog.pic_ids.map((id, idx) => {
+          const data = blog.pic_infos?.[id];
+          if (!data) return null;
+          const info = getPreferredImage(data);
           return info.thumb ? (
             <div
-              key={picId}
+              key={id}
               className="relative w-full cursor-pointer overflow-hidden rounded-md border border-border transition-opacity hover:opacity-90"
               onClick={() => onImageClick(idx)}
             >
@@ -48,7 +38,7 @@ export function BlogCardImages({
                 style={{ aspectRatio: getAspectRatio(info.thumb) }}
                 className="w-full object-contain"
               />
-              {picData?.type === "livephoto" && picData?.video != null && (
+              {data?.type === "livephoto" && data?.video != null && (
                 <div className="pointer-events-none absolute top-1.5 left-1.5 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-[2px] select-none">
                   <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
                   Live Photo

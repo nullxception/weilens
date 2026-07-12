@@ -17,7 +17,7 @@ export const PicDimensionSchema = z.object({
 });
 
 export const PicInfoSchema = z.object({
-  thumbnail: PicDimensionSchema.nullish(),
+  thumbnail: PicDimensionSchema,
   bmiddle: PicDimensionSchema.nullish(),
   large: PicDimensionSchema.nullish(),
   original: PicDimensionSchema.nullish(),

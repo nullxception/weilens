@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DownloadItem } from "../types/rpc";
-import type { PicDimension, PicInfo, BlogPost } from "../types/remote";
+import type { BlogPost } from "../types/remote";
 import { useUiStore } from "../stores/useUiStore";
 import type { GPSData, Place } from "../types/gps";
 import { Card, CardContent } from "../components/ui/card";
@@ -15,36 +15,22 @@ import {
   MessageSquareQuoteIcon,
   RotateCwIcon,
 } from "lucide-react";
+import { getAspectRatio, getPreferredImage } from "@/lib/remote";
 
 interface BlogCardProps {
   blog: BlogPost;
   activeDisplayName?: string;
 }
 
-function getAspectRatio(pdm: PicDimension | undefined): string {
-  if (!pdm || !pdm.width || !pdm.height) return "1 / 1";
-  return `${pdm.width} / ${pdm.height}`;
-}
-
-function getPreferredImage(info: PicInfo | undefined) {
-  const pic = info?.largest ?? info?.mw2000 ?? info?.original ?? info?.large;
-  const thumb = info?.largecover ?? info?.bmiddle ?? info?.thumbnail;
-  return {
-    url: pic?.url ?? "",
-    thumb: thumb,
-    videoUrl: info?.type === "livephoto" && info?.video ? info?.video : null,
-    picId: info?.pic_id,
-  };
-}
-
 export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   const activeUid = useUiStore((state) => state.activeUid);
 
   const downloadItems = (blog.pic_ids ?? [])
-    .map((picId) => {
-      const picData = blog.pic_infos?.[picId];
-      const info = getPreferredImage(picData);
-      return info ? { url: info.url, videoUrl: info.videoUrl } : null;
+    .map((id) => {
+      const data = blog.pic_infos?.[id];
+      if (!data) return null;
+      const info = getPreferredImage(data);
+      return { url: info.url, videoUrl: info.videoUrl };
     })
     .filter((item): item is DownloadItem => item !== null);
 
@@ -78,13 +64,14 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
   );
 
   const viewerImages = (blog.pic_ids ?? [])
-    .map((picId) => {
-      const picData = blog.pic_infos?.[picId];
-      const info = getPreferredImage(picData);
+    .map((id) => {
+      const data = blog.pic_infos?.[id];
+      if (!data) return null;
+      const info = getPreferredImage(data);
       if (!info.url) return null;
       return {
         url: info.url,
-        aspectRatio: getAspectRatio(info.thumb ?? undefined),
+        aspectRatio: getAspectRatio(info.thumb),
       };
     })
     .filter((img): img is { url: string; aspectRatio: string } => img !== null);
@@ -107,8 +94,6 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
 
           <BlogCardImages
             blog={blog}
-            getPreferredImage={getPreferredImage}
-            getAspectRatio={getAspectRatio}
             onImageClick={(idx) => {
               setViewerIndex(idx);
               setViewNonce((v) => v + 1);
