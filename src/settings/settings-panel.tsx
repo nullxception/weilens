@@ -49,7 +49,7 @@ export function SettingsPanel() {
   const setDownloadLocation = useSettingsStore(
     (state) => state.setDownloadLocation,
   );
-  const wmPosition = useSettingsStore((state) => state.wmPosition);
+  const wmPosition = useSettingsStore((state) => state.dewatermark);
   const setWmPosition = useSettingsStore((state) => state.setWmPosition);
   const onBack = useUiStore((state) => state.closeSettings);
   const savedMessage = useAuthStore((state) => state.savedMessage);

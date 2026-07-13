@@ -14,12 +14,12 @@ export async function chooseDownloadDir(
 
 export async function downloadPost(params: {
   uid: string;
-  postId: string;
-  createdAt: string;
-  wmPosition: WmPosition;
+  blogId: string;
+  date: string;
+  dewatermark: WmPosition;
   items: DownloadItem[];
-  downloadDir?: string | undefined;
-  location?: GPSData | undefined;
+  target?: string | undefined;
+  gps?: GPSData | undefined;
 }): Promise<{ savedPaths: string[]; count: number }> {
   return invoke("download_post", { request: params }) as Promise<{
     savedPaths: string[];
@@ -27,8 +27,8 @@ export async function downloadPost(params: {
   }>;
 }
 
-export async function cancelDownloadPost(postId: string): Promise<void> {
-  return invoke("cancel_download_post", { postId });
+export async function cancelDownloadPost(blogId: string): Promise<void> {
+  return invoke("cancel_download_post", { blogId });
 }
 
 export async function listPlaces(payload: {
@@ -38,8 +38,8 @@ export async function listPlaces(payload: {
   return invoke("list_places", payload);
 }
 
-export async function searchPlace(forQuery: string): Promise<Place[]> {
-  return invoke<Place[]>("search_place", { for: forQuery });
+export async function searchPlace(query: string): Promise<Place[]> {
+  return invoke<Place[]>("search_place", { query });
 }
 
 export async function addPlace(place: Place): Promise<void> {
@@ -47,16 +47,16 @@ export async function addPlace(place: Place): Promise<void> {
 }
 
 export async function getPlaceByPost(
-  userId: string,
-  mblogid: string,
+  uid: string,
+  blogId: string,
 ): Promise<Place> {
-  return invoke<Place>("get_place_by_post", { userId, mblogid });
+  return invoke<Place>("get_place_by_post", { uid, blogId });
 }
 
 export async function setBlogPlace(
-  userId: string,
-  mblogid: string,
+  uid: string,
+  blogId: string,
   place: Place,
 ): Promise<void> {
-  return invoke("set_blog_place", { userId, mblogid, place });
+  return invoke("set_blog_place", { uid, blogId, place });
 }

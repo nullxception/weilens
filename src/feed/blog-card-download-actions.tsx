@@ -62,14 +62,15 @@ export function BlogCardDownloadActions({
   onPlaceChange,
 }: BlogCardDownloadActionsProps) {
   const downloadLocation = useSettingsStore((state) => state.downloadLocation);
-  const defaultWmPos = useSettingsStore((state) => state.wmPosition);
+  const defaultDewatermark = useSettingsStore((state) => state.dewatermark);
   const startDownload = useDownloadsStore((state) => state.startDownload);
   const clearDownload = useDownloadsStore((state) => state.clearDownload);
   const downloadProgress = useDownloadsStore(
     (state) => state.downloads[postId] ?? null,
   );
 
-  const [wmPosition, setWmPosition] = useState<WmPosition>(defaultWmPos);
+  const [dewatermark, setDewatermark] =
+    useState<WmPosition>(defaultDewatermark);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
 
   const clearProgressLater = () => {
@@ -82,12 +83,12 @@ export function BlogCardDownloadActions({
     try {
       await downloadPost({
         uid: uid,
-        postId: postId,
-        createdAt: createdAt,
+        blogId: postId,
+        date: createdAt,
         items: downloadItems,
-        downloadDir: downloadLocation || undefined,
-        location: loc ?? gpsLocation ?? undefined,
-        wmPosition,
+        target: downloadLocation || undefined,
+        gps: loc ?? gpsLocation ?? undefined,
+        dewatermark: dewatermark,
       });
     } catch (error) {
       console.error("Failed to start download", error);
@@ -145,8 +146,8 @@ export function BlogCardDownloadActions({
         <div className="flex items-center gap-2">
           <Select
             items={wmPositions}
-            onValueChange={(value) => setWmPosition(value as WmPosition)}
-            value={wmPosition}
+            onValueChange={(value) => setDewatermark(value as WmPosition)}
+            value={dewatermark}
           >
             <SelectTrigger size="sm" className="w-32">
               <EraserIcon />

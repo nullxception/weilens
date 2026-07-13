@@ -98,9 +98,9 @@ pub fn list_places(
 }
 
 #[tauri::command]
-pub fn search_place(state: tauri::State<'_, DbState>, r#for: &str) -> Result<Vec<Place>, String> {
+pub fn search_place(state: tauri::State<'_, DbState>, query: &str) -> Result<Vec<Place>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let pattern = format!("%{}%", r#for);
+    let pattern = format!("%{}%", query);
     let mut stmt = conn
         .prepare("SELECT  lat, lon, name FROM places WHERE name LIKE ?1")
         .map_err(|e| e.to_string())?;
@@ -126,8 +126,8 @@ pub fn search_place(state: tauri::State<'_, DbState>, r#for: &str) -> Result<Vec
 #[tauri::command]
 pub fn get_place_by_post(
     state: tauri::State<'_, DbState>,
-    user_id: String,
-    mblogid: String,
+    uid: String,
+    blog_id: String,
 ) -> Result<Place, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
@@ -139,7 +139,7 @@ pub fn get_place_by_post(
         .map_err(|e| e.to_string())?;
 
     let place = stmt
-        .query_row([user_id, mblogid], |row| {
+        .query_row([uid, blog_id], |row| {
             Ok(Place {
                 lat: row.get(0)?,
                 lon: row.get(1)?,
@@ -164,8 +164,8 @@ pub fn add_place(state: tauri::State<'_, DbState>, place: Place) -> Result<(), S
 #[tauri::command]
 pub fn set_blog_place(
     state: tauri::State<'_, DbState>,
-    user_id: String,
-    mblogid: String,
+    uid: String,
+    blog_id: String,
     place: Place,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -180,7 +180,7 @@ pub fn set_blog_place(
         .map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT OR REPLACE INTO blog_places (user_id, mblogid, place_id) VALUES (?1, ?2, ?3)",
-        params![user_id, mblogid, place_id],
+        params![uid, blog_id, place_id],
     )
     .map_err(|e| e.to_string())?;
     cleanup_orphans(&conn).map_err(|e| e.to_string())?;
@@ -190,13 +190,13 @@ pub fn set_blog_place(
 #[tauri::command]
 pub fn remove_blog_place(
     state: tauri::State<'_, DbState>,
-    user_id: String,
-    mblogid: String,
+    uid: String,
+    blog_id: String,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "DELETE FROM blog_places WHERE user_id = ?1 AND mblogid = ?2",
-        params![user_id, mblogid],
+        params![uid, blog_id],
     )
     .map_err(|e| e.to_string())?;
     cleanup_orphans(&conn).map_err(|e| e.to_string())?;

@@ -22,14 +22,14 @@ function readWmPositionFromStorage(): WmPosition {
 
 interface SettingsState {
   downloadLocation: string;
-  wmPosition: WmPosition;
+  dewatermark: WmPosition;
   setDownloadLocation: (downloadLocation: string) => void;
   setWmPosition: (wmPosition: WmPosition) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   downloadLocation: readDownloadLocationFromStorage(),
-  wmPosition: readWmPositionFromStorage(),
+  dewatermark: readWmPositionFromStorage(),
   setDownloadLocation: (downloadLocation: string) => {
     try {
       localStorage.setItem(StorageKeys.DOWNLOAD_PATH, downloadLocation);
@@ -46,6 +46,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       console.error("Failed to save WM position to localStorage:", error);
     }
 
-    set({ wmPosition });
+    set({ dewatermark: wmPosition });
   },
 }));

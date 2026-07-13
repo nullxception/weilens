@@ -26,19 +26,19 @@ use crate::util::get_no_watermark_url;
 #[serde(rename_all = "camelCase")]
 pub struct DownloadPostRequest {
     pub uid: String,
-    pub post_id: String,
-    pub created_at: String,
-    pub wm_position: String,
+    pub blog_id: String,
+    pub date: String,
+    pub dewatermark: String,
     pub items: Vec<DownloadItem>,
-    pub download_dir: Option<String>,
-    pub location: Option<GpsData>,
+    pub target: Option<String>,
+    pub gps: Option<GpsData>,
 }
 
 pub struct DownloadTask {
     pub app_handle: tauri::AppHandle,
     pub post_id: String,
     pub created_at_dt: DateTime<Utc>,
-    pub wm_position: String,
+    pub dewatermark: String,
     pub item_url: String,
     pub item_video_url: Option<String>,
     pub index: usize,
@@ -128,9 +128,7 @@ async fn process_motion(
     mux(image_bytes, &video_bytes, mime).map_err(|e| format!("Mux failed: {}", e))
 }
 
-pub async fn download(
-    task: DownloadTask,
-) -> Result<(Vec<String>, Option<String>), String> {
+pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>), String> {
     let mut saved_paths = Vec::new();
     let is_motion = task.item_video_url.is_some();
     let no_watermark_url = get_no_watermark_url(&task.item_url);
@@ -178,7 +176,13 @@ pub async fn download(
 
     if !response.status().is_success() {
         let err = DownloadError::Http(format!("HTTP error: {}", response.status())).to_string();
-        log::error!("[{}/{}] Post {} - {}", task.index + 1, task.total, task.post_id, err);
+        log::error!(
+            "[{}/{}] Post {} - {}",
+            task.index + 1,
+            task.total,
+            task.post_id,
+            err
+        );
         return Err(err);
     }
 
@@ -217,7 +221,7 @@ pub async fn download(
                         if task.cancellation_token.is_cancelled() {
                             return Err("cancelled".to_string());
                         }
-                        let pos = match task.wm_position.as_str() {
+                        let pos = match task.dewatermark.as_str() {
                             "top" => WmPosition::Top,
                             "center" => WmPosition::Center,
                             "bottom" => WmPosition::Bottom,
@@ -268,7 +272,12 @@ pub async fn download(
     if task.cancellation_token.is_cancelled() {
         return Err("cancelled".to_string());
     }
-    if let Err(e) = write_exif(&mut buffer, &exif_date_str, task.gps_loc.as_ref(), &extension) {
+    if let Err(e) = write_exif(
+        &mut buffer,
+        &exif_date_str,
+        task.gps_loc.as_ref(),
+        &extension,
+    ) {
         log::warn!(
             "[Post {}:{}/{}] Failed to write EXIF metadata in memory: {}",
             task.post_id,
@@ -391,7 +400,7 @@ pub async fn download_post(
     request: DownloadPostRequest,
 ) -> Result<serde_json::Value, String> {
     let config = DownloadConfig::default();
-    let base_dir = config.effective_download_root(request.download_dir);
+    let base_dir = config.effective_download_root(request.target);
 
     let uid_segment = if request.uid.trim().is_empty() {
         "unknown_user"
@@ -399,11 +408,11 @@ pub async fn download_post(
         &request.uid
     };
 
-    let created_at_dt = parse_date(&request.created_at).unwrap_or_else(chrono::Utc::now);
+    let created_at_dt = parse_date(&request.date).unwrap_or_else(chrono::Utc::now);
     let date_segment = get_date_folder(&created_at_dt);
 
-    let resolved_download_dir = base_dir.join(uid_segment).join(date_segment);
-    std::fs::create_dir_all(&resolved_download_dir)
+    let download_dir = base_dir.join(uid_segment).join(date_segment);
+    std::fs::create_dir_all(&download_dir)
         .map_err(|e| DownloadError::CreateDir(e.to_string()))
         .map_err(|e| e.to_string())?;
 
@@ -423,7 +432,7 @@ pub async fn download_post(
     {
         let state = app_handle.state::<DownloadCancellationState>();
         let mut map = state.0.lock().map_err(|e| e.to_string())?;
-        map.insert(request.post_id.clone(), cancellation_token.clone());
+        map.insert(request.blog_id.clone(), cancellation_token.clone());
     }
 
     let mut handles = Vec::new();
@@ -431,13 +440,13 @@ pub async fn download_post(
         let sem = semaphore.clone();
         let token = cancellation_token.clone();
         let config_clone = config.clone();
-        let post_id = request.post_id.clone();
+        let post_id = request.blog_id.clone();
         let app = app_handle.clone();
         let item_url = item.url.clone();
         let item_video = item.video_url.clone();
-        let wm_position = request.wm_position.clone();
-        let gps_loc = request.location.clone();
-        let resolved_dir = resolved_download_dir.clone();
+        let dewatermark = request.dewatermark.clone();
+        let gps_loc = request.gps.clone();
+        let resolved_dir = download_dir.clone();
         let client_clone = client.clone();
         let user_agent_clone = user_agent.clone();
         let created_at = created_at_dt;
@@ -467,7 +476,7 @@ pub async fn download_post(
                     app_handle: app.clone(),
                     post_id: post_id.clone(),
                     created_at_dt: created_at,
-                    wm_position: wm_position.clone(),
+                    dewatermark: dewatermark.clone(),
                     item_url: item_url.clone(),
                     item_video_url: item_video.clone(),
                     index,
@@ -554,7 +563,7 @@ pub async fn download_post(
     {
         let state = app_handle.state::<DownloadCancellationState>();
         let mut map = state.0.lock().map_err(|e| e.to_string())?;
-        map.remove(&request.post_id);
+        map.remove(&request.blog_id);
     }
 
     Ok(serde_json::json!({
