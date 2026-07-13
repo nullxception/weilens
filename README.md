@@ -1,10 +1,12 @@
 # weilens
 
+<img src="src-tauri/icons/Square142x142Logo.png" alt="neofetch" align="right" />
+
 will add the desc later, maybe
 
 ## motivation
 
-trying rust but idk where to start lmao
+trying rust but idk where to start
 
 ## tech stack
 
