@@ -3,12 +3,17 @@ import { AnimatePresence, motion } from "motion/react";
 import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Button } from "../components/ui/button";
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Loader2Icon,
+  XIcon,
+} from "lucide-react";
 import { proxyImage } from "@/lib/proxy";
 
 export interface ImageItem {
   url: string;
-  thumbUrl?: string;
   aspectRatio?: string;
 }
 
@@ -17,6 +22,38 @@ interface ImageViewerProps {
   initialIndex?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+function ImageViewerImage({
+  url,
+  aspectRatio,
+}: {
+  url: string;
+  aspectRatio?: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+      className="relative flex items-center justify-center overflow-hidden"
+    >
+      {!loaded && <Loader2Icon className="size-8 animate-spin text-white/70" />}
+      <img
+        src={proxyImage(url)}
+        alt=""
+        className={cn(
+          "relative z-1 max-h-[80vh] max-w-[80vw] rounded-sm object-contain transition-opacity duration-300",
+          loaded ? "opacity-100" : "opacity-0",
+        )}
+        style={{ aspectRatio }}
+        onLoad={() => setLoaded(true)}
+      />
+    </motion.div>
+  );
 }
 
 export function ImageViewer({
@@ -62,7 +99,7 @@ export function ImageViewer({
           <Button
             variant="ghost"
             size="icon-sm"
-            className="absolute top-3 right-3 z-10 text-white/70 hover:bg-white/10 hover:text-white"
+            className="absolute top-3 right-3 z-20 text-white/70 hover:bg-white/10 hover:text-white"
             onClick={() => onOpenChange(false)}
           >
             <XIcon className="size-5" />
@@ -70,7 +107,7 @@ export function ImageViewer({
 
           {/* Counter */}
           {images.length > 1 && (
-            <div className="absolute top-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
+            <div className="absolute top-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
               {currentIndex + 1} / {images.length}
             </div>
           )}
@@ -80,25 +117,20 @@ export function ImageViewer({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute left-3 z-10 text-white/70 hover:bg-white/10 hover:text-white"
+              className="absolute left-3 z-20 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={goPrev}
             >
               <ChevronLeftIcon className="size-6" />
             </Button>
           )}
 
-          {/* Image */}
+          {/* Image with skeleton */}
           <AnimatePresence mode="wait">
             {current.url ? (
-              <motion.img
+              <ImageViewerImage
                 key={currentIndex}
-                src={proxyImage(current.url)}
-                alt={current.url}
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.97 }}
-                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                className="max-h-[80vh] max-w-[80vw] rounded-sm object-contain"
+                url={current.url}
+                aspectRatio={current.aspectRatio}
               />
             ) : (
               <div className="text-sm text-white/50">No image</div>
@@ -110,7 +142,7 @@ export function ImageViewer({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-3 z-10 text-white/70 hover:bg-white/10 hover:text-white"
+              className="absolute right-3 z-20 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={goNext}
             >
               <ChevronRightIcon className="size-6" />
