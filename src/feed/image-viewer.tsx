@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Button } from "../components/ui/button";
@@ -43,13 +44,12 @@ export function ImageViewer({
   if (images.length === 0) return null;
 
   const current = images[currentIndex];
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
-        <DialogOverlay className="fixed inset-0 z-50 bg-black/90 supports-backdrop-filter:backdrop-blur-sm" />
+        <DialogOverlay className="fixed inset-0 z-50 bg-black/90 duration-200 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup
-          className="fixed inset-0 z-50 flex items-center justify-center outline-none"
+          className="fixed inset-0 z-50 flex items-center justify-center duration-200 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-90 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-90"
           onKeyDown={(e) => {
             if (e.key === "ArrowRight" || e.key === "l") goNext();
             else if (e.key === "ArrowLeft" || e.key === "h") goPrev();
@@ -88,13 +88,22 @@ export function ImageViewer({
           )}
 
           {/* Image */}
-          <img
-            key={currentIndex}
-            src={proxyImage(current.url)}
-            alt=""
-            className="max-h-[90vh] max-w-[90vw] object-contain select-none"
-            draggable={false}
-          />
+          <AnimatePresence mode="wait">
+            {current.url ? (
+              <motion.img
+                key={currentIndex}
+                src={proxyImage(current.url)}
+                alt={current.url}
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="max-h-[80vh] max-w-[80vw] rounded-sm object-contain"
+              />
+            ) : (
+              <div className="text-sm text-white/50">No image</div>
+            )}
+          </AnimatePresence>
 
           {/* Next */}
           {images.length > 1 && (
