@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -314,14 +313,13 @@ pub async fn download(
     if cancellation_token.is_cancelled() {
         return Err("cancelled".to_string());
     }
-    let write_path = target_path.clone();
-    let write_buf = buffer;
+    let target_path_str = target_path.to_string_lossy().to_string();
     tokio::select! {
         result = tokio::task::spawn_blocking(move || -> Result<(), String> {
-            let mut file = File::create(&write_path).map_err(|e| {
+            let mut file = File::create(&target_path).map_err(|e| {
                 DownloadError::Io(e).to_string()
             })?;
-            file.write_all(&write_buf).map_err(|e| {
+            file.write_all(&buffer).map_err(|e| {
                 DownloadError::Io(e).to_string()
             })?;
             Ok(())
@@ -336,10 +334,10 @@ pub async fn download(
         post_id,
         index + 1,
         total,
-        target_path.display()
+        target_path_str
     );
 
-    saved_paths.push(target_path.to_string_lossy().to_string());
+    saved_paths.push(target_path_str.clone());
 
     let _ = app_handle.emit(
         "download-progress",
@@ -349,7 +347,7 @@ pub async fn download(
             total,
             status: "completed".to_string(),
             url: item_url.clone(),
-            saved_path: Some(target_path.to_string_lossy().to_string()),
+            saved_path: Some(target_path_str),
             warning: warning.clone(),
         },
     );
@@ -427,19 +425,6 @@ pub async fn download_post(
         let state = app_handle.state::<DownloadCancellationState>();
         let mut map = state.0.lock().map_err(|e| e.to_string())?;
         map.insert(post_id.clone(), cancellation_token.clone());
-    }
-
-    let mut hosts: HashSet<String> = HashSet::new();
-    for it in items.iter() {
-        if let Ok(parsed) = url::Url::parse(&it.url) {
-            if let Some(host) = parsed.host_str() {
-                let mut host_url = format!("{}://{}", parsed.scheme(), host);
-                if let Some(port) = parsed.port() {
-                    host_url = format!("{}:{}", host_url, port);
-                }
-                hosts.insert(host_url);
-            }
-        }
     }
 
     let mut handles = Vec::new();
