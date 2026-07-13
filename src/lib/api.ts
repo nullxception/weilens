@@ -16,15 +16,15 @@ export async function downloadPost(params: {
   uid: string;
   postId: string;
   createdAt: string;
+  wmPosition: WmPosition;
   items: DownloadItem[];
   downloadDir?: string | undefined;
   location?: GPSData | undefined;
-  wmPosition: WmPosition;
 }): Promise<{ savedPaths: string[]; count: number }> {
-  return invoke("download_post", params) as Promise<{
+  return invoke("download_post", { request: params }) as Promise<{
     savedPaths: string[];
     count: number;
-    }>;
+  }>;
 }
 
 export async function cancelDownloadPost(postId: string): Promise<void> {
