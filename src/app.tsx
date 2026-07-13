@@ -31,6 +31,7 @@ function App() {
     handleNextPage,
   } = useProfileLookup();
 
+  const activeUid = useUiStore((state) => state.activeUid);
   const setActiveUid = useUiStore((state) => state.setActiveUid);
   const activeView = useUiStore((state) => state.activeView);
   const setActiveView = useUiStore((state) => state.setActiveView);
@@ -89,6 +90,7 @@ function App() {
   function handleCheck(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextUid = uid || "";
+    setActiveUid(nextUid);
     setActiveView("search");
     checkUid(nextUid, 1);
   }
@@ -135,15 +137,25 @@ function App() {
             }
           >
             {activeView === "search" && (
-              <BlogFeed
-                blogs={blogs}
-                result={result}
-                error={error}
-                isLoading={isLoading}
-                hasMore={hasMore}
-                onLoadMore={handleNextPage}
-                activeDisplayName={activeDisplayName}
-              />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeUid || "empty"}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  <BlogFeed
+                    blogs={blogs}
+                    result={result}
+                    error={error}
+                    isLoading={isLoading}
+                    hasMore={hasMore}
+                    onLoadMore={handleNextPage}
+                    activeDisplayName={activeDisplayName}
+                  />
+                </motion.div>
+              </AnimatePresence>
             )}
           </Suspense>
         </AppShell>
