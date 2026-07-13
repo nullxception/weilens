@@ -25,7 +25,10 @@ export const useDownloadsStore = create<DownloadsState>((set) => ({
   downloads: {},
   startDownload: (postId: string, total: number) =>
     set((state: DownloadsState) => {
-      const items: Record<number, "downloading" | "completed" | "failed" | "cancelled"> = {};
+      const items: Record<
+        number,
+        "downloading" | "completed" | "failed" | "cancelled"
+      > = {};
       for (let i = 0; i < total; i++) {
         items[i] = "downloading";
       }

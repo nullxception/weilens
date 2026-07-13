@@ -1,6 +1,7 @@
 export type WmPosition = "top" | "center" | "bottom";
 
-export type DownloadProgressStatus = "downloading" | "completed" | "failed" | "cancelled";
+export type DownloadProgressStatus =
+  "downloading" | "completed" | "failed" | "cancelled";
 
 export interface DownloadItem {
   url: string;

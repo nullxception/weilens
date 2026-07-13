@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X, ClipboardPaste, Eye, EyeOff } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -15,7 +15,7 @@ import { useAuthStore } from "../stores/useAuthStore";
 import { useUiStore } from "../stores/useUiStore";
 import { useSettingsStore } from "../stores/useSettingsStore";
 import { ButtonGroup } from "../components/ui/button-group";
-import { Suspense, use } from "react";
+import { Suspense, use, useState, useCallback } from "react";
 import {
   Select,
   SelectContent,
@@ -54,6 +54,21 @@ export function SettingsPanel() {
   const onBack = useUiStore((state) => state.closeSettings);
   const savedMessage = useAuthStore((state) => state.savedMessage);
   const saveCookie = useAuthStore((state) => state.saveCookie);
+  const [blurred, setBlurred] = useState(true);
+  const [pasted, setPasted] = useState(false);
+
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setCookie(text);
+        setPasted(true);
+        setTimeout(() => setPasted(false), 1500);
+      }
+    } catch {
+      // clipboard access denied or unavailable
+    }
+  }, [setCookie]);
 
   const handleChooseDownloadFolder = async () => {
     const selectedPath = await chooseDownloadDir(downloadLocation);
@@ -84,7 +99,37 @@ export function SettingsPanel() {
 
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="weicookie">Cookie</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="weicookie">Cookie</Label>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handlePaste}
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Paste from clipboard"
+              >
+                {pasted ? (
+                  <span className="text-green-500 text-xs font-bold">✓</span>
+                ) : (
+                  <ClipboardPaste className="size-3.5" />
+                )}
+                <span>{pasted ? "Pasted" : "Paste"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBlurred((b) => !b)}
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label={blurred ? "Show cookie" : "Hide cookie"}
+              >
+                {blurred ? (
+                  <EyeOff className="size-3.5" />
+                ) : (
+                  <Eye className="size-3.5" />
+                )}
+                <span>{blurred ? "Show" : "Hide"}</span>
+              </button>
+            </div>
+          </div>
           <span className="text-xs text-muted-foreground">
             Tip: Use{" "}
             <a
@@ -97,13 +142,20 @@ export function SettingsPanel() {
             </a>{" "}
             to get cookie from Sina Weibo.
           </span>
-          <Textarea
-            id="weicookie"
-            rows={6}
-            value={cookie}
-            onChange={(event) => setCookie(event.target.value)}
-            placeholder="Paste your full cookie string here"
-          />
+          <div className={blurred ? "rounded-md border border-input overflow-hidden" : ""}>
+            <Textarea
+              id="weicookie"
+              rows={6}
+              value={cookie}
+              onChange={(event) => setCookie(event.target.value)}
+              placeholder="Paste your full cookie string here"
+              className={
+                blurred
+                  ? "resize-none text-sm blur-sm transition-[filter] select-none border-none bg-input/20"
+                  : "resize-none text-sm blur-none transition-[filter]"
+              }
+            />
+          </div>
         </div>
 
         <Button

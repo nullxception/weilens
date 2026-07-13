@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { AppShell } from "./components/app-shell";
 import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
@@ -6,12 +6,17 @@ import { useProfileLookup } from "./hooks/use-profile-lookup";
 import { useUiStore } from "./stores/useUiStore";
 import { usePlacesStore } from "./stores/usePlacesStore";
 import { Skeleton } from "./components/ui/skeleton";
+import { Onboarding } from "./onboarding/onboarding";
+import { isOnboardingComplete } from "./onboarding/onboarding-state";
 
 const BlogFeed = React.lazy(() =>
   import("./feed/blog-feed").then((m) => ({ default: m.BlogFeed })),
 );
 
 function App() {
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => !isOnboardingComplete(),
+  );
   const {
     uid,
     setUid,
@@ -28,16 +33,10 @@ function App() {
   const setActiveUid = useUiStore((state) => state.setActiveUid);
   const activeView = useUiStore((state) => state.activeView);
   const setActiveView = useUiStore((state) => state.setActiveView);
-  const setHistoryOnSidebar = useUiStore(
-    (state) => state.setHistoryOnSidebar,
-  );
+  const setHistoryOnSidebar = useUiStore((state) => state.setHistoryOnSidebar);
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
-  const pendingLookupUid = useUiStore(
-    (state) => state.pendingLookupUid,
-  );
-  const setPendingLookupUid = useUiStore(
-    (state) => state.setPendingLookupUid,
-  );
+  const pendingLookupUid = useUiStore((state) => state.pendingLookupUid);
+  const setPendingLookupUid = useUiStore((state) => state.setPendingLookupUid);
   const initStore = usePlacesStore((state) => state.initStore);
   const historyOnSidebar =
     blogs.length > 0 || isLoading || Boolean(error) || Boolean(result);
@@ -95,7 +94,10 @@ function App() {
 
   return (
     <>
-      <CookieSetupDialog />
+      {showOnboarding && (
+        <Onboarding onComplete={() => setShowOnboarding(false)} />
+      )}
+      {!showOnboarding && <CookieSetupDialog />}
       <AppShell
         uid={uid}
         isLoading={isLoading}

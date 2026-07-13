@@ -29,8 +29,7 @@ export function BlogCardHeader({ blog }: BlogCardHeaderProps) {
           {blog.user?.screen_name || "Unknown User"}
         </button>
         <p className="text-xs text-muted-foreground">
-          {blog.created_at}{" "}
-          {blog.region_name ? `• ${blog.region_name}` : ""}
+          {blog.created_at} {blog.region_name ? `• ${blog.region_name}` : ""}
         </p>
       </div>
     </div>
