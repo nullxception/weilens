@@ -89,10 +89,9 @@ pub fn list_places(
             })
         })
         .map_err(|e| e.to_string())?;
-    let mut places = Vec::new();
-    for item in saved_iter {
-        places.push(item.map_err(|e| e.to_string())?);
-    }
+    let places: Vec<Place> = saved_iter
+        .map(|item| item.map_err(|e| e.to_string()))
+        .collect::<Result<_, _>>()?;
 
     Ok(Places { places, total })
 }
@@ -115,10 +114,9 @@ pub fn search_place(state: tauri::State<'_, DbState>, query: &str) -> Result<Vec
         })
         .map_err(|e| e.to_string())?;
 
-    let mut result = Vec::new();
-    for place in place_iter {
-        result.push(place.map_err(|e| e.to_string())?);
-    }
+    let result: Vec<Place> = place_iter
+        .map(|place| place.map_err(|e| e.to_string()))
+        .collect::<Result<_, _>>()?;
 
     Ok(result)
 }

@@ -67,10 +67,10 @@ pub fn mux(
     sefh.extend_from_slice(b"SEFH");
     sefh.extend_from_slice(&SEFH_VERSION.to_le_bytes());
     sefh.extend_from_slice(&(tags.len() as u32).to_le_bytes());
-    for i in 0..tags.len() {
-        sefh.extend_from_slice(&tags[i].id);
-        sefh.extend_from_slice(&offsets[i].to_le_bytes());
-        sefh.extend_from_slice(&tag_lengths[i].to_le_bytes());
+    for ((tag, &offset), &len) in tags.iter().zip(&offsets).zip(&tag_lengths) {
+        sefh.extend_from_slice(&tag.id);
+        sefh.extend_from_slice(&offset.to_le_bytes());
+        sefh.extend_from_slice(&len.to_le_bytes());
     }
     let sefh_len = sefh.len() as u32;
     sefh.extend_from_slice(&sefh_len.to_le_bytes());
