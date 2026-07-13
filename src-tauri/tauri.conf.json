@@ -15,8 +15,8 @@
     "windows": [
       {
         "title": "WeiLens",
-        "width": 1400,
-        "height": 918,
+        "width": 1024,
+        "height": 720,
         "center": true,
         "visible": false
       }
