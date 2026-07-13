@@ -66,11 +66,6 @@ export function BlogFeed({
   }, [hasMore, onLoadMore]);
   const activeUid = useUiStore((state) => state.activeUid);
   const history = useHistoryStore((state) => state.history);
-  const onHistoryClick = useUiStore((state) => state.openHistoryProfile);
-  const onRemoveFromHistory = useHistoryStore(
-    (state) => state.removeFromHistory,
-  );
-  const onClearHistory = useHistoryStore((state) => state.clearHistory);
 
   const visibleBlogs = showReposted
     ? blogs
@@ -179,12 +174,7 @@ export function BlogFeed({
           exit="exit"
           transition={stateTransition}
         >
-          <HistoryPanel
-            history={history}
-            onProfileClick={onHistoryClick}
-            onRemove={onRemoveFromHistory}
-            onClear={onClearHistory}
-          />
+          <HistoryPanel history={history} />
         </motion.div>
       ) : (
         <motion.div

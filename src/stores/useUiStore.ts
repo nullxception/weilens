@@ -1,7 +1,7 @@
 import { create } from "zustand";
+import { useHistoryStore } from "./useHistoryStore";
 
 export type ViewKey = "search" | "settings" | "explore" | "downloads";
-
 interface UiState {
   activeUid: string;
   activeView: ViewKey;
@@ -37,10 +37,12 @@ export const useUiStore = create<UiState>((set) => ({
   closeSettings: () => set({ activeView: "search" }),
   toggleSidebar: () =>
     set((state: UiState) => ({ isSidebarOpen: !state.isSidebarOpen })),
-  openHistoryProfile: (uid: string) =>
+  openHistoryProfile: (uid: string) => {
+    useHistoryStore.getState().moveToFront(uid);
     set({
       activeUid: uid,
       activeView: "search",
       pendingLookupUid: uid,
-    }),
+    });
+  },
 }));

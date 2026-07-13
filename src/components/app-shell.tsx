@@ -52,13 +52,8 @@ function SidebarInner({
       }[];
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
-  const onHistoryClick = useUiStore((state) => state.openHistoryProfile);
   const activeView = useUiStore((state) => state.activeView);
   const closeSettings = useUiStore((state) => state.closeSettings);
-  const onRemoveFromHistory = useHistoryStore(
-    (state) => state.removeFromHistory,
-  );
-  const onClearHistory = useHistoryStore((state) => state.clearHistory);
   const closeSidebar = () => {
     if (isMobile) {
       setOpenMobile(false);
@@ -93,12 +88,7 @@ function SidebarInner({
         {showHistory && (
           <HistoryPanel
             history={history}
-            onProfileClick={(profileUid) => {
-              onHistoryClick(profileUid);
-              closeSidebar();
-            }}
-            onRemove={onRemoveFromHistory}
-            onClear={onClearHistory}
+            onProfileClick={() => closeSidebar()}
           />
         )}
       </SidebarContent>

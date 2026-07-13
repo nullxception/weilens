@@ -27,6 +27,7 @@ function writeHistoryToStorage(history: CheckedProfile[]) {
 
 interface HistoryState {
   history: CheckedProfile[];
+  moveToFront: (uid: string) => void;
   addToHistory: (
     uid: string,
     screenName: string,
@@ -38,6 +39,15 @@ interface HistoryState {
 
 export const useHistoryStore = create<HistoryState>((set) => ({
   history: readHistoryFromStorage(),
+  moveToFront: (uid: string) =>
+    set((state: HistoryState) => {
+      const item = state.history.find((h) => h.uid === uid);
+      if (!item) return {};
+      const filtered = state.history.filter((h) => h.uid !== uid);
+      const nextHistory = [item, ...filtered];
+      writeHistoryToStorage(nextHistory);
+      return { history: nextHistory };
+    }),
   addToHistory: (uid: string, screenName: string, profileImageUrl: string) =>
     set((state: HistoryState) => {
       const filtered = state.history.filter((item) => item.uid !== uid);
