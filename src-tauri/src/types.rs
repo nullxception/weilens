@@ -100,7 +100,7 @@ pub struct DownloadItem {
     pub video_url: Option<String>,
 }
 
-#[derive(serde::Deserialize, Clone)]
+#[derive(serde::Deserialize, Clone, Copy)]
 pub struct GpsData {
     pub lat: f64,
     pub lon: f64,

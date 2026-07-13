@@ -294,9 +294,9 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
             if task.cancellation_token.is_cancelled() {
                 return Err("cancelled".to_string());
             }
-            buffer = process_motion(&task, video_url, &buffer)
-                .await
-                .unwrap_or_else(|e| {
+            match process_motion(&task, video_url, &buffer).await {
+                Ok(muxed) => buffer = muxed,
+                Err(e) => {
                     log::error!(
                         "[Post {}:{}/{}] mux failed, writing plain image: {}",
                         task.post_id,
@@ -308,8 +308,8 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
                         "Motion photo mux failed: {}, saved as still image",
                         e
                     ));
-                    buffer.clone()
-                });
+                }
+            }
             log::info!(
                 "[Post {}:{}/{}] muxed successfully, new size: {} bytes",
                 task.post_id,
@@ -347,8 +347,6 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
         target_path_str
     );
 
-    saved_paths.push(target_path_str.clone());
-
     let _ = task.app_handle.emit(
         "download-progress",
         DownloadProgressPayload {
@@ -357,10 +355,12 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
             total: task.total,
             status: "completed".to_string(),
             url: task.item_url.clone(),
-            saved_path: Some(target_path_str),
+            saved_path: Some(target_path_str.clone()),
             warning: warning.clone(),
         },
     );
+
+    saved_paths.push(target_path_str);
 
     log::info!(
         "[Post {}:{}/{}] Completed",
@@ -445,7 +445,7 @@ pub async fn download_post(
         let item_url = item.url.clone();
         let item_video = item.video_url.clone();
         let dewatermark = request.dewatermark.clone();
-        let gps_loc = request.gps.clone();
+        let gps_loc = request.gps;
         let resolved_dir = download_dir.clone();
         let client_clone = client.clone();
         let user_agent_clone = user_agent.clone();
@@ -482,7 +482,7 @@ pub async fn download_post(
                     index,
                     total,
                     target_dir: resolved_dir.clone(),
-                    gps_loc: gps_loc.clone(),
+                    gps_loc,
                     client: client_clone.clone(),
                     config: config_clone.clone(),
                     user_agent: user_agent_clone.clone(),
