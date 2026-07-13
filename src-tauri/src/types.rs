@@ -71,6 +71,8 @@ pub enum DownloadError {
     Io(#[from] std::io::Error),
     #[error("failed to create directory: {0}")]
     CreateDir(String),
+    #[error("cancelled")]
+    Cancelled,
 }
 
 #[cfg(test)]

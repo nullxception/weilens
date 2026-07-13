@@ -62,7 +62,7 @@ pub fn run() {
     let http_client = reqwest::Client::builder()
         .pool_max_idle_per_host(15)
         .build()
-        .unwrap();
+        .expect("Failed to build HTTP client (check TLS/network dependencies)");
 
     let user_agent = Arc::new(RwLock::new(FALLBACK_USER_AGENT.to_string()));
 
@@ -88,7 +88,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(external_navigation_plugin())
         .setup(|app| {
-            let conn = init_db(app.handle()).expect("Failed to initialize database");
+            let conn = init_db(app.handle())?;
             app.manage(DbState(Mutex::new(conn)));
             Ok(())
         })

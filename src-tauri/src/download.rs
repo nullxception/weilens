@@ -103,7 +103,7 @@ async fn process_motion(
         _ = task.cancellation_token.cancelled() => return Err("cancelled".to_string()),
     }?;
 
-    let url = Url::parse(video_url).unwrap();
+    let url = Url::parse(video_url).map_err(|e| format!("Failed to parse video URL: {}", e))?;
     let mime = match Path::new(url.path())
         .extension()
         .and_then(|ext| ext.to_str())
@@ -128,7 +128,7 @@ async fn process_motion(
     mux(image_bytes, &video_bytes, mime).map_err(|e| format!("Mux failed: {}", e))
 }
 
-pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>), String> {
+pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>), DownloadError> {
     let mut saved_paths = Vec::new();
     let is_motion = task.item_video_url.is_some();
     let no_watermark_url = get_no_watermark_url(&task.item_url);
@@ -156,7 +156,7 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     );
 
     if task.cancellation_token.is_cancelled() {
-        return Err("cancelled".to_string());
+        return Err(DownloadError::Cancelled);
     }
 
     let req = task
@@ -167,15 +167,15 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
         .header("User-Agent", &task.user_agent);
     let response = tokio::select! {
         res = req.send() => res.map_err(|e| {
-            let err = DownloadError::Request(format!("Request failed: {}", e)).to_string();
+            let err = DownloadError::Request(format!("Request failed: {}", e));
             log::error!("[{}/{}] Post {} - {}", task.index + 1, task.total, task.post_id, err);
             err
         })?,
-        _ = task.cancellation_token.cancelled() => return Err("cancelled".to_string()),
+        _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
     };
 
     if !response.status().is_success() {
-        let err = DownloadError::Http(format!("HTTP error: {}", response.status())).to_string();
+        let err = DownloadError::Http(format!("HTTP error: {}", response.status()));
         log::error!(
             "[{}/{}] Post {} - {}",
             task.index + 1,
@@ -188,18 +188,17 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
 
     let mut buffer = tokio::select! {
         bytes = response.bytes() => bytes.map_err(|e| {
-            let err =
-                DownloadError::Request(format!("Failed to read response bytes: {}", e)).to_string();
+            let err = DownloadError::Request(format!("Failed to read response bytes: {}", e));
             log::error!("[{}/{}] Post {} - {}", task.index + 1, task.total, task.post_id, err);
             err
         })?.to_vec(),
-        _ = task.cancellation_token.cancelled() => return Err("cancelled".to_string()),
+        _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
     };
 
     if let Some(ref no_wm_url) = no_watermark_url {
         if no_wm_url != &task.item_url && !is_motion {
             if task.cancellation_token.is_cancelled() {
-                return Err("cancelled".to_string());
+                return Err(DownloadError::Cancelled);
             }
             let req_no_wm = task
                 .client
@@ -209,17 +208,17 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
                 .header("User-Agent", &task.user_agent);
             let res_no_wm = tokio::select! {
                 res = req_no_wm.send() => res,
-                _ = task.cancellation_token.cancelled() => return Err("cancelled".to_string()),
+                _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
             };
             if let Ok(res_no_wm) = res_no_wm {
                 if res_no_wm.status().is_success() {
                     let no_wm_bytes = tokio::select! {
                         bytes = res_no_wm.bytes() => bytes,
-                        _ = task.cancellation_token.cancelled() => return Err("cancelled".to_string()),
+                        _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
                     };
                     if let Ok(no_wm_bytes) = no_wm_bytes {
                         if task.cancellation_token.is_cancelled() {
-                            return Err("cancelled".to_string());
+                            return Err(DownloadError::Cancelled);
                         }
                         let pos = match task.dewatermark.as_str() {
                             "top" => WmPosition::Top,
@@ -270,7 +269,7 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
 
     let exif_date_str = get_exif_date_string(&task.created_at_dt, task.index as i64);
     if task.cancellation_token.is_cancelled() {
-        return Err("cancelled".to_string());
+        return Err(DownloadError::Cancelled);
     }
     if let Err(e) = write_exif(
         &mut buffer,
@@ -292,7 +291,7 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     if is_motion {
         if let Some(ref video_url) = task.item_video_url {
             if task.cancellation_token.is_cancelled() {
-                return Err("cancelled".to_string());
+                return Err(DownloadError::Cancelled);
             }
             match process_motion(&task, video_url, &buffer).await {
                 Ok(muxed) => buffer = muxed,
@@ -321,22 +320,17 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     }
 
     if task.cancellation_token.is_cancelled() {
-        return Err("cancelled".to_string());
+        return Err(DownloadError::Cancelled);
     }
     let target_path_str = target_path.to_string_lossy().to_string();
     tokio::select! {
-        result = tokio::task::spawn_blocking(move || -> Result<(), String> {
-            let mut file = File::create(&target_path).map_err(|e| {
-                DownloadError::Io(e).to_string()
-            })?;
-            file.write_all(&buffer).map_err(|e| {
-                DownloadError::Io(e).to_string()
-            })?;
+        result = tokio::task::spawn_blocking(move || -> Result<(), DownloadError> {
+            File::create(&target_path)?.write_all(&buffer)?;
             Ok(())
         }) => {
-            result.map_err(|e| format!("Join error: {}", e))??;
+            result.map_err(|e| DownloadError::Request(format!("Join error: {}", e)))??;
         },
-        _ = task.cancellation_token.cancelled() => return Err("cancelled".to_string()),
+        _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
     }
 
     log::info!(
@@ -454,14 +448,14 @@ pub async fn download_post(
         let handle = tokio::spawn(async move {
             if token.is_cancelled() {
                 emit_cancelled(&app, &post_id, index, total, &item_url);
-                return Err("cancelled".to_string());
+                return Err(DownloadError::Cancelled);
             }
 
             let _permit = tokio::select! {
                 permit = sem.acquire() => permit,
                 _ = token.cancelled() => {
                     emit_cancelled(&app, &post_id, index, total, &item_url);
-                    return Err("cancelled".to_string());
+                    return Err(DownloadError::Cancelled);
                 }
             };
 
@@ -469,7 +463,7 @@ pub async fn download_post(
             loop {
                 if token.is_cancelled() {
                     emit_cancelled(&app, &post_id, index, total, &item_url);
-                    return Err("cancelled".to_string());
+                    return Err(DownloadError::Cancelled);
                 }
 
                 let task = DownloadTask {
@@ -491,11 +485,11 @@ pub async fn download_post(
 
                 match download(task).await {
                     Ok(paths) => break Ok(paths),
-                    Err(e) if e == "cancelled" => {
+                    Err(DownloadError::Cancelled) => {
                         emit_cancelled(&app, &post_id, index, total, &item_url);
-                        break Err(e);
+                        break Err(DownloadError::Cancelled);
                     }
-                    Err(e) if attempt < config_clone.max_retries => {
+                    Err(ref e) if attempt < config_clone.max_retries => {
                         attempt += 1;
                         let delay_ms = config_clone
                             .retry_base_delay_ms
@@ -515,7 +509,7 @@ pub async fn download_post(
                             _ = sleep(Duration::from_millis(delay_ms)) => {},
                             _ = token.cancelled() => {
                                 emit_cancelled(&app, &post_id, index, total, &item_url);
-                                return Err("cancelled".to_string());
+                                return Err(DownloadError::Cancelled);
                             }
                         }
                     }
@@ -552,7 +546,7 @@ pub async fn download_post(
     for handle in handles {
         match handle.await {
             Ok(Ok((paths, _))) => saved_paths.extend(paths),
-            Ok(Err(e)) if e == "cancelled" => {
+            Ok(Err(DownloadError::Cancelled)) => {
                 log::info!("Download item cancelled");
             }
             Ok(Err(e)) => log::error!("Error downloading item: {}", e),

@@ -1,6 +1,13 @@
 use img_parts::jpeg::Jpeg;
 use img_parts::jpeg::JpegSegment;
 use img_parts::Bytes;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum MotionError {
+    #[error("JPEG processing error: {0}")]
+    Jpeg(String),
+}
 
 struct SefTag<'a> {
     id: [u8; 4],
@@ -17,7 +24,7 @@ pub fn mux(
     image_bytes: &[u8],
     video_bytes: &[u8],
     mime: &str,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+) -> Result<Vec<u8>, MotionError> {
     const SEFH_VERSION: u32 = 107;
     const TAG_MOTION_PHOTO_DATA: [u8; 4] = [0x00, 0x00, 0x30, 0x0A];
     const TAG_MOTION_PHOTO_VERSION: [u8; 4] = [0x00, 0x00, 0x31, 0x0A];
@@ -131,7 +138,8 @@ pub fn mux(
     payload.extend_from_slice(sign);
     payload.extend_from_slice(xmp_packet.as_bytes());
 
-    let mut jpeg = Jpeg::from_bytes(Bytes::from(image_bytes.to_vec()))?;
+    let mut jpeg = Jpeg::from_bytes(Bytes::from(image_bytes.to_vec()))
+        .map_err(|e| MotionError::Jpeg(e.to_string()))?;
     jpeg.segments_mut().retain(|seg| {
         if seg.marker() != 0xE1 {
             return true;
@@ -142,7 +150,9 @@ pub fn mux(
     jpeg.segments_mut().insert(1, xmp_segment);
 
     let mut motion_bytes = Vec::new();
-    jpeg.encoder().write_to(&mut motion_bytes)?;
+    jpeg.encoder()
+        .write_to(&mut motion_bytes)
+        .map_err(|e| MotionError::Jpeg(e.to_string()))?;
 
     // [JPEG] [Data-tag-header][raw video][Version tag][SEFH][SEFT]
     motion_bytes.extend_from_slice(&tag_data);
