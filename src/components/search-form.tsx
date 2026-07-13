@@ -43,7 +43,7 @@ export function SearchForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      <ButtonGroup>
+      <ButtonGroup className="w-full">
         <Input
           id="uid"
           type="text"

@@ -90,7 +90,7 @@ export function BlogFeed({
           exit="exit"
           transition={stateTransition}
         >
-          <pre className="rounded-lg bg-destructive/10 px-4 py-3 text-sm whitespace-pre-wrap text-destructive">
+          <pre className="rounded-lg bg-destructive/10 p-3 text-sm whitespace-pre-wrap text-destructive">
             {error}
           </pre>
         </motion.div>

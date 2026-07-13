@@ -72,7 +72,7 @@ export function HistoryPanel({ history, onProfileClick }: HistoryPanelProps) {
         </div>
 
         <LayoutGroup>
-          <motion.div layout className="flex flex-col gap-1.5">
+          <motion.div layout className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {history.map((profile) => {
                 const isActive = activeUid === profile.uid;

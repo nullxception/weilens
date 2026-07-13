@@ -79,7 +79,6 @@ function ButtonGroupSeparator({
   );
 }
 
-/* eslint-disable react-refresh/only-export-components */
 export {
   ButtonGroup,
   ButtonGroupSeparator,

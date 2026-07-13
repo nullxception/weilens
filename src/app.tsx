@@ -6,7 +6,6 @@ import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
 import { useProfileLookup } from "./hooks/use-profile-lookup";
 import { useUiStore } from "./stores/useUiStore";
 import { usePlacesStore } from "./stores/usePlacesStore";
-import { Skeleton } from "./components/ui/skeleton";
 import { Onboarding } from "./onboarding/onboarding";
 import { isOnboardingComplete } from "./onboarding/onboarding-state";
 
@@ -14,7 +13,9 @@ const BlogFeed = React.lazy(() =>
   import("./feed/blog-feed").then((m) => ({ default: m.BlogFeed })),
 );
 const SettingsPanel = React.lazy(() =>
-  import("./settings/settings-panel").then((m) => ({ default: m.SettingsPanel })),
+  import("./settings/settings-panel").then((m) => ({
+    default: m.SettingsPanel,
+  })),
 );
 
 function App() {
@@ -133,9 +134,8 @@ function App() {
         >
           <Suspense
             fallback={
-              <div className="flex flex-col gap-3">
-                <Skeleton className="h-40 w-full" />
-                <Skeleton className="h-40 w-full" />
+              <div className="flex h-[20vh] w-full items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted border-t-primary" />
               </div>
             }
           >

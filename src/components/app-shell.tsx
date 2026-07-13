@@ -33,24 +33,17 @@ function SidebarInner({
   onUidChange,
   onSubmit,
   onOpenSettings,
-  showHistory,
-  history,
+  historyOnSidebar,
 }: {
   uid: string;
   isLoading: boolean;
   onUidChange: (uid: string) => void;
   onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void;
   onOpenSettings: () => void;
-  showHistory: boolean;
-  history: AppShellProps["historyOnSidebar"] extends never
-    ? never
-    : {
-        uid: string;
-        screenName: string;
-        profileImageUrl: string;
-        timestamp: number;
-      }[];
+  historyOnSidebar: boolean;
 }) {
+  const history = useHistoryStore((state) => state.history);
+  const showHistory = history.length > 0 && historyOnSidebar;
   const { isMobile, setOpenMobile } = useSidebar();
   const activeView = useUiStore((state) => state.activeView);
   const closeSettings = useUiStore((state) => state.closeSettings);
@@ -73,7 +66,7 @@ function SidebarInner({
 
   return (
     <>
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-3">
         <SearchForm
           uid={uid}
           isLoading={isLoading}
@@ -84,7 +77,7 @@ function SidebarInner({
           }}
         />
       </SidebarHeader>
-      <SidebarContent className="space-y-4 px-4 py-2">
+      <SidebarContent className="space-y-3 px-3 py-2">
         {showHistory && (
           <HistoryPanel
             history={history}
@@ -92,7 +85,7 @@ function SidebarInner({
           />
         )}
       </SidebarContent>
-      <SidebarFooter className="flex flex-col gap-3 p-4">
+      <SidebarFooter className="flex flex-col gap-3 p-3">
         <DownloadProgressPanel />
         <Button
           type="button"
@@ -117,9 +110,6 @@ export function AppShell({
   historyOnSidebar,
   children,
 }: AppShellProps) {
-  const history = useHistoryStore((state) => state.history);
-  const showHistory = history.length > 0 && historyOnSidebar;
-
   return (
     <TooltipProvider>
       <SidebarProvider>
@@ -131,12 +121,11 @@ export function AppShell({
               onUidChange={onUidChange}
               onSubmit={onSubmit}
               onOpenSettings={onOpenSettings}
-              showHistory={showHistory}
-              history={history}
+              historyOnSidebar={historyOnSidebar}
             />
           </Sidebar>
 
-          <main className="w-full flex-1 overflow-y-auto p-4 md:p-6">
+          <main className="w-full flex-1 overflow-y-auto p-4">
             <div className="mb-4 flex items-center gap-2">
               <SidebarTrigger />
             </div>

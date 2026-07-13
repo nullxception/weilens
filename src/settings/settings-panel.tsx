@@ -109,7 +109,7 @@ export function SettingsPanel() {
                 aria-label="Paste from clipboard"
               >
                 {pasted ? (
-                  <span className="text-green-500 text-xs font-bold">✓</span>
+                  <span className="text-xs font-bold text-green-500">✓</span>
                 ) : (
                   <ClipboardPaste className="size-3.5" />
                 )}
@@ -142,7 +142,11 @@ export function SettingsPanel() {
             </a>{" "}
             to get cookie from Sina Weibo.
           </span>
-          <div className={blurred ? "rounded-md border border-input overflow-hidden" : ""}>
+          <div
+            className={
+              blurred ? "overflow-hidden rounded-md border border-input" : ""
+            }
+          >
             <Textarea
               id="weicookie"
               rows={6}
@@ -151,7 +155,7 @@ export function SettingsPanel() {
               placeholder="Paste your full cookie string here"
               className={
                 blurred
-                  ? "resize-none text-sm blur-sm transition-[filter] select-none border-none bg-input/20"
+                  ? "resize-none border-none bg-input/20 text-sm blur-sm transition-[filter] select-none"
                   : "resize-none text-sm blur-none transition-[filter]"
               }
             />

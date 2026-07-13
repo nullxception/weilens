@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
@@ -695,7 +693,6 @@ function SidebarMenuSubButton({
   });
 }
 
-/* eslint-disable react-refresh/only-export-components */
 export {
   Sidebar,
   SidebarContent,
