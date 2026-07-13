@@ -16,6 +16,7 @@ import {
 } from "@tanstack/react-query";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { useCallback, useEffect, useState } from "react";
+import { motion } from "motion/react";
 import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { addPlace, listPlaces, searchPlace } from "../lib/api";
@@ -255,162 +256,172 @@ export default function LocationDialog({
           </DialogTrigger>
         )}
         <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-              Find Location
-            </DialogTitle>
-          </DialogHeader>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <DialogHeader className="mb-3">
+              <DialogTitle className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                Find Location
+              </DialogTitle>
+            </DialogHeader>
 
-          {suggestedLocation && !isFetching && (
-            <div
-              className="cursor-pointer rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground"
-              onClick={() => {
-                setQuery(suggestedLocation);
-                void doSearch();
-              }}
-            >
-              Post location:{" "}
-              <span className="text-foreground underline">
-                {suggestedLocation}
-              </span>
-              <span className="ml-1">, click here to search</span>
-            </div>
-          )}
-
-          <ButtonGroup className="w-full">
-            <Input
-              placeholder="Singapore"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") doSearch();
-              }}
-            />
-            <Button onClick={doSearch} disabled={isFetching} variant="outline">
-              {isFetching ? (
-                <LoaderCircle className="animate-spin" />
-              ) : (
-                <SearchIcon />
-              )}
-            </Button>
-          </ButtonGroup>
-
-          {queryError && (
-            <div className="mt-2 text-destructive">{String(queryError)}</div>
-          )}
-
-          {/* Save prompt for coordinate input */}
-          {saveMode === "ask" && pendingCoord && (
-            <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/60 p-3">
-              <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Save this coordinate?
-              </div>
-              <div className="text-xs text-muted-foreground">
-                lat: {pendingCoord.lat}, lon: {pendingCoord.lon}
-              </div>
-              <Input
-                placeholder="Name (e.g. Home, Office…)"
-                value={saveName}
-                onChange={(e) => setSaveName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveAndSelect();
+            {suggestedLocation && !isFetching && (
+              <div
+                className="cursor-pointer rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground"
+                onClick={() => {
+                  setQuery(suggestedLocation);
+                  void doSearch();
                 }}
-                className="h-8 text-sm"
-              />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleSaveAndSelect}
-                  disabled={!saveName.trim()}
-                  className="flex-1"
-                >
-                  <BookmarkIcon className="mr-1 h-3.5 w-3.5" />
-                  Save &amp; go
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSkipSave}
-                  className="flex-1"
-                >
-                  <XIcon className="mr-1 h-3.5 w-3.5" />
-                  Skip
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Saved places / search results */}
-          {showRecent ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Saved places
-                </span>
-                {placesLoading && (
-                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                )}
-              </div>
-              <ScrollArea
-                viewportRef={vpRefCallback}
-                className="h-80 rounded-md border border-border bg-background/60"
               >
-                {places.map((rp) => (
-                  <div
-                    key={`${rp.lat}-${rp.lon}-${String(rp.name).slice(0, 30)}`}
-                    className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
-                    onClick={() => {
-                      onSelect?.({ lat: rp.lat, lon: rp.lon, name: rp.name });
-                      onOpenChange?.(false);
-                    }}
-                  >
-                    <div className="text-sm">{rp.name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      lat: {rp.lat}, lon: {rp.lon}
-                    </div>
-                  </div>
-                ))}
-                {isFetchingNextPage && (
-                  <div className="flex justify-center py-3">
-                    <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
+                Post location:{" "}
+                <span className="text-foreground underline">
+                  {suggestedLocation}
+                </span>
+                <span className="ml-1">, click here to search</span>
+              </div>
+            )}
+
+            <ButtonGroup className="mb-3 w-full">
+              <Input
+                placeholder="Singapore"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") doSearch();
+                }}
+              />
+              <Button
+                onClick={doSearch}
+                disabled={isFetching}
+                variant="outline"
+              >
+                {isFetching ? (
+                  <LoaderCircle className="animate-spin" />
+                ) : (
+                  <SearchIcon />
                 )}
-              </ScrollArea>
-            </div>
-          ) : (
-            <>
-              <ScrollArea className="h-96 rounded-md border border-border">
-                {results.map((p) => (
-                  <div
-                    key={`${p.place.lat}-${p.place.lon}-${String(p.place.name).slice(0, 30)}`}
-                    className="flex w-full cursor-pointer flex-row items-center gap-2 rounded-sm p-3 transition-colors hover:bg-muted/50"
-                    onClick={() => {
-                      addPlace({
-                        name: p.place.name,
-                        lat: p.place.lat,
-                        lon: p.place.lon,
-                      }).catch(console.error);
-                      queryClient.invalidateQueries({ queryKey: ["places"] });
-                      onSelect?.(p.place);
-                      onOpenChange?.(false);
-                    }}
+              </Button>
+            </ButtonGroup>
+
+            {queryError && (
+              <div className="mt-2 text-destructive">{String(queryError)}</div>
+            )}
+
+            {/* Save prompt for coordinate input */}
+            {saveMode === "ask" && pendingCoord && (
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/60 p-3">
+                <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Save this coordinate?
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  lat: {pendingCoord.lat}, lon: {pendingCoord.lon}
+                </div>
+                <Input
+                  placeholder="Name (e.g. Home, Office…)"
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveAndSelect();
+                  }}
+                  className="h-8 text-sm"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveAndSelect}
+                    disabled={!saveName.trim()}
+                    className="flex-1"
                   >
-                    {p.type == "nominatim" ? (
-                      <GlobeIcon className="text-green-300/75" />
-                    ) : (
-                      <HistoryIcon className="text-blue-300/75" />
-                    )}
-                    <div className="flex flex-col">
-                      <div className="text-sm">{p.place.name}</div>
+                    <BookmarkIcon className="mr-1 h-3.5 w-3.5" />
+                    Save &amp; go
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSkipSave}
+                    className="flex-1"
+                  >
+                    <XIcon className="mr-1 h-3.5 w-3.5" />
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Saved places / search results */}
+            {showRecent ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Saved places
+                  </span>
+                  {placesLoading && (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  )}
+                </div>
+                <ScrollArea
+                  viewportRef={vpRefCallback}
+                  className="h-80 rounded-md border border-border bg-background/60"
+                >
+                  {places.map((rp) => (
+                    <div
+                      key={`${rp.lat}-${rp.lon}-${String(rp.name).slice(0, 30)}`}
+                      className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
+                      onClick={() => {
+                        onSelect?.({ lat: rp.lat, lon: rp.lon, name: rp.name });
+                        onOpenChange?.(false);
+                      }}
+                    >
+                      <div className="text-sm">{rp.name}</div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        lat: {p.place.lat}, lon: {p.place.lon}
+                        lat: {rp.lat}, lon: {rp.lon}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </ScrollArea>
-            </>
-          )}
+                  ))}
+                  {isFetchingNextPage && (
+                    <div className="flex justify-center py-3">
+                      <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+            ) : (
+              <>
+                <ScrollArea className="h-96 rounded-md border border-border">
+                  {results.map((p) => (
+                    <div
+                      key={`${p.place.lat}-${p.place.lon}-${String(p.place.name).slice(0, 30)}`}
+                      className="flex w-full cursor-pointer flex-row items-center gap-2 rounded-sm p-3 transition-colors hover:bg-muted/50"
+                      onClick={() => {
+                        addPlace({
+                          name: p.place.name,
+                          lat: p.place.lat,
+                          lon: p.place.lon,
+                        }).catch(console.error);
+                        queryClient.invalidateQueries({ queryKey: ["places"] });
+                        onSelect?.(p.place);
+                        onOpenChange?.(false);
+                      }}
+                    >
+                      {p.type == "nominatim" ? (
+                        <GlobeIcon className="text-green-300/75" />
+                      ) : (
+                        <HistoryIcon className="text-blue-300/75" />
+                      )}
+                      <div className="flex flex-col">
+                        <div className="text-sm">{p.place.name}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          lat: {p.place.lat}, lon: {p.place.lon}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </ScrollArea>
+              </>
+            )}
+          </motion.div>
         </DialogContent>
       </Dialog>
     </>
