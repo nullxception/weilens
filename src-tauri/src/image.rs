@@ -125,7 +125,11 @@ pub async fn handle_image_proxy(
             let mut builder = Response::builder()
                 .status(status_code)
                 .header("Content-Type", mime)
-                .header("Access-Control-Allow-Origin", "*");
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Accept-Encoding", "gzip, deflate, br, zstd")
+                .header("Accept", "image/*,*/*;q=0.8")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .header("Priority", "i");
 
             if let Some(cc) = cache_control {
                 builder = builder.header("Cache-Control", cc);
@@ -139,7 +143,6 @@ pub async fn handle_image_proxy(
             if let Some(lm) = last_modified {
                 builder = builder.header("Last-Modified", lm);
             }
-
             builder.body(bytes.to_vec()).unwrap()
         }
         Err(_) => Response::builder().status(502).body(Vec::new()).unwrap(),
