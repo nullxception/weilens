@@ -29,14 +29,16 @@ function ImageViewerImage({ item }: { item: Pic }) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-      className="relative flex items-center justify-center overflow-hidden"
+      className="flex h-full w-full items-center justify-center overflow-hidden"
     >
-      {!loaded && <Loader2Icon className="size-8 animate-spin text-white/70" />}
+      {!loaded && (
+        <Loader2Icon className="absolute size-8 animate-spin text-white/70" />
+      )}
       <img
         src={proxyImage(item.url)}
         alt=""
         className={cn(
-          "relative z-1 max-h-[80vh] max-w-[80vw] rounded-sm object-contain transition-opacity duration-300",
+          "relative z-1 max-h-full max-w-full rounded-sm object-contain transition-opacity duration-300",
           loaded ? "opacity-100" : "opacity-0",
         )}
         style={{ aspectRatio: `${item.width} / ${item.height}` }}
