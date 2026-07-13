@@ -1,4 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
 import { AppShell } from "./components/app-shell";
 import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
@@ -94,39 +95,59 @@ function App() {
 
   return (
     <>
-      {showOnboarding && (
-        <Onboarding onComplete={() => setShowOnboarding(false)} />
-      )}
+      <AnimatePresence>
+        {showOnboarding && (
+          <motion.div
+            className="fixed inset-0 z-50"
+            initial={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <Onboarding onComplete={() => setShowOnboarding(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {!showOnboarding && <CookieSetupDialog />}
-      <AppShell
-        uid={uid}
-        isLoading={isLoading}
-        onUidChange={setUid}
-        onSubmit={handleCheck}
-        onOpenSettings={() => setActiveView("settings")}
-        historyOnSidebar={historyOnSidebar}
+      <motion.div
+        initial={{ opacity: 0, scale: 1.02 }}
+        animate={
+          !showOnboarding
+            ? { opacity: 1, scale: 1 }
+            : { opacity: 0, scale: 1.02 }
+        }
+        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
       >
-        <Suspense
-          fallback={
-            <div className="flex flex-col gap-3">
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-40 w-full" />
-            </div>
-          }
+        <AppShell
+          uid={uid}
+          isLoading={isLoading}
+          onUidChange={setUid}
+          onSubmit={handleCheck}
+          onOpenSettings={() => setActiveView("settings")}
+          historyOnSidebar={historyOnSidebar}
         >
-          {activeView === "search" && (
-            <BlogFeed
-              blogs={blogs}
-              result={result}
-              error={error}
-              isLoading={isLoading}
-              hasMore={hasMore}
-              onLoadMore={handleNextPage}
-              activeDisplayName={activeDisplayName}
-            />
-          )}
-        </Suspense>
-      </AppShell>
+          <Suspense
+            fallback={
+              <div className="flex flex-col gap-3">
+                <Skeleton className="h-40 w-full" />
+                <Skeleton className="h-40 w-full" />
+              </div>
+            }
+          >
+            {activeView === "search" && (
+              <BlogFeed
+                blogs={blogs}
+                result={result}
+                error={error}
+                isLoading={isLoading}
+                hasMore={hasMore}
+                onLoadMore={handleNextPage}
+                activeDisplayName={activeDisplayName}
+              />
+            )}
+          </Suspense>
+        </AppShell>
+      </motion.div>
     </>
   );
 }

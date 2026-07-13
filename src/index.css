@@ -125,7 +125,7 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply bg-background font-sans;
   }
 }
 
@@ -182,7 +182,7 @@ body {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background-color: var(--color-slate-300);
+    background-color: var(--color-border);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
