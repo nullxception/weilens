@@ -109,7 +109,7 @@ pub fn write_exif(
         "{}00000000000000000",
         phone_model.shortname
     )));
-    metadata.set_tag(ExifTag::ExifVersion(vec![0232]));
+    metadata.set_tag(ExifTag::ExifVersion(b"0232".to_vec()));
     metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
     let mut rng = rand::rng();
     // Exposure
