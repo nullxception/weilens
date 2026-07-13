@@ -91,13 +91,6 @@ pub async fn handle_image_proxy(
 
     let network_result = client
         .get(target_url.as_str())
-        .header("Accept-Encoding", "gzip, deflate, br, zstd")
-        .header(
-            "Accept",
-            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        )
-        .header("Accept-Language", "en-US,en;q=0.9")
-        .header("Priority", "i")
         .header(REFERER, &referer_host)
         .header("User-Agent", ua)
         .timeout(Duration::from_secs(30))
