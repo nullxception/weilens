@@ -2,7 +2,7 @@ import { useState } from "react";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { proxyImage } from "@/lib/proxy";
 import type { BlogPost } from "../types/remote";
-import { getAspectRatio, getPreferredImage } from "@/lib/remote";
+import { getPreferredImage } from "@/lib/remote";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +78,7 @@ export function BlogCardImages({ blog, onImageClick }: BlogCardImagesProps) {
             <BlogCardImageItem
               key={id}
               src={proxyImage(info.thumb.url)}
-              aspectRatio={getAspectRatio(info.thumb)}
+              aspectRatio={`${info.thumb.width} / ${info.thumb.height}`}
               isLivePhoto={data?.type === "livephoto" && data?.video != null}
               onClick={() => onImageClick(idx)}
             />

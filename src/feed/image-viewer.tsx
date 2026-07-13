@@ -11,26 +11,16 @@ import {
   XIcon,
 } from "lucide-react";
 import { proxyImage } from "@/lib/proxy";
-
-export interface ImageItem {
-  url: string;
-  aspectRatio?: string;
-}
+import type { Pic } from "@/types/remote";
 
 interface ImageViewerProps {
-  images: ImageItem[];
+  images: Pic[];
   initialIndex?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-function ImageViewerImage({
-  url,
-  aspectRatio,
-}: {
-  url: string;
-  aspectRatio?: string;
-}) {
+function ImageViewerImage({ item }: { item: Pic }) {
   const [loaded, setLoaded] = useState(false);
 
   return (
@@ -43,13 +33,13 @@ function ImageViewerImage({
     >
       {!loaded && <Loader2Icon className="size-8 animate-spin text-white/70" />}
       <img
-        src={proxyImage(url)}
+        src={proxyImage(item.url)}
         alt=""
         className={cn(
           "relative z-1 max-h-[80vh] max-w-[80vw] rounded-sm object-contain transition-opacity duration-300",
           loaded ? "opacity-100" : "opacity-0",
         )}
-        style={{ aspectRatio }}
+        style={{ aspectRatio: `${item.width} / ${item.height}` }}
         onLoad={() => setLoaded(true)}
       />
     </motion.div>
@@ -127,11 +117,7 @@ export function ImageViewer({
           {/* Image with skeleton */}
           <AnimatePresence mode="wait">
             {current.url ? (
-              <ImageViewerImage
-                key={currentIndex}
-                url={current.url}
-                aspectRatio={current.aspectRatio}
-              />
+              <ImageViewerImage key={currentIndex} item={current} />
             ) : (
               <div className="text-sm text-white/50">No image</div>
             )}

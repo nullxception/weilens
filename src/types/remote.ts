@@ -10,20 +10,20 @@ export const UserSchema = z.object({
   avatar_hd: z.string().optional(),
 });
 
-export const PicDimensionSchema = z.object({
+export const PicSchema = z.object({
   url: z.string(),
   width: z.number(),
   height: z.number(),
 });
 
 export const PicInfoSchema = z.object({
-  thumbnail: PicDimensionSchema,
-  bmiddle: PicDimensionSchema.nullish(),
-  large: PicDimensionSchema.nullish(),
-  original: PicDimensionSchema.nullish(),
-  largest: PicDimensionSchema.nullish(),
-  mw2000: PicDimensionSchema.nullish(),
-  largecover: PicDimensionSchema.nullish(),
+  thumbnail: PicSchema,
+  bmiddle: PicSchema.nullish(),
+  large: PicSchema.nullish(),
+  original: PicSchema.nullish(),
+  largest: PicSchema.nullish(),
+  mw2000: PicSchema.nullish(),
+  largecover: PicSchema.nullish(),
   pic_id: z.string(),
   type: z.string().nullish(),
   video: z.string().optional().nullish(),
@@ -59,7 +59,7 @@ export const BlogDataSchema = z.object({
 export const BlogResponseSchema = z.object({ data: BlogDataSchema });
 
 export type User = z.infer<typeof UserSchema>;
-export type PicDimension = z.infer<typeof PicDimensionSchema>;
+export type Pic = z.infer<typeof PicSchema>;
 export type PicInfo = z.infer<typeof PicInfoSchema>;
 export type BlogPost = z.infer<typeof PostSchema>;
 export type BlogData = z.infer<typeof BlogDataSchema>;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DownloadItem } from "../types/rpc";
-import type { BlogPost } from "../types/remote";
+import type { BlogPost, Pic } from "../types/remote";
 import { useUiStore } from "../stores/useUiStore";
 import type { GPSData, Place } from "../types/gps";
 import { Card, CardContent } from "../components/ui/card";
@@ -15,7 +15,7 @@ import {
   MessageSquareQuoteIcon,
   RotateCwIcon,
 } from "lucide-react";
-import { getAspectRatio, getPreferredImage } from "@/lib/remote";
+import { getPreferredImage } from "@/lib/remote";
 
 interface BlogCardProps {
   blog: BlogPost;
@@ -30,7 +30,7 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
       const data = blog.pic_infos?.[id];
       if (!data) return null;
       const info = getPreferredImage(data);
-      return { url: info.url, videoUrl: info.videoUrl };
+      return { url: info.preferred.url, videoUrl: info.videoUrl };
     })
     .filter((item): item is DownloadItem => item !== null);
 
@@ -68,13 +68,10 @@ export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
       const data = blog.pic_infos?.[id];
       if (!data) return null;
       const info = getPreferredImage(data);
-      if (!info.url) return null;
-      return {
-        url: info.url,
-        aspectRatio: getAspectRatio(info.thumb),
-      };
+      if (!info.preferred) return null;
+      return info.preferred;
     })
-    .filter((img): img is { url: string; aspectRatio: string } => img !== null);
+    .filter((img): img is Pic => img !== null);
 
   return (
     <div className="flex flex-col gap-1">
