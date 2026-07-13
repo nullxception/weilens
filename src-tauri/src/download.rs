@@ -16,6 +16,7 @@ use crate::exif::write_exif;
 use crate::image::dewatermark;
 use crate::image::WmPosition;
 use crate::motion::mux;
+use crate::types::FALLBACK_USER_AGENT;
 use crate::types::{
     DownloadCancellationState, DownloadConfig, DownloadError, DownloadItem,
     DownloadProgressPayload, GpsData,
@@ -419,7 +420,7 @@ pub async fn download_post(
         .user_agent
         .read()
         .map(|s| s.clone())
-        .unwrap_or_else(|_| "Mozilla/5.0".to_string());
+        .unwrap_or_else(|_| FALLBACK_USER_AGENT.to_string());
     let semaphore = Arc::new(Semaphore::new(config.effective_max_concurrency()));
 
     let cancellation_token = CancellationToken::new();

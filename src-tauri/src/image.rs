@@ -3,6 +3,8 @@ use std::time::Duration;
 use tauri::{http::header::REFERER, http::Request, http::Response, UriSchemeResponder};
 use url::Url;
 
+use crate::types::FALLBACK_USER_AGENT;
+
 pub enum WmPosition {
     Top,
     Center,
@@ -57,7 +59,7 @@ pub async fn handle_image_proxy(
     let parsed_uri = match Url::parse(&uri_string) {
         Ok(u) => u,
         Err(_) => {
-            let res = Response::builder().status(400).body(Vec::new()).unwrap();
+            let res: Response<Vec<u8>> = Response::builder().status(400).body(Vec::new()).unwrap();
             return responder.respond(res);
         }
     };
@@ -87,7 +89,7 @@ pub async fn handle_image_proxy(
     let ua = user_agent
         .read()
         .map(|s| s.clone())
-        .unwrap_or_else(|_| "Mozilla/5.0".to_string());
+        .unwrap_or_else(|_| FALLBACK_USER_AGENT.to_string());
 
     let network_result = client
         .get(target_url.as_str())
