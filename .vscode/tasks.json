@@ -15,6 +15,27 @@
           "endsPattern": ".*"
         }
       }
+    },
+    {
+      "label": "tauri:dev",
+      "type": "shell",
+      "isBackground": true,
+      "command": "bun",
+      "args": ["run", "tauri", "dev"],
+      "problemMatcher": {
+        "pattern": { "regexp": "." },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": ".*"
+        }
+      }
+    },
+    {
+      "label": "tauri:build",
+      "type": "shell",
+      "command": "bun",
+      "args": ["run", "tauri", "build"],
     }
   ]
 }
