@@ -1,4 +1,4 @@
-import { X, ClipboardPaste, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, ClipboardPaste, Eye, EyeOff } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -87,12 +87,12 @@ export function SettingsPanel() {
         <CardAction>
           <Button
             type="button"
-            variant="destructive"
+            variant="ghost"
             size="icon-sm"
             onClick={onBack}
-            aria-label="Close settings"
+            aria-label="Back to search"
           >
-            <X />
+            <ArrowLeft className="size-4" />
           </Button>
         </CardAction>
       </CardHeader>

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { HistoryPanel } from "./history-panel";
 import { SearchForm } from "./search-form";
-import { SettingsModal } from "../settings/settings-modal";
 import { Button } from "./ui/button";
 import {
   Sidebar,
@@ -13,7 +12,7 @@ import {
   useSidebar,
 } from "./ui/sidebar";
 import { TooltipProvider } from "./ui/tooltip";
-import { SettingsIcon } from "lucide-react";
+import { ArrowLeftIcon, SettingsIcon } from "lucide-react";
 import { DownloadProgressPanel } from "./download-progress-panel";
 import { useUiStore } from "../stores/useUiStore";
 import { useHistoryStore } from "../stores/useHistoryStore";
@@ -54,6 +53,8 @@ function SidebarInner({
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const onHistoryClick = useUiStore((state) => state.openHistoryProfile);
+  const activeView = useUiStore((state) => state.activeView);
+  const closeSettings = useUiStore((state) => state.closeSettings);
   const onRemoveFromHistory = useHistoryStore(
     (state) => state.removeFromHistory,
   );
@@ -65,9 +66,15 @@ function SidebarInner({
   };
 
   const handleOpenSettings = () => {
-    onOpenSettings();
+    if (activeView === "settings") {
+      closeSettings();
+    } else {
+      onOpenSettings();
+    }
     closeSidebar();
   };
+
+  const isSettingsPage = activeView === "settings";
 
   return (
     <>
@@ -99,12 +106,12 @@ function SidebarInner({
         <DownloadProgressPanel />
         <Button
           type="button"
-          variant="outline"
+          variant={isSettingsPage ? "secondary" : "outline"}
           onClick={handleOpenSettings}
           className="w-full"
         >
-          <SettingsIcon />
-          Settings
+          {isSettingsPage ? <ArrowLeftIcon /> : <SettingsIcon />}
+          {isSettingsPage ? "Back to feed" : "Settings"}
         </Button>
       </SidebarFooter>
     </>
@@ -120,7 +127,6 @@ export function AppShell({
   historyOnSidebar,
   children,
 }: AppShellProps) {
-  const activeView = useUiStore((state) => state.activeView);
   const history = useHistoryStore((state) => state.history);
   const showHistory = history.length > 0 && historyOnSidebar;
 
@@ -128,8 +134,6 @@ export function AppShell({
     <TooltipProvider>
       <SidebarProvider>
         <div className="flex min-h-screen w-full bg-background text-foreground">
-          {activeView === "settings" && <SettingsModal />}
-
           <Sidebar>
             <SidebarInner
               uid={uid}

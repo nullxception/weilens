@@ -13,6 +13,9 @@ import { isOnboardingComplete } from "./onboarding/onboarding-state";
 const BlogFeed = React.lazy(() =>
   import("./feed/blog-feed").then((m) => ({ default: m.BlogFeed })),
 );
+const SettingsPanel = React.lazy(() =>
+  import("./settings/settings-panel").then((m) => ({ default: m.SettingsPanel })),
+);
 
 function App() {
   const [showOnboarding, setShowOnboarding] = useState(
@@ -136,8 +139,8 @@ function App() {
               </div>
             }
           >
-            {activeView === "search" && (
-              <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait">
+              {activeView === "search" && (
                 <motion.div
                   key={activeUid || "empty"}
                   initial={{ opacity: 0, y: 12 }}
@@ -155,8 +158,19 @@ function App() {
                     activeDisplayName={activeDisplayName}
                   />
                 </motion.div>
-              </AnimatePresence>
-            )}
+              )}
+              {activeView === "settings" && (
+                <motion.div
+                  key="settings"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  <SettingsPanel />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </Suspense>
         </AppShell>
       </motion.div>
