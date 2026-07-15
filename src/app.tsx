@@ -104,7 +104,7 @@ function App() {
             <AnimatePresence mode="wait">
               {activeView === "search" && (
                 <motion.div
-                  key={useUiStore.getState().activeUid || "empty"}
+                  key="search"
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -12 }}
