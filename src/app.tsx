@@ -1,10 +1,10 @@
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
 import { AppShell } from "./components/app-shell";
 import { CookieSetupDialog } from "./settings/cookie-setup-dialog";
-import { useProfileLookup } from "./hooks/use-profile-lookup";
 import { useUiStore } from "./stores/useUiStore";
+import { useProfileStore } from "./stores/useProfileStore";
 import { usePlacesStore } from "./stores/usePlacesStore";
 import { Onboarding } from "./onboarding/onboarding";
 import { isOnboardingComplete } from "./onboarding/onboarding-state";
@@ -22,39 +22,22 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(
     () => !isOnboardingComplete(),
   );
-  const {
-    uid,
-    setUid,
-    blogs,
-    activeDisplayName,
-    result,
-    error,
-    isLoading,
-    hasMore,
-    checkUid,
-    handleNextPage,
-  } = useProfileLookup();
 
-  const activeUid = useUiStore((state) => state.activeUid);
-  const setActiveUid = useUiStore((state) => state.setActiveUid);
   const activeView = useUiStore((state) => state.activeView);
   const setActiveView = useUiStore((state) => state.setActiveView);
-  const setHistoryOnSidebar = useUiStore((state) => state.setHistoryOnSidebar);
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
   const pendingLookupUid = useUiStore((state) => state.pendingLookupUid);
   const setPendingLookupUid = useUiStore((state) => state.setPendingLookupUid);
+  const setActiveUid = useUiStore((state) => state.setActiveUid);
   const initStore = usePlacesStore((state) => state.initStore);
-  const historyOnSidebar =
-    blogs.length > 0 || isLoading || Boolean(error) || Boolean(result);
+
+  const checkUid = useProfileStore((state) => state.checkUid);
+  const setUid = useProfileStore((state) => state.setUid);
 
   useEffect(() => {
     initStore();
     invoke("set_user_agent", { ua: navigator.userAgent });
   }, [initStore]);
-
-  useEffect(() => {
-    setHistoryOnSidebar(historyOnSidebar);
-  }, [historyOnSidebar, setHistoryOnSidebar]);
 
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 768px)");
@@ -65,39 +48,25 @@ function App() {
     return () => mql.removeEventListener("change", handler);
   }, [setSidebarOpen]);
 
-  const handleBackToSearch = useCallback(() => {
-    setActiveView("search");
-  }, [setActiveView]);
-
   useEffect(() => {
     if (activeView !== "settings") return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        handleBackToSearch();
+        setActiveView("search");
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeView, handleBackToSearch]);
+  }, [activeView, setActiveView]);
 
   useEffect(() => {
     if (!pendingLookupUid) return;
-
     setUid(pendingLookupUid);
     setActiveUid(pendingLookupUid);
     checkUid(pendingLookupUid);
     setPendingLookupUid(null);
   }, [pendingLookupUid, setActiveUid, setPendingLookupUid, setUid, checkUid]);
-
-  function handleCheck(event: React.SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextUid = uid || "";
-    setActiveUid(nextUid);
-    setActiveView("search");
-    checkUid(nextUid, 1);
-  }
 
   return (
     <>
@@ -124,14 +93,7 @@ function App() {
         }
         transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
       >
-        <AppShell
-          uid={uid}
-          isLoading={isLoading}
-          onUidChange={setUid}
-          onSubmit={handleCheck}
-          onOpenSettings={() => setActiveView("settings")}
-          historyOnSidebar={historyOnSidebar}
-        >
+        <AppShell>
           <Suspense
             fallback={
               <div className="flex h-[20vh] w-full items-center justify-center">
@@ -142,21 +104,13 @@ function App() {
             <AnimatePresence mode="wait">
               {activeView === "search" && (
                 <motion.div
-                  key={activeUid || "empty"}
+                  key={useUiStore.getState().activeUid || "empty"}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -12 }}
                   transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 >
-                  <BlogFeed
-                    blogs={blogs}
-                    result={result}
-                    error={error}
-                    isLoading={isLoading}
-                    hasMore={hasMore}
-                    onLoadMore={handleNextPage}
-                    activeDisplayName={activeDisplayName}
-                  />
+                  <BlogFeed />
                 </motion.div>
               )}
               {activeView === "settings" && (

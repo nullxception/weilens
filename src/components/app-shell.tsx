@@ -15,38 +15,22 @@ import { TooltipProvider } from "./ui/tooltip";
 import { ArrowLeftIcon, SettingsIcon } from "lucide-react";
 import { DownloadProgressPanel } from "./download-progress-panel";
 import { useUiStore } from "../stores/useUiStore";
-import { useHistoryStore } from "../stores/useHistoryStore";
+import { useProfileStore } from "../stores/useProfileStore";
 
-interface AppShellProps {
-  uid: string;
-  isLoading: boolean;
-  onUidChange: (uid: string) => void;
-  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void;
-  onOpenSettings: () => void;
-  historyOnSidebar: boolean;
-  children: ReactNode;
-}
-
-function SidebarInner({
-  uid,
-  isLoading,
-  onUidChange,
-  onSubmit,
-  onOpenSettings,
-  historyOnSidebar,
-}: {
-  uid: string;
-  isLoading: boolean;
-  onUidChange: (uid: string) => void;
-  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void;
-  onOpenSettings: () => void;
-  historyOnSidebar: boolean;
-}) {
-  const history = useHistoryStore((state) => state.history);
-  const showHistory = history.length > 0 && historyOnSidebar;
+function SidebarInner() {
   const { isMobile, setOpenMobile } = useSidebar();
   const activeView = useUiStore((state) => state.activeView);
   const closeSettings = useUiStore((state) => state.closeSettings);
+  const setActiveView = useUiStore((state) => state.setActiveView);
+
+  const blogs = useProfileStore((state) => state.blogs);
+  const isLoading = useProfileStore((state) => state.isLoading);
+  const error = useProfileStore((state) => state.error);
+  const result = useProfileStore((state) => state.result);
+
+  const hasActiveData =
+    blogs.length > 0 || isLoading || Boolean(error) || Boolean(result);
+
   const closeSidebar = () => {
     if (isMobile) {
       setOpenMobile(false);
@@ -57,7 +41,7 @@ function SidebarInner({
     if (activeView === "settings") {
       closeSettings();
     } else {
-      onOpenSettings();
+      setActiveView("settings");
     }
     closeSidebar();
   };
@@ -67,22 +51,11 @@ function SidebarInner({
   return (
     <>
       <SidebarHeader className="p-3">
-        <SearchForm
-          uid={uid}
-          isLoading={isLoading}
-          onUidChange={onUidChange}
-          onSubmit={(event) => {
-            onSubmit(event);
-            closeSidebar();
-          }}
-        />
+        <SearchForm />
       </SidebarHeader>
       <SidebarContent className="space-y-3 px-3 py-2">
-        {showHistory && (
-          <HistoryPanel
-            history={history}
-            onProfileClick={() => closeSidebar()}
-          />
+        {hasActiveData && (
+          <HistoryPanel onProfileClick={() => closeSidebar()} />
         )}
       </SidebarContent>
       <SidebarFooter className="flex flex-col gap-3 p-3">
@@ -101,28 +74,13 @@ function SidebarInner({
   );
 }
 
-export function AppShell({
-  uid,
-  isLoading,
-  onUidChange,
-  onSubmit,
-  onOpenSettings,
-  historyOnSidebar,
-  children,
-}: AppShellProps) {
+export function AppShell({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <SidebarProvider>
         <div className="flex min-h-screen w-full bg-background text-foreground">
           <Sidebar>
-            <SidebarInner
-              uid={uid}
-              isLoading={isLoading}
-              onUidChange={onUidChange}
-              onSubmit={onSubmit}
-              onOpenSettings={onOpenSettings}
-              historyOnSidebar={historyOnSidebar}
-            />
+            <SidebarInner />
           </Sidebar>
 
           <main className="w-full flex-1 overflow-y-auto p-4">

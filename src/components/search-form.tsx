@@ -2,14 +2,8 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { LoaderCircle, SearchIcon } from "lucide-react";
 import { useUiStore } from "../stores/useUiStore";
+import { useProfileStore } from "../stores/useProfileStore";
 import { ButtonGroup } from "./ui/button-group";
-
-interface SearchFormProps {
-  uid: string;
-  isLoading: boolean;
-  onUidChange: (uid: string) => void;
-  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void;
-}
 
 function extractUid(value: string): string {
   const trimmed = value.trim();
@@ -23,22 +17,24 @@ function extractUid(value: string): string {
   return trimmed;
 }
 
-export function SearchForm({
-  uid,
-  isLoading,
-  onUidChange,
-  onSubmit,
-}: SearchFormProps) {
+export function SearchForm() {
+  const uid = useProfileStore((state) => state.uid);
+  const isLoading = useProfileStore((state) => state.isLoading);
+  const setUid = useProfileStore((state) => state.setUid);
+  const checkUid = useProfileStore((state) => state.checkUid);
   const setActiveUid = useUiStore((state) => state.setActiveUid);
+  const setActiveView = useUiStore((state) => state.setActiveView);
 
   const handleUidChange = (value: string) => {
-    onUidChange(extractUid(value));
+    setUid(extractUid(value));
   };
 
-  const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     const nextUid = extractUid(uid);
     setActiveUid(nextUid);
-    onSubmit(event);
+    setActiveView("search");
+    checkUid(nextUid, 1);
   };
 
   return (

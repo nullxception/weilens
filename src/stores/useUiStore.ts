@@ -7,13 +7,11 @@ interface UiState {
   activeView: ViewKey;
   pendingLookupUid: string | null;
   isSidebarOpen: boolean;
-  historyOnSidebar: boolean;
 
   setActiveUid: (uid: string) => void;
   setActiveView: (view: ViewKey) => void;
   setPendingLookupUid: (uid: string | null) => void;
   setSidebarOpen: (isOpen: boolean) => void;
-  setHistoryOnSidebar: (value: boolean) => void;
 
   closeSettings: () => void;
   toggleSidebar: () => void;
@@ -25,14 +23,12 @@ export const useUiStore = create<UiState>((set) => ({
   activeView: "search",
   pendingLookupUid: null,
   isSidebarOpen: false,
-  historyOnSidebar: false,
 
   setActiveUid: (activeUid: string) => set({ activeUid }),
   setActiveView: (activeView: ViewKey) => set({ activeView }),
   setPendingLookupUid: (pendingLookupUid: string | null) =>
     set({ pendingLookupUid }),
   setSidebarOpen: (isSidebarOpen: boolean) => set({ isSidebarOpen }),
-  setHistoryOnSidebar: (historyOnSidebar: boolean) => set({ historyOnSidebar }),
 
   closeSettings: () => set({ activeView: "search" }),
   toggleSidebar: () =>

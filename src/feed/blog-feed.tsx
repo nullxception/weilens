@@ -1,22 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import type { BlogPost } from "../types/remote";
 import { useUiStore } from "../stores/useUiStore";
+import { useProfileStore } from "../stores/useProfileStore";
 import { useHistoryStore } from "../stores/useHistoryStore";
 import { BlogCard } from "./blog-card";
 import { HistoryPanel } from "../components/history-panel";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-
-interface BlogFeedProps {
-  blogs: BlogPost[];
-  result: string;
-  error: string;
-  isLoading: boolean;
-  hasMore: boolean;
-  onLoadMore: () => void;
-  activeDisplayName?: string;
-}
 
 const stateVariants = {
   initial: { opacity: 0, y: 12 },
@@ -31,15 +21,14 @@ const stateTransition = {
   mass: 0.8,
 };
 
-export function BlogFeed({
-  blogs,
-  result,
-  error,
-  isLoading,
-  hasMore,
-  onLoadMore,
-  activeDisplayName,
-}: BlogFeedProps) {
+export function BlogFeed() {
+  const blogs = useProfileStore((state) => state.blogs);
+  const result = useProfileStore((state) => state.result);
+  const error = useProfileStore((state) => state.error);
+  const isLoading = useProfileStore((state) => state.isLoading);
+  const hasMore = useProfileStore((state) => state.hasMore);
+  const onLoadMore = useProfileStore((state) => state.handleNextPage);
+
   const [showReposted, setShowReposted] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(isLoading);
@@ -144,11 +133,7 @@ export function BlogFeed({
           </div>
           <div className="flex flex-col gap-3">
             {visibleBlogs.map((blog) => (
-              <BlogCard
-                key={blog.idstr}
-                blog={blog}
-                activeDisplayName={activeDisplayName}
-              />
+              <BlogCard key={blog.idstr} blog={blog} />
             ))}
           </div>
         </motion.div>
@@ -174,7 +159,7 @@ export function BlogFeed({
           exit="exit"
           transition={stateTransition}
         >
-          <HistoryPanel history={history} />
+          <HistoryPanel />
         </motion.div>
       ) : (
         <motion.div

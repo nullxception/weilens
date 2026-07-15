@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { DownloadItem } from "../types/rpc";
 import type { BlogPost, Pic } from "../types/remote";
 import { useUiStore } from "../stores/useUiStore";
+import { useProfileStore } from "../stores/useProfileStore";
 import type { GPSData, Place } from "../types/gps";
 import { Card, CardContent } from "../components/ui/card";
 import { getPlaceByPost, setBlogPlace } from "../lib/api";
@@ -19,11 +20,11 @@ import { getPreferredImage } from "@/lib/remote";
 
 interface BlogCardProps {
   blog: BlogPost;
-  activeDisplayName?: string;
 }
 
-export function BlogCard({ blog, activeDisplayName }: BlogCardProps) {
+export function BlogCard({ blog }: BlogCardProps) {
   const activeUid = useUiStore((state) => state.activeUid);
+  const activeDisplayName = useProfileStore((state) => state.activeDisplayName);
 
   const downloadItems = (blog.pic_ids ?? [])
     .map((id) => {

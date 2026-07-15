@@ -16,13 +16,13 @@ export interface CheckedProfile {
 }
 
 interface HistoryPanelProps {
-  history: CheckedProfile[];
   onProfileClick?: (uid: string) => void;
 }
 
-export function HistoryPanel({ history, onProfileClick }: HistoryPanelProps) {
+export function HistoryPanel({ onProfileClick }: HistoryPanelProps) {
   const activeUid = useUiStore((state) => state.activeUid);
   const openHistoryProfile = useUiStore((state) => state.openHistoryProfile);
+  const history = useHistoryStore((state) => state.history);
 
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);
