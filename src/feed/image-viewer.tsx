@@ -22,7 +22,11 @@ interface ImageViewerProps {
 
 function ImageViewerImage({ item }: { item: Pic }) {
   const [loaded, setLoaded] = useState(false);
-
+  // use smaller size for faster loading
+  const displayUrl = item.url.replace(
+    "/" + item.url.split("/")[3] + "/",
+    "/mw690/",
+  );
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.97 }}
@@ -35,7 +39,7 @@ function ImageViewerImage({ item }: { item: Pic }) {
         <Loader2Icon className="absolute size-8 animate-spin text-white/70" />
       )}
       <img
-        src={proxyImage(item.url)}
+        src={proxyImage(displayUrl)}
         alt=""
         className={cn(
           "relative z-1 max-h-full max-w-full rounded-sm object-contain transition-opacity duration-300",
