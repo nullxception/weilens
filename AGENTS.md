@@ -23,25 +23,66 @@ bun run format           # prettier --write "**/*.{ts,tsx}"
 
 ```
 src/                  # React frontend
-  components/ui/      # shadcn/ui components (base-nova style, lucide icons)
-  feed/               # blog feed, blog cards, image viewer, location dialog
-  hooks/              # use-profile-lookup.ts (core data fetching hook)
-  lib/api.ts          # Tauri IPC wrappers (invoke commands)
-  lib/proxy.ts        # image proxy URL builder (platform-aware)
-  lib/remote.ts       # watermark-free URL helper
-  stores/             # Zustand stores (auth, downloads, history, places, settings, ui)
-  types/              # Zod schemas + TS types for Sina API, RPC, GPS
-  settings/           # cookie setup, settings panel/modal
+  app.tsx             # root component, view routing, onboarding gate
+  main.tsx            # entry point (React Query, ThemeProvider)
+  index.css           # Tailwind + shadcn CSS variables
   storage-keys.ts     # localStorage key constants
+  assets/             # static assets (SVG icons, etc.)
+  components/
+    app-shell.tsx         # main layout with sidebar
+    search-form.tsx       # UID search input form
+    history-panel.tsx     # recent profile lookups
+    download-progress-panel.tsx
+    external-link-guard.tsx
+    theme-provider.tsx    # light/dark/system theme context
+    ui/               # shadcn/ui components (base-nova style, lucide icons)
+  feed/
+    blog-feed.tsx         # infinite-scroll blog feed
+    blog-card.tsx         # individual post card
+    blog-card-header.tsx
+    blog-card-images.tsx
+    blog-card-download-actions.tsx
+    blog-card-location.tsx
+    image-viewer.tsx      # fullscreen image viewer with navigation
+    location-dialog.tsx   # place management dialog
+  hooks/
+    use-mobile.ts         # mobile breakpoint detection
+  lib/
+    api.ts                # Tauri IPC wrappers (invoke commands)
+    proxy.ts              # image proxy URL builder (platform-aware)
+    remote.ts             # watermark-free URL helper
+    query-client.ts       # React Query client config
+    utils.ts              # cn() helper and utilities
+  onboarding/
+    onboarding.tsx        # first-run onboarding flow
+    onboarding-state.ts   # onboarding completion tracking
+  settings/
+    cookie-setup-dialog.tsx   # initial cookie prompt
+    settings-panel.tsx        # cookie, download dir, watermark settings
+  stores/
+    useAuthStore.ts       # cookie parsing + auth state
+    useDownloadsStore.ts  # download progress tracking
+    useHistoryStore.ts    # recent profile lookup history
+    usePlacesStore.ts     # GPS places state (synced with backend DB)
+    useProfileStore.ts    # current profile + API fetching (Sina Weibo)
+    useSettingsStore.ts   # download path, watermark position
+    useUiStore.ts         # active view, sidebar, pending lookups
+  types/
+    remote.ts             # Sina API response Zod schemas + TS types
+    rpc.ts                # Tauri IPC types (download, dewatermark position)
+    gps.ts                # GPS coordinate types
 
 src-tauri/src/        # Rust backend
+  main.rs             # entry point
   lib.rs              # Tauri builder, plugin registration, img-proxy scheme
   db.rs               # SQLite (rusqlite) place storage, CRUD commands
   download.rs         # concurrent post downloads with retry, EXIF, live photo mux
   image.rs            # image proxy handler, watermark strip merging
   exif.rs             # EXIF/GPS metadata writing
   motion.rs           # motion photo muxing
+  dates.rs            # date formatting for folder structure and EXIF
   types.rs            # shared Rust types
+  util.rs             # URL helpers
 ```
 
 ## Key architecture notes
@@ -49,11 +90,13 @@ src-tauri/src/        # Rust backend
 - **OS Awareness:** Always verify platform when running system-level commands or pathing.
 - **Path alias:** `@/` → `src/` (configured in vite, tsconfig)
 - **Image proxy:** Rust registers `img-proxy:` custom URI scheme. Frontend uses `lib/proxy.ts` which builds URLs differently per platform: `http://img-proxy.localhost` on Windows, `img-proxy://localhost` on macOS/Linux
-- **Sina Weibo API:** `use-profile-lookup.ts` calls `weibo.com/ajax/statuses/mymblog` using `@tauri-apps/plugin-http` (bypasses CORS). Requires a valid cookie string stored in localStorage
-- **Cookie formats:** Accepts both plain `name=value` and Netscape/cookie-jar format (auto-parsed in `appStore.ts`)
-- **SQLite database:** `weipoint.db` in app data dir. Stores places with a localStorage → SQLite migration on first run
+- **Sina Weibo API:** `useProfileStore.ts` calls `weibo.com/ajax/statuses/mymblog` using `@tauri-apps/plugin-http` (bypasses CORS). Requires a valid cookie string stored in localStorage
+- **Cookie formats:** Accepts both plain `name=value` and Netscape/cookie-jar format (auto-parsed in `useAuthStore.ts`)
+- **SQLite database:** `weipoint.db` in app data dir. Stores places, managed by `usePlacesStore.ts` with backend CRUD commands
 - **Rust lib name:** `weilens_lib` — required to avoid Windows build conflicts
 - **Tauri window:** starts hidden, shown after main webview finishes loading
+- **State management:** Profile/data fetching lives in `useProfileStore.ts` (Zustand + React Query). UI state in `useUiStore.ts`. Domain stores split per concern (auth, downloads, history, places, settings)
+- **Search form:** accepts UID string or full `weibo.com/u/...` URL, extracts UID automatically
 
 ## Code style
 
