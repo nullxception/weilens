@@ -1,6 +1,6 @@
 [package]
 name = "weilens"
-version = "0.1.5"
+version = "0.2.0"
 description = "Sina Weibo viewer and downloader"
 authors = ["nullxception"]
 edition = "2021"
