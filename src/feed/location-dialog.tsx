@@ -9,28 +9,22 @@ import {
 } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
-import {
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { motion } from "motion/react";
 import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
-import { addPlace, listPlaces, searchPlace } from "../lib/api";
+import { addPlace, searchPlace } from "../lib/api";
 import {
-  BookmarkIcon,
   GlobeIcon,
   HistoryIcon,
   LoaderCircle,
   SearchIcon,
-  XIcon,
 } from "lucide-react";
 import { ButtonGroup } from "../components/ui/button-group";
-
-const PAGE_SIZE = 20;
+import { SavedPlaces } from "./saved-places";
+import { CoordinatePrompt } from "./coordinate-prompt";
 
 function parseCoordinateInput(input: string): GPSData | null {
   const trimmed = input.trim();
@@ -119,63 +113,9 @@ export default function LocationDialog({
 
   // Pending coord save prompt state
   const [pendingCoord, setPendingCoord] = useState<GPSData | null>(null);
-  const [saveName, setSaveName] = useState("");
   const [saveMode, setSaveMode] = useState<"ask" | "saving" | null>(null);
 
   const queryClient = useQueryClient();
-
-  const {
-    data: placesPages,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetching: placesLoading,
-  } = useInfiniteQuery({
-    queryKey: ["places"],
-    queryFn: async ({ pageParam }) => {
-      return await listPlaces({ limit: PAGE_SIZE, offset: pageParam });
-    },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      const fetched = allPages.reduce((sum, p) => sum + p.places.length, 0);
-      return fetched < lastPage.total ? fetched : undefined;
-    },
-    staleTime: 1000 * 60,
-  });
-
-  const places = placesPages?.pages.flatMap((p) => p.places) ?? [];
-  const [scrollViewport, setScrollViewport] = useState<HTMLDivElement | null>(
-    null,
-  );
-  const vpRefCallback = useCallback((node: HTMLDivElement | null) => {
-    setScrollViewport(node);
-  }, []);
-
-  const checkAndLoadMore = useCallback(() => {
-    if (!scrollViewport) return;
-    if (!hasNextPage || isFetchingNextPage) return;
-
-    const remaining =
-      scrollViewport.scrollHeight -
-      scrollViewport.scrollTop -
-      scrollViewport.clientHeight;
-
-    if (remaining <= 150) {
-      fetchNextPage();
-    }
-  }, [scrollViewport, hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  useEffect(() => {
-    if (!scrollViewport) return;
-
-    checkAndLoadMore(); // fill viewport if needed
-    scrollViewport.addEventListener("scroll", checkAndLoadMore, {
-      passive: true,
-    });
-    return () => {
-      scrollViewport.removeEventListener("scroll", checkAndLoadMore);
-    };
-  }, [scrollViewport, checkAndLoadMore]);
 
   const {
     isFetching,
@@ -193,9 +133,7 @@ export default function LocationDialog({
 
     const parsedCoords = parseCoordinateInput(query);
     if (parsedCoords) {
-      // Ask user whether to save before selecting
       setPendingCoord(parsedCoords);
-      setSaveName("");
       setSaveMode("ask");
       return;
     }
@@ -219,33 +157,7 @@ export default function LocationDialog({
     [onOpenChange, onSelect],
   );
 
-  const handleSaveAndSelect = useCallback(() => {
-    if (!pendingCoord) return;
-    const trimmed = saveName.trim();
-    if (trimmed) {
-      addPlace({
-        name: trimmed,
-        lat: pendingCoord.lat,
-        lon: pendingCoord.lon,
-      }).catch(console.error);
-      queryClient.invalidateQueries({ queryKey: ["places"] });
-    }
-    confirmSelect({
-      lat: pendingCoord.lat,
-      lon: pendingCoord.lon,
-      name: trimmed,
-    });
-  }, [confirmSelect, pendingCoord, queryClient, saveName]);
-
-  const handleSkipSave = useCallback(() => {
-    if (!pendingCoord) return;
-    confirmSelect({ lat: pendingCoord.lat, lon: pendingCoord.lon, name: "" });
-  }, [confirmSelect, pendingCoord]);
-
-  // Sync query results into local state so we can clear them between searches
-  // (Effect removed in favor of manual updates in doSearch)
-
-  const showRecent = !isFetching && places.length > 0 && results.length === 0;
+  const showRecent = !isFetching && results.length === 0;
 
   return (
     <>
@@ -311,82 +223,21 @@ export default function LocationDialog({
 
             {/* Save prompt for coordinate input */}
             {saveMode === "ask" && pendingCoord && (
-              <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/60 p-3">
-                <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Save this coordinate?
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  lat: {pendingCoord.lat}, lon: {pendingCoord.lon}
-                </div>
-                <Input
-                  placeholder="Name (e.g. Home, Office…)"
-                  value={saveName}
-                  onChange={(e) => setSaveName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSaveAndSelect();
-                  }}
-                  className="h-8 text-sm"
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleSaveAndSelect}
-                    disabled={!saveName.trim()}
-                    className="flex-1"
-                  >
-                    <BookmarkIcon className="mr-1 h-3.5 w-3.5" />
-                    Save &amp; go
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleSkipSave}
-                    className="flex-1"
-                  >
-                    <XIcon className="mr-1 h-3.5 w-3.5" />
-                    Skip
-                  </Button>
-                </div>
-              </div>
+              <CoordinatePrompt
+                pendingCoord={pendingCoord}
+                onConfirm={confirmSelect}
+              />
             )}
 
             {/* Saved places / search results */}
             {showRecent ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                    Saved places
-                  </span>
-                  {placesLoading && (
-                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                  )}
-                </div>
-                <ScrollArea
-                  viewportRef={vpRefCallback}
-                  className="h-80 rounded-md border border-border bg-background/60"
-                >
-                  {places.map((rp) => (
-                    <div
-                      key={`${rp.lat}-${rp.lon}-${String(rp.name).slice(0, 30)}`}
-                      className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
-                      onClick={() => {
-                        onSelect?.({ lat: rp.lat, lon: rp.lon, name: rp.name });
-                        onOpenChange?.(false);
-                      }}
-                    >
-                      <div className="text-sm">{rp.name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        lat: {rp.lat}, lon: {rp.lon}
-                      </div>
-                    </div>
-                  ))}
-                  {isFetchingNextPage && (
-                    <div className="flex justify-center py-3">
-                      <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                </ScrollArea>
-              </div>
+              <SavedPlaces
+                onSelect={(rp) => {
+                  onSelect?.({ lat: rp.lat, lon: rp.lon, name: rp.name });
+                  onOpenChange?.(false);
+                }}
+                placesLoading={isFetching}
+              />
             ) : (
               <>
                 <ScrollArea className="h-96 rounded-md border border-border">
