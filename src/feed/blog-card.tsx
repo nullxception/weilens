@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DownloadItem } from "../types/rpc";
 import type { BlogPost, Pic } from "../types/remote";
 import { useUiStore } from "../stores/useUiStore";
@@ -41,24 +42,47 @@ export function BlogCard({ blog }: BlogCardProps) {
 
   const blogPlaceKey =
     blog.user?.id != null ? `${blog.user.id}_${blog.mblogid}` : null;
-  const [storedBlogPlace, setStoredBlogPlace] = useState<Place | null>(null);
+
+  const queryClient = useQueryClient();
+
+  // Use React Query for place data — cached per (userId, mblogid)
+  const { data: storedBlogPlace } = useQuery<Place | null>({
+    queryKey: blogPlaceKey ? ["place", blogPlaceKey] : ["place", "none"],
+    queryFn: async () => {
+      if (!blogPlaceKey) return null;
+      const [userId, mblogid] = blogPlaceKey.split("_");
+      return getPlaceByPost(userId, mblogid);
+    },
+    enabled: !!blogPlaceKey,
+    staleTime: 5 * 60_000,
+    retry: 0,
+  });
+
   const [gpsLocation, setGpsLocation] = useState<GPSData | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewNonce, setViewNonce] = useState(0);
 
-  useEffect(() => {
-    if (!blogPlaceKey) return;
-    const [userId, mblogid] = blogPlaceKey.split("_");
-    getPlaceByPost(userId, mblogid)
-      .then((place) => {
-        setStoredBlogPlace(place);
+  // Keep gpsLocation in sync with place data
+  const updateGpsLocation = useCallback(
+    (place: Place | null) => {
+      if (place) {
         setGpsLocation({ lat: place.lat, lon: place.lon });
-      })
-      .catch(() => {
-        setStoredBlogPlace(null);
-      });
-  }, [blogPlaceKey]);
+      } else {
+        setGpsLocation(null);
+      }
+    },
+    [],
+  );
+
+  // Invalidate on place change
+  const handlePlaceChange = useCallback(
+    (place: Place) => {
+      updateGpsLocation(place);
+      queryClient.invalidateQueries({ queryKey: ["place", blogPlaceKey] });
+    },
+    [queryClient, blogPlaceKey, updateGpsLocation],
+  );
 
   const isReposted = Boolean(
     activeUid && blog.user?.idstr && blog.user.idstr !== activeUid,
@@ -99,7 +123,7 @@ export function BlogCard({ blog }: BlogCardProps) {
             }}
           />
 
-          <BlogCardLocation place={storedBlogPlace} />
+          <BlogCardLocation place={storedBlogPlace ?? null} />
 
           <div className="flex items-center justify-between gap-6 pt-1 text-xs font-medium text-muted-foreground">
             <div className="flex gap-4">
@@ -123,11 +147,10 @@ export function BlogCard({ blog }: BlogCardProps) {
               createdAt={blog.created_at}
               downloadItems={downloadItems}
               locationTag={locationTag}
-              storedBlogPlace={storedBlogPlace}
+              storedBlogPlace={storedBlogPlace ?? null}
               gpsLocation={gpsLocation}
-              onPlaceChange={(p, gps) => {
-                setStoredBlogPlace(p);
-                setGpsLocation(gps);
+              onPlaceChange={(p) => {
+                handlePlaceChange(p);
                 if (blog.user?.id != null) {
                   setBlogPlace(String(blog.user.id), blog.mblogid, p).catch(
                     console.error,
