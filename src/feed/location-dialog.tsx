@@ -125,7 +125,6 @@ export default function LocationDialog({
     queryKey: ["nominatim", query],
     queryFn: async () => await searchNominatim(query, 3),
     enabled: false,
-    staleTime: 1000 * 60,
   });
 
   const doSearch = useCallback(async () => {

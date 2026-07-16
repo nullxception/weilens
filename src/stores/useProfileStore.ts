@@ -126,7 +126,6 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         queryKey: ["weisearch", targetUid, targetPage, requestSinceId],
         queryFn: () =>
           fetchProfile(targetUid, targetPage, parsedCookie, requestSinceId),
-        staleTime: 5 * 60_000,
         retry: 0,
       });
 

@@ -54,7 +54,6 @@ export function BlogCard({ blog }: BlogCardProps) {
       return getPlaceByPost(userId, mblogid);
     },
     enabled: !!blogPlaceKey,
-    staleTime: 5 * 60_000,
     retry: 0,
   });
 

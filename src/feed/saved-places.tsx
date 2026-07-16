@@ -28,7 +28,6 @@ export function SavedPlaces({ onSelect, placesLoading }: SavedPlacesProps) {
       const fetched = allPages.reduce((sum, p) => sum + p.places.length, 0);
       return fetched < lastPage.total ? fetched : undefined;
     },
-    staleTime: 1000 * 60,
   });
 
   const places = placesPages?.pages.flatMap((p) => p.places) ?? [];
