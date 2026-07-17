@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useUiStore } from "../stores/useUiStore";
 import { useProfileStore } from "../stores/useProfileStore";
 import { useHistoryStore } from "../stores/useHistoryStore";
@@ -115,9 +115,20 @@ export function BlogFeed() {
           className="px-4"
         >
           <div className="flex flex-col gap-3">
-            {visibleBlogs.map((blog) => (
-              <BlogCard key={blog.idstr} blog={blog} />
-            ))}
+            <AnimatePresence mode="popLayout">
+              {visibleBlogs.map((blog) => (
+                <motion.div
+                  key={blog.idstr}
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  <BlogCard blog={blog} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </motion.div>
       ) : result ? (
