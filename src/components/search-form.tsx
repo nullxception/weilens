@@ -1,6 +1,6 @@
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { Spinner, MagnifyingGlass } from "@phosphor-icons/react";
+import { SpinnerIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useProfileStore } from "../stores/useProfileStore";
 import { ButtonGroup } from "./ui/button-group";
@@ -52,9 +52,9 @@ export function SearchForm() {
           aria-label="Search"
         >
           {isLoading ? (
-            <Spinner className="animate-spin" />
+            <SpinnerIcon className="animate-spin" />
           ) : (
-            <MagnifyingGlass />
+            <MagnifyingGlassIcon />
           )}
         </Button>
       </ButtonGroup>

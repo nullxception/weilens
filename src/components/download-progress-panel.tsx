@@ -1,5 +1,5 @@
 import { useDownloadsStore } from "@/stores/useDownloadsStore";
-import { CheckCircle, XCircle, Spinner, StopCircle } from "@phosphor-icons/react";
+import { CheckCircleIcon, XCircleIcon, SpinnerIcon, StopCircleIcon } from "@phosphor-icons/react";
 import { Progress } from "./ui/progress";
 import { Button } from "./ui/button";
 import { useEffect } from "react";
@@ -76,14 +76,14 @@ export function DownloadProgressPanel() {
               <div className="flex min-w-0 items-center gap-1.5">
                 {isAllDone ? (
                   hasError ? (
-                    <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                    <XCircleIcon className="h-3.5 w-3.5 shrink-0 text-destructive" />
                   ) : (
-                    <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                    <CheckCircleIcon className="h-3.5 w-3.5 shrink-0 text-green-500" />
                   )
                 ) : isCancelled ? (
-                  <StopCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <StopCircleIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 ) : (
-                  <Spinner className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+                  <SpinnerIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
                 )}
                 <span className="truncate text-[11px] font-medium text-foreground">
                   Post …{d.postId.slice(-6)}
@@ -101,7 +101,7 @@ export function DownloadProgressPanel() {
                     className="h-5 w-5 p-0 text-destructive hover:text-destructive"
                     onClick={() => void cancelDownloadPost(d.postId)}
                   >
-                    <XCircle className="h-3 w-3" />
+                    <XCircleIcon className="h-3 w-3" />
                   </Button>
                 )}
               </div>

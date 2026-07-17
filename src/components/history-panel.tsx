@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useNavigate } from "@tanstack/react-router";
-import { Trash, X } from "@phosphor-icons/react";
+import { TrashIcon, XIcon } from "@phosphor-icons/react";
 import { Button } from "./ui/button";
 import { ConfirmDialog } from "./ui/confirm-dialog";
 import { proxyImage } from "@/lib/proxy";
@@ -74,7 +74,7 @@ export function HistoryPanel({ onProfileClick }: HistoryPanelProps) {
             size="xs"
             onClick={() => setConfirmClearOpen(true)}
           >
-            <Trash />
+            <TrashIcon />
             Clear
           </Button>
         </div>
@@ -136,7 +136,7 @@ export function HistoryPanel({ onProfileClick }: HistoryPanelProps) {
                       className="scale-90 hover:bg-destructive/10 hover:text-destructive md:opacity-0 md:group-hover:scale-100 md:group-hover:opacity-100"
                       aria-label="Remove from history"
                     >
-                      <X className="h-3 w-3" />
+                      <XIcon className="h-3 w-3" />
                     </Button>
                   </motion.div>
                 );

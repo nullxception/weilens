@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { listPlaces } from "../lib/api";
-import { Spinner } from "@phosphor-icons/react";
+import { SpinnerIcon } from "@phosphor-icons/react";
 import type { Place } from "../types/gps";
 
 const PAGE_SIZE = 20;
@@ -70,7 +70,7 @@ export function SavedPlaces({ onSelect, placesLoading }: SavedPlacesProps) {
           Saved places
         </span>
         {placesLoading && (
-          <Spinner className="h-3.5 w-3.5 animate-spin" />
+          <SpinnerIcon className="h-3.5 w-3.5 animate-spin" />
         )}
       </div>
       <ScrollArea
@@ -91,7 +91,7 @@ export function SavedPlaces({ onSelect, placesLoading }: SavedPlacesProps) {
         ))}
         {isFetchingNextPage && (
           <div className="flex justify-center py-3">
-            <Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
+            <SpinnerIcon className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         )}
       </ScrollArea>

@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { addPlace } from "../lib/api";
-import { Bookmark, X } from "@phosphor-icons/react";
+import { BookmarkIcon, XIcon } from "@phosphor-icons/react";
 import type { GPSData, Place } from "../types/gps";
 
 interface CoordinatePromptProps {
@@ -63,7 +63,7 @@ export function CoordinatePrompt({
           disabled={!saveName.trim()}
           className="flex-1"
         >
-          <Bookmark className="mr-1 h-3.5 w-3.5" data-icon="inline-start" />
+          <BookmarkIcon className="mr-1 h-3.5 w-3.5" data-icon="inline-start" />
           Save &amp; go
         </Button>
         <Button
@@ -72,7 +72,7 @@ export function CoordinatePrompt({
           onClick={handleSkipSave}
           className="flex-1"
         >
-          <X className="mr-1 h-3.5 w-3.5" data-icon="inline-start" />
+          <XIcon className="mr-1 h-3.5 w-3.5" data-icon="inline-start" />
           Skip
         </Button>
       </div>

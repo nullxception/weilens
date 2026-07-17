@@ -13,7 +13,7 @@ import {
   useSidebar,
 } from "./ui/sidebar";
 import { TooltipProvider } from "./ui/tooltip";
-import { ArrowLeft, Gear } from "@phosphor-icons/react";
+import { ArrowLeftIcon, GearIcon } from "@phosphor-icons/react";
 import { DownloadProgressPanel } from "./download-progress-panel";
 import { useProfileStore } from "../stores/useProfileStore";
 import { useUiStore } from "../stores/useUiStore";
@@ -66,7 +66,7 @@ function SidebarInner() {
           onClick={handleNavigateSettings}
           className="w-full"
         >
-          {isSettingsPage ? <ArrowLeft /> : <Gear />}
+          {isSettingsPage ? <ArrowLeftIcon /> : <GearIcon />}
           {isSettingsPage ? "Back to feed" : "Settings"}
         </Button>
       </SidebarFooter>

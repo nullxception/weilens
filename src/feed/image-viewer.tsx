@@ -4,7 +4,7 @@ import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Button } from "../components/ui/button";
 import { cn } from "@/lib/utils";
-import { CaretLeft, CaretRight, Spinner, X } from "@phosphor-icons/react";
+import { CaretLeftIcon, CaretRightIcon, SpinnerIcon, XIcon } from "@phosphor-icons/react";
 import { proxyImage } from "@/lib/proxy";
 import type { Pic } from "@/types/remote";
 
@@ -31,7 +31,7 @@ function ImageViewerImage({ item }: { item: Pic }) {
       className="flex h-full w-full items-center justify-center overflow-hidden"
     >
       {!loaded && (
-        <Spinner className="absolute size-8 animate-spin text-white/70" />
+        <SpinnerIcon className="absolute size-8 animate-spin text-white/70" />
       )}
       <img
         src={proxyImage(displayUrl)}
@@ -93,7 +93,7 @@ export function ImageViewer({
             className="absolute top-3 right-3 z-20 text-white/70 hover:bg-white/10 hover:text-white"
             onClick={() => onOpenChange(false)}
           >
-            <X className="size-5" />
+            <XIcon className="size-5" />
           </Button>
 
           {/* Counter */}
@@ -111,7 +111,7 @@ export function ImageViewer({
               className="absolute left-3 z-20 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={goPrev}
             >
-              <CaretLeft className="size-6" />
+              <CaretLeftIcon className="size-6" />
             </Button>
           )}
 
@@ -132,7 +132,7 @@ export function ImageViewer({
               className="absolute right-3 z-20 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={goNext}
             >
-              <CaretRight className="size-6" />
+              <CaretRightIcon className="size-6" />
             </Button>
           )}
         </DialogPrimitive.Popup>

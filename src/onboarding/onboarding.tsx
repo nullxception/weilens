@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Eye, EyeSlash, ClipboardText, ArrowRight, CaretRight, Cookie, ArrowSquareOut } from "@phosphor-icons/react";
+import { EyeIcon, EyeSlashIcon, ClipboardTextIcon, ArrowRightIcon, CaretRightIcon, CookieIcon, ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
@@ -105,7 +105,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       >
         <Button onClick={onNext} size="lg" className="gap-2 px-6">
           Get Started
-          <ArrowRight className="size-4" />
+          <ArrowRightIcon className="size-4" />
         </Button>
       </motion.div>
     </motion.div>
@@ -171,7 +171,7 @@ function CookieStep({
           variants={fadeUp}
           className="flex size-14 items-center justify-center rounded-2xl border border-border bg-muted/50 p-3"
         >
-          <Cookie className="size-7 text-muted-foreground" strokeWidth={1.5} />
+          <CookieIcon className="size-7 text-muted-foreground" strokeWidth={1.5} />
         </motion.div>
 
         <motion.div variants={fadeUp}>
@@ -202,7 +202,7 @@ function CookieStep({
               {pasted ? (
                 <span className="text-xs font-bold text-green-500">✓</span>
               ) : (
-                <ClipboardText className="size-3.5" />
+                <ClipboardTextIcon className="size-3.5" />
               )}
               <span>{pasted ? "Pasted" : "Paste"}</span>
             </button>
@@ -213,9 +213,9 @@ function CookieStep({
               aria-label={blurred ? "Show cookie" : "Hide cookie"}
             >
               {blurred ? (
-                <EyeSlash className="size-3.5" />
+                <EyeSlashIcon className="size-3.5" />
               ) : (
-                <Eye className="size-3.5" />
+                <EyeIcon className="size-3.5" />
               )}
               <span>{blurred ? "Show" : "Hide"}</span>
             </button>
@@ -250,7 +250,7 @@ function CookieStep({
             className="inline-flex items-center gap-0.5 text-primary hover:underline"
           >
             Get cookies.txt locally
-            <ArrowSquareOut className="size-3" />
+            <ArrowSquareOutIcon className="size-3" />
           </a>{" "}
           extension to export your cookie.
         </p>
@@ -261,7 +261,7 @@ function CookieStep({
           className="mt-1 gap-2"
         >
           Save & Continue
-          <CaretRight className="size-4" />
+          <CaretRightIcon className="size-4" />
         </Button>
 
         <Button

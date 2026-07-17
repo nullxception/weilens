@@ -1,4 +1,4 @@
-import { ArrowLeft, ClipboardText, Eye, EyeSlash } from "@phosphor-icons/react";
+import { ArrowLeftIcon, ClipboardTextIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Card,
@@ -111,7 +111,7 @@ export function SettingsPanel() {
             onClick={handleBack}
             aria-label="Back to search"
           >
-            <ArrowLeft className="size-4" />
+            <ArrowLeftIcon className="size-4" />
           </Button>
         </CardAction>
       </CardHeader>
@@ -130,7 +130,7 @@ export function SettingsPanel() {
                 {pasted ? (
                   <span className="text-xs font-bold text-green-500">✓</span>
                 ) : (
-                  <ClipboardText className="size-3.5" />
+                  <ClipboardTextIcon className="size-3.5" />
                 )}
                 <span>{pasted ? "Pasted" : "Paste"}</span>
               </button>
@@ -141,9 +141,9 @@ export function SettingsPanel() {
                 aria-label={blurred ? "Show cookie" : "Hide cookie"}
               >
                 {blurred ? (
-                  <EyeSlash className="size-3.5" />
+                  <EyeSlashIcon className="size-3.5" />
                 ) : (
-                  <Eye className="size-3.5" />
+                  <EyeIcon className="size-3.5" />
                 )}
                 <span>{blurred ? "Show" : "Hide"}</span>
               </button>
