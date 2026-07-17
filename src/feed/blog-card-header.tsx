@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { proxyImage } from "@/lib/proxy";
 import { useUiStore } from "../stores/useUiStore";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
@@ -8,6 +9,15 @@ interface BlogCardHeaderProps {
 }
 
 export function BlogCardHeader({ blog }: BlogCardHeaderProps) {
+  const navigate = useNavigate();
+
+  const handleProfileClick = () => {
+    if (blog.user?.idstr) {
+      useUiStore.getState().openHistoryProfile(blog.user.idstr);
+      navigate({ to: "/" });
+    }
+  };
+
   return (
     <div className="flex items-center gap-3">
       <Avatar>
@@ -20,11 +30,7 @@ export function BlogCardHeader({ blog }: BlogCardHeaderProps) {
       <div>
         <button
           className="text-sm font-semibold text-foreground hover:underline"
-          onClick={() => {
-            if (blog.user?.idstr) {
-              useUiStore.getState().openHistoryProfile(blog.user.idstr);
-            }
-          }}
+          onClick={handleProfileClick}
         >
           {blog.user?.screen_name || "Unknown User"}
         </button>

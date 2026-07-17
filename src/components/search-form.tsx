@@ -1,7 +1,7 @@
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { LoaderCircle, SearchIcon } from "lucide-react";
-import { useUiStore } from "../stores/useUiStore";
+import { useNavigate } from "@tanstack/react-router";
 import { useProfileStore } from "../stores/useProfileStore";
 import { ButtonGroup } from "./ui/button-group";
 
@@ -22,8 +22,7 @@ export function SearchForm() {
   const isLoading = useProfileStore((state) => state.isLoading);
   const setUid = useProfileStore((state) => state.setUid);
   const checkUid = useProfileStore((state) => state.checkUid);
-  const setActiveUid = useUiStore((state) => state.setActiveUid);
-  const setActiveView = useUiStore((state) => state.setActiveView);
+  const navigate = useNavigate();
 
   const handleUidChange = (value: string) => {
     setUid(extractUid(value));
@@ -32,9 +31,8 @@ export function SearchForm() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextUid = extractUid(uid);
-    setActiveUid(nextUid);
-    setActiveView("search");
     checkUid(nextUid, 1);
+    navigate({ to: "/" });
   };
 
   return (

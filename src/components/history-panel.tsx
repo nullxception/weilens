@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { useNavigate } from "@tanstack/react-router";
 import { TrashIcon, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { ConfirmDialog } from "./ui/confirm-dialog";
@@ -23,6 +24,7 @@ export function HistoryPanel({ onProfileClick }: HistoryPanelProps) {
   const activeUid = useUiStore((state) => state.activeUid);
   const openHistoryProfile = useUiStore((state) => state.openHistoryProfile);
   const history = useHistoryStore((state) => state.history);
+  const navigate = useNavigate();
 
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);
@@ -30,6 +32,12 @@ export function HistoryPanel({ onProfileClick }: HistoryPanelProps) {
   const clearHistory = useHistoryStore((state) => state.clearHistory);
 
   if (history.length === 0) return null;
+
+  const handleProfileClick = (uid: string) => {
+    openHistoryProfile(uid);
+    onProfileClick?.(uid);
+    navigate({ to: "/" });
+  };
 
   return (
     <>
@@ -93,10 +101,7 @@ export function HistoryPanel({ onProfileClick }: HistoryPanelProps) {
                         ? "bg-primary/5"
                         : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
                     }`}
-                    onClick={() => {
-                      openHistoryProfile(profile.uid);
-                      onProfileClick?.(profile.uid);
-                    }}
+                    onClick={() => handleProfileClick(profile.uid)}
                   >
                     <Avatar className="h-7 w-7">
                       {profile.profileImageUrl ? (

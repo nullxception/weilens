@@ -1,4 +1,5 @@
 import { ArrowLeft, ClipboardPaste, Eye, EyeOff } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Card,
   CardContent,
@@ -12,10 +13,9 @@ import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { chooseDownloadDir, defaultDownloadDir } from "../lib/api";
 import { useAuthStore } from "../stores/useAuthStore";
-import { useUiStore } from "../stores/useUiStore";
 import { useSettingsStore } from "../stores/useSettingsStore";
 import { ButtonGroup } from "../components/ui/button-group";
-import { Suspense, use, useState, useCallback } from "react";
+import { Suspense, use, useEffect, useState, useCallback } from "react";
 import {
   Select,
   SelectContent,
@@ -51,9 +51,9 @@ export function SettingsPanel() {
   );
   const wmPosition = useSettingsStore((state) => state.dewatermark);
   const setWmPosition = useSettingsStore((state) => state.setWmPosition);
-  const onBack = useUiStore((state) => state.closeSettings);
   const savedMessage = useAuthStore((state) => state.savedMessage);
   const saveCookie = useAuthStore((state) => state.saveCookie);
+  const navigate = useNavigate();
   const [blurred, setBlurred] = useState(true);
   const [pasted, setPasted] = useState(false);
 
@@ -78,6 +78,25 @@ export function SettingsPanel() {
     }
   };
 
+  const handleBack = () => {
+    navigate({ to: "/" });
+  };
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        navigate({ to: "/" });
+      }
+    },
+    [navigate],
+  );
+
+  // Register Escape key handler
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
     <Card size="sm">
       <CardHeader>
@@ -89,7 +108,7 @@ export function SettingsPanel() {
             type="button"
             variant="ghost"
             size="icon-sm"
-            onClick={onBack}
+            onClick={handleBack}
             aria-label="Back to search"
           >
             <ArrowLeft className="size-4" />

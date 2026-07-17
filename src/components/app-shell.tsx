@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { HistoryPanel } from "./history-panel";
 import { SearchForm } from "./search-form";
 import { Button } from "./ui/button";
@@ -14,14 +15,14 @@ import {
 import { TooltipProvider } from "./ui/tooltip";
 import { ArrowLeftIcon, SettingsIcon } from "lucide-react";
 import { DownloadProgressPanel } from "./download-progress-panel";
-import { useUiStore } from "../stores/useUiStore";
 import { useProfileStore } from "../stores/useProfileStore";
+import { useLocation } from "@tanstack/react-router";
 
 function SidebarInner() {
   const { isMobile, setOpenMobile } = useSidebar();
-  const activeView = useUiStore((state) => state.activeView);
-  const closeSettings = useUiStore((state) => state.closeSettings);
-  const setActiveView = useUiStore((state) => state.setActiveView);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isSettingsPage = location.pathname === "/settings";
 
   const blogs = useProfileStore((state) => state.blogs);
   const isLoading = useProfileStore((state) => state.isLoading);
@@ -37,16 +38,14 @@ function SidebarInner() {
     }
   };
 
-  const handleOpenSettings = () => {
-    if (activeView === "settings") {
-      closeSettings();
+  const handleNavigateSettings = () => {
+    if (isSettingsPage) {
+      navigate({ to: "/" });
     } else {
-      setActiveView("settings");
+      navigate({ to: "/settings" });
     }
     closeSidebar();
   };
-
-  const isSettingsPage = activeView === "settings";
 
   return (
     <>
@@ -63,7 +62,7 @@ function SidebarInner() {
         <Button
           type="button"
           variant={isSettingsPage ? "secondary" : "outline"}
-          onClick={handleOpenSettings}
+          onClick={handleNavigateSettings}
           className="w-full"
         >
           {isSettingsPage ? <ArrowLeftIcon /> : <SettingsIcon />}

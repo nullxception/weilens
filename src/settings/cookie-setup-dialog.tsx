@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Dialog,
   DialogContent,
@@ -8,15 +9,14 @@ import {
 } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
 import { useAuthStore } from "../stores/useAuthStore";
-import { useUiStore } from "../stores/useUiStore";
 
 export function CookieSetupDialog() {
   const cookie = useAuthStore((state) => state.cookie);
-  const setActiveView = useUiStore((state) => state.setActiveView);
   const [isOpen, setIsOpen] = useState(!cookie);
+  const navigate = useNavigate();
 
   const handleGoToSettings = () => {
-    setActiveView("settings");
+    navigate({ to: "/settings" });
     setIsOpen(false);
   };
 
