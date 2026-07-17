@@ -116,7 +116,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <div className="flex min-h-screen w-full bg-background text-foreground">
+        <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
           <Sidebar>
             <SidebarInner />
           </Sidebar>
