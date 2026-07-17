@@ -1,5 +1,5 @@
 import { useDownloadsStore } from "@/stores/useDownloadsStore";
-import { CheckCircle2, XCircle, Loader2, StopCircle } from "lucide-react";
+import { CheckCircle, XCircle, Spinner, StopCircle } from "@phosphor-icons/react";
 import { Progress } from "./ui/progress";
 import { Button } from "./ui/button";
 import { useEffect } from "react";
@@ -78,12 +78,12 @@ export function DownloadProgressPanel() {
                   hasError ? (
                     <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
                   ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                    <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-500" />
                   )
                 ) : isCancelled ? (
                   <StopCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 ) : (
-                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+                  <Spinner className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
                 )}
                 <span className="truncate text-[11px] font-medium text-foreground">
                   Post …{d.postId.slice(-6)}

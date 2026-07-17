@@ -17,13 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "../components/ui/dropdown-menu";
-import {
-  DownloadIcon,
-  EraserIcon,
-  FileXIcon,
-  Loader2Icon,
-  XCircleIcon,
-} from "lucide-react";
+import { Download, Eraser, FileX, Spinner, XCircle } from "@phosphor-icons/react";
 import {
   Select,
   SelectContent,
@@ -118,13 +112,13 @@ export function BlogCardDownloadActions({
               {finished}/{downloadProgress.total}
               {downloading > 0 && ` • ${downloading}`}
               {downloading > 0 && (
-                <Loader2Icon className="inline h-5 w-5 animate-spin pr-1 pl-1" />
+                <Spinner className="inline h-5 w-5 animate-spin pr-1 pl-1" />
               )}
               {failed > 0 && ` • ${failed} failed`}
-              {failed > 0 && <FileXIcon className="inline h-5 w-5 pr-1 pl-1" />}
+              {failed > 0 && <FileX className="inline h-5 w-5 pr-1 pl-1" />}
               {cancelled > 0 && ` • ${cancelled}`}
               {cancelled > 0 && (
-                <XCircleIcon className="inline h-5 w-5 pr-1 pl-1" />
+                <XCircle className="inline h-5 w-5 pr-1 pl-1" />
               )}
             </ProgressLabel>
 
@@ -138,7 +132,7 @@ export function BlogCardDownloadActions({
               className="h-6 w-6 p-0 text-destructive hover:text-destructive"
               onClick={() => void cancelDownloadPost(postId)}
             >
-              <XCircleIcon className="h-4 w-4" />
+              <XCircle className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -150,7 +144,7 @@ export function BlogCardDownloadActions({
             value={dewatermark}
           >
             <SelectTrigger size="sm" className="w-32">
-              <EraserIcon />
+              <Eraser />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -167,7 +161,7 @@ export function BlogCardDownloadActions({
           <DropdownMenu>
             <DropdownMenuTrigger>
               <Button type="button" variant="outline" size="sm">
-                <DownloadIcon className="inline h-4" />
+                <Download className="inline h-4" />
                 Download
                 {downloadItems.length > 0
                   ? ` ${downloadItems.length} images`

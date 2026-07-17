@@ -12,11 +12,7 @@ import { BlogCardLocation } from "./blog-card-location";
 import { BlogCardImages } from "./blog-card-images";
 import { BlogCardDownloadActions } from "./blog-card-download-actions";
 import { ImageViewer } from "./image-viewer";
-import {
-  ThumbsUpIcon,
-  MessageSquareQuoteIcon,
-  RotateCwIcon,
-} from "lucide-react";
+import { ThumbsUp, ChatCircleText, ArrowsClockwise } from "@phosphor-icons/react";
 import { getPreferredImage } from "@/lib/remote";
 
 interface BlogCardProps {
@@ -127,15 +123,15 @@ export function BlogCard({ blog }: BlogCardProps) {
           <div className="flex items-center justify-between gap-6 pt-1 text-xs font-medium text-muted-foreground">
             <div className="flex gap-4">
               <span>
-                <ThumbsUpIcon className="inline h-4" />{" "}
+                <ThumbsUp className="inline h-4" />{" "}
                 {blog.attitudes_count ?? 0}
               </span>
               <span>
-                <MessageSquareQuoteIcon className="inline h-4" />{" "}
+                <ChatCircleText className="inline h-4" />{" "}
                 {blog.comments_count ?? 0}
               </span>
               <span>
-                <RotateCwIcon className="inline h-4" />{" "}
+                <ArrowsClockwise className="inline h-4" />{" "}
                 {blog.reposts_count ?? 0}
               </span>
             </div>

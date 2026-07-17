@@ -16,12 +16,7 @@ import { motion } from "motion/react";
 import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { addPlace, searchPlace } from "../lib/api";
-import {
-  GlobeIcon,
-  HistoryIcon,
-  LoaderCircle,
-  SearchIcon,
-} from "lucide-react";
+import { Globe, ClockCounterClockwise, Spinner, MagnifyingGlass } from "@phosphor-icons/react";
 import { ButtonGroup } from "../components/ui/button-group";
 import { SavedPlaces } from "./saved-places";
 import { CoordinatePrompt } from "./coordinate-prompt";
@@ -209,9 +204,9 @@ export default function LocationDialog({
                 variant="outline"
               >
                 {isFetching ? (
-                  <LoaderCircle className="animate-spin" />
+                  <Spinner className="animate-spin" />
                 ) : (
-                  <SearchIcon />
+                  <MagnifyingGlass />
                 )}
               </Button>
             </ButtonGroup>
@@ -256,9 +251,9 @@ export default function LocationDialog({
                       }}
                     >
                       {p.type == "nominatim" ? (
-                        <GlobeIcon className="text-green-300/75" />
+                        <Globe className="text-green-300/75" />
                       ) : (
-                        <HistoryIcon className="text-blue-300/75" />
+                        <ClockCounterClockwise className="text-blue-300/75" />
                       )}
                       <div className="flex flex-col">
                         <div className="text-sm">{p.place.name}</div>

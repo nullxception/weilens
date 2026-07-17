@@ -1,6 +1,6 @@
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { LoaderCircle, SearchIcon } from "lucide-react";
+import { Spinner, MagnifyingGlass } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useProfileStore } from "../stores/useProfileStore";
 import { ButtonGroup } from "./ui/button-group";
@@ -52,9 +52,9 @@ export function SearchForm() {
           aria-label="Search"
         >
           {isLoading ? (
-            <LoaderCircle className="animate-spin" />
+            <Spinner className="animate-spin" />
           ) : (
-            <SearchIcon />
+            <MagnifyingGlass />
           )}
         </Button>
       </ButtonGroup>

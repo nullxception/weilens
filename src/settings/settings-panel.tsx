@@ -1,4 +1,4 @@
-import { ArrowLeft, ClipboardPaste, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, ClipboardText, Eye, EyeSlash } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Card,
@@ -130,7 +130,7 @@ export function SettingsPanel() {
                 {pasted ? (
                   <span className="text-xs font-bold text-green-500">✓</span>
                 ) : (
-                  <ClipboardPaste className="size-3.5" />
+                  <ClipboardText className="size-3.5" />
                 )}
                 <span>{pasted ? "Pasted" : "Paste"}</span>
               </button>
@@ -141,7 +141,7 @@ export function SettingsPanel() {
                 aria-label={blurred ? "Show cookie" : "Hide cookie"}
               >
                 {blurred ? (
-                  <EyeOff className="size-3.5" />
+                  <EyeSlash className="size-3.5" />
                 ) : (
                   <Eye className="size-3.5" />
                 )}

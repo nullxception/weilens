@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useNavigate } from "@tanstack/react-router";
-import { TrashIcon, X } from "lucide-react";
+import { Trash, X } from "@phosphor-icons/react";
 import { Button } from "./ui/button";
 import { ConfirmDialog } from "./ui/confirm-dialog";
 import { proxyImage } from "@/lib/proxy";
@@ -74,7 +74,7 @@ export function HistoryPanel({ onProfileClick }: HistoryPanelProps) {
             size="xs"
             onClick={() => setConfirmClearOpen(true)}
           >
-            <TrashIcon />
+            <Trash />
             Clear
           </Button>
         </div>

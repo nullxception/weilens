@@ -1,14 +1,6 @@
 import { useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  Eye,
-  EyeOff,
-  ClipboardPaste,
-  ArrowRight,
-  ChevronRight,
-  Cookie,
-  ExternalLink,
-} from "lucide-react";
+import { Eye, EyeSlash, ClipboardText, ArrowRight, CaretRight, Cookie, ArrowSquareOut } from "@phosphor-icons/react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
@@ -210,7 +202,7 @@ function CookieStep({
               {pasted ? (
                 <span className="text-xs font-bold text-green-500">✓</span>
               ) : (
-                <ClipboardPaste className="size-3.5" />
+                <ClipboardText className="size-3.5" />
               )}
               <span>{pasted ? "Pasted" : "Paste"}</span>
             </button>
@@ -221,7 +213,7 @@ function CookieStep({
               aria-label={blurred ? "Show cookie" : "Hide cookie"}
             >
               {blurred ? (
-                <EyeOff className="size-3.5" />
+                <EyeSlash className="size-3.5" />
               ) : (
                 <Eye className="size-3.5" />
               )}
@@ -258,7 +250,7 @@ function CookieStep({
             className="inline-flex items-center gap-0.5 text-primary hover:underline"
           >
             Get cookies.txt locally
-            <ExternalLink className="size-3" />
+            <ArrowSquareOut className="size-3" />
           </a>{" "}
           extension to export your cookie.
         </p>
@@ -269,7 +261,7 @@ function CookieStep({
           className="mt-1 gap-2"
         >
           Save & Continue
-          <ChevronRight className="size-4" />
+          <CaretRight className="size-4" />
         </Button>
 
         <Button

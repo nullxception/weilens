@@ -13,7 +13,7 @@ import {
   useSidebar,
 } from "./ui/sidebar";
 import { TooltipProvider } from "./ui/tooltip";
-import { ArrowLeftIcon, SettingsIcon } from "lucide-react";
+import { ArrowLeft, Gear } from "@phosphor-icons/react";
 import { DownloadProgressPanel } from "./download-progress-panel";
 import { useProfileStore } from "../stores/useProfileStore";
 import { useLocation } from "@tanstack/react-router";
@@ -65,7 +65,7 @@ function SidebarInner() {
           onClick={handleNavigateSettings}
           className="w-full"
         >
-          {isSettingsPage ? <ArrowLeftIcon /> : <SettingsIcon />}
+          {isSettingsPage ? <ArrowLeft /> : <Gear />}
           {isSettingsPage ? "Back to feed" : "Settings"}
         </Button>
       </SidebarFooter>
