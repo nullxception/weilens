@@ -16,6 +16,7 @@ import { TooltipProvider } from "./ui/tooltip";
 import { ArrowLeft, Gear } from "@phosphor-icons/react";
 import { DownloadProgressPanel } from "./download-progress-panel";
 import { useProfileStore } from "../stores/useProfileStore";
+import { useUiStore } from "../stores/useUiStore";
 import { useLocation } from "@tanstack/react-router";
 
 function SidebarInner() {
@@ -73,6 +74,44 @@ function SidebarInner() {
   );
 }
 
+function MainHeader() {
+  const blogs = useProfileStore((state) => state.blogs);
+  const activeUid = useUiStore((state) => state.activeUid);
+  const showReposted = useUiStore((state) => state.showReposted);
+  const setShowReposted = useUiStore((state) => state.setShowReposted);
+
+  const repostCount = blogs.filter((blog) => {
+    const authorId = blog.user?.idstr;
+    return Boolean(authorId && authorId !== activeUid);
+  }).length;
+
+  const showFeedControls = blogs.length > 0;
+
+  return (
+    <div className="mb-4 flex items-center gap-2">
+      <SidebarTrigger />
+      {showFeedControls && (
+        <div className="ml-auto flex items-center gap-3">
+          <p className="text-xs text-muted-foreground">
+            {showReposted
+              ? `${blogs.length} posts`
+              : `${blogs.length - repostCount} of ${blogs.length} posts`}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowReposted(!showReposted)}
+            disabled={repostCount === 0}
+          >
+            {showReposted ? "Hide reposts" : "Show reposts"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
@@ -83,9 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Sidebar>
 
           <main className="w-full flex-1 overflow-y-auto p-4">
-            <div className="mb-4 flex items-center gap-2">
-              <SidebarTrigger />
-            </div>
+            <MainHeader />
             {children}
           </main>
         </div>

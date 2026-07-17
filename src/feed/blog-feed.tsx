@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useUiStore } from "../stores/useUiStore";
 import { useProfileStore } from "../stores/useProfileStore";
@@ -6,7 +6,6 @@ import { useHistoryStore } from "../stores/useHistoryStore";
 import { BlogCard } from "./blog-card";
 import { HistoryPanel } from "../components/history-panel";
 import { Card, CardContent } from "../components/ui/card";
-import { Button } from "../components/ui/button";
 
 const stateVariants = {
   initial: { opacity: 0, y: 12 },
@@ -29,7 +28,7 @@ export function BlogFeed() {
   const hasMore = useProfileStore((state) => state.hasMore);
   const onLoadMore = useProfileStore((state) => state.handleNextPage);
 
-  const [showReposted, setShowReposted] = useState(true);
+  const showReposted = useUiStore((state) => state.showReposted);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(isLoading);
 
@@ -62,11 +61,6 @@ export function BlogFeed() {
         const authorId = blog.user?.idstr;
         return !authorId || authorId === activeUid;
       });
-
-  const repostCount = blogs.filter((blog) => {
-    const authorId = blog.user?.idstr;
-    return Boolean(authorId && authorId !== activeUid);
-  }).length;
 
   return (
     <>
@@ -117,20 +111,6 @@ export function BlogFeed() {
           exit="exit"
           transition={stateTransition}
         >
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              {visibleBlogs.length} of {blogs.length} posts shown
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowReposted((prev) => !prev)}
-              disabled={repostCount === 0}
-            >
-              {showReposted ? "Hide reposts" : "Show reposts"}
-            </Button>
-          </div>
           <div className="flex flex-col gap-3">
             {visibleBlogs.map((blog) => (
               <BlogCard key={blog.idstr} blog={blog} />
