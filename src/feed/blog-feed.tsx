@@ -72,6 +72,7 @@ export function BlogFeed() {
           animate="animate"
           exit="exit"
           transition={stateTransition}
+          className="px-4"
         >
           <pre className="rounded-lg bg-destructive/10 p-3 text-sm whitespace-pre-wrap text-destructive">
             {error}
@@ -85,6 +86,7 @@ export function BlogFeed() {
           animate="animate"
           exit="exit"
           transition={stateTransition}
+          className="px-4"
         >
           <Card>
             <CardContent
@@ -110,6 +112,7 @@ export function BlogFeed() {
           animate="animate"
           exit="exit"
           transition={stateTransition}
+          className="px-4"
         >
           <div className="flex flex-col gap-3">
             {visibleBlogs.map((blog) => (
@@ -125,6 +128,7 @@ export function BlogFeed() {
           animate="animate"
           exit="exit"
           transition={stateTransition}
+          className="px-4"
         >
           <pre className="min-h-64 rounded-lg bg-muted px-4 py-3 text-sm whitespace-pre-wrap text-foreground">
             {result}
@@ -138,6 +142,7 @@ export function BlogFeed() {
           animate="animate"
           exit="exit"
           transition={stateTransition}
+          className="px-4"
         >
           <HistoryPanel />
         </motion.div>
@@ -149,6 +154,7 @@ export function BlogFeed() {
           animate="animate"
           exit="exit"
           transition={stateTransition}
+          className="px-4"
         >
           <Card>
             <CardContent className="px-3 py-4 text-center">
@@ -166,7 +172,7 @@ export function BlogFeed() {
       {blogs.length > 0 && (
         <div
           ref={sentinelRef}
-          className="mt-3 flex items-center justify-center py-4"
+          className="mt-3 flex items-center justify-center px-4 py-4"
         >
           {isLoading && (
             <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted border-t-primary" />

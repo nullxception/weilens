@@ -88,7 +88,7 @@ function MainHeader() {
   const showFeedControls = blogs.length > 0;
 
   return (
-    <div className="sticky top-0 z-10 mb-4 flex items-center gap-2 rounded-xl bg-background/90 backdrop-blur-md">
+    <div className="sticky top-0 z-10 mb-4 flex items-center gap-2 bg-background/90 p-2 backdrop-blur-md">
       <SidebarTrigger />
       {showFeedControls && (
         <div className="ml-auto flex items-center gap-3">
@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SidebarInner />
           </Sidebar>
 
-          <main className="w-full flex-1 overflow-y-auto p-4">
+          <main className="w-full flex-1 overflow-y-auto">
             <MainHeader />
             {children}
           </main>
