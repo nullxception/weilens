@@ -88,7 +88,7 @@ function MainHeader() {
   const showFeedControls = blogs.length > 0;
 
   return (
-    <div className="mb-4 flex items-center gap-2">
+    <div className="sticky top-0 z-10 mb-4 flex items-center gap-2 rounded-xl bg-background/90 backdrop-blur-md">
       <SidebarTrigger />
       {showFeedControls && (
         <div className="ml-auto flex items-center gap-3">
