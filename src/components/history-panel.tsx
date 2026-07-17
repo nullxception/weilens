@@ -99,7 +99,7 @@ export function HistoryPanel({ onProfileClick }: HistoryPanelProps) {
                     className={`group relative flex cursor-pointer items-center gap-2 overflow-hidden rounded-md border p-2 shadow-sm transition-colors duration-200 select-none ${
                       isActive
                         ? "bg-primary/5"
-                        : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
+                        : "border-border bg-card hover:border-primary/50 hover:shadow-md"
                     }`}
                     onClick={() => handleProfileClick(profile.uid)}
                   >
