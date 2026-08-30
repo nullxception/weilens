@@ -105,15 +105,27 @@ src-tauri/src/        # Rust backend
 - TypeScript strict mode, no unused locals/parameters
 - ESLint ignores `dist` and `src-tauri`
 
-## Code comments
+## Comment Style
 
-- Never add ASCII divider lines (`// ----`, `// ===`, `// ***`) or section banners (`// --- accessors ---`)
-- Never write numbered/ordinal step comments (`// 1. do X`, `// step 3`) — they rot on reorder/insert/delete. Use dash bullets inside a block if you must list steps, but prefer extracting well-named functions over any step list
-- Never leave refactoring or migration narrative ("this replaces old X", "migrated from Y", "previously we did Z") — describe what the code does now, not how it got here (git has the history)
-- Never leave commented-out / dead code (`// const x = oldThing()`) — delete it outright
-- In TypeScript, never use repeated `//` for a multi-line comment — collapse into one `/** ... */` block opening with `/**` (not `/*`). Single-line `//` is fine. Inline single-line `/* ... */` (e.g. CSS or `/* best-effort */` inside a function) and generated files (e.g. `routeTree.gen.ts`) are exceptions. Dash bullets belong inside the block, not as `// -` runs
-- Write intent, not mechanics: purpose (what a module/function/block does), non-obvious logic (why an algorithm/constant/edge-case exists), and the why — constraints, trade-offs, gotchas, contracts, preconditions, invariants, ordering (`// must run after X`, `// not thread-safe`, `// do not remove — prevents double-fire`), and references to specs/RFCs/tickets. Don't restate what the code already says aloud
-- Prefer deleting a bad comment over rewriting it; if you change code, update or delete its comment — a stale comment is worse than none. If a block needs structure, split into well-named functions instead of banner comments
+House style: quiet, intent-first, non-rotting. A stale/wrong comment is worse than none.
+
+**Never write:**
+
+- Dividers / banners (`// ----`, `// ===`, `// ***`, `// --- accessors ---`)
+- Numbered/ordered labels in any form, they rot on reorder/insert/delete; never use order-implying labels in comments. This bans all of: numeric delimiters (`// 1. X`, `// 1) X`, `// 1: X`, `// 1 - X`, `// (1) X`, `// [1] X`, `// #1 X`), word-form (`// Step 1`, `// step 1:`, `// Phase 1`, `// Stage 2`, `// Part 3`), ordinal words (`// First,`, `// Second,`, `// Third,`), alphabetic (`// A. X`, `// B) X`, `// a) X`), roman (`// i) X`, `// ii. X`, `// IV. X`), circled/emoji digits (circled 1, circled 2, emoji 1), fractional (`// 1/3`, `// 1 of 3`, `// 1-3`), and numbered dividers/banners (`// --- 1. Setup ---`, `// === Step 1 ===`). Do not number at all, make sequence obvious from control flow / early-return / function names. If you must list, use unordered dash bullets inside a single `/** */` block, or extract well-named helpers (`try_pidfile()` then `fallback_by_port()`). Bad: `// 1) pidfile` / `// 2) port scan`. Good: `// pidfile first, precise` / `// fallback via port scan, ownership not guaranteed`
+- Non-QWERTY symbols in comments, no emoji, no em dashes, no en dashes, no smart quotes, no circled numbers, no box-drawing or other non-ASCII glyphs. If you need a pause, use comma or semicolon; for ranges use hyphen-minus `-`. Only characters found on a standard US QWERTY keyboard belong in comments
+- Refactoring / migration narrative (`replaces old X`, `migrated from Y`, `previously we did Z`, _why_ the change was made)
+- Commented-out dead code (`// const x = oldThing()`), delete it; git has history
+- In TS: repeated `//` across multiple lines for one thought, collapse into one `/** ... */` block
+
+**Always write:**
+
+- Intent / why (constraint, trade-off, gotcha), not a restatement of mechanics the code already says
+- Purpose (one line for a module/fn/block), non-obvious logic (why this constant/algo/edge-case), contracts (preconditions, invariants, return semantics), ordering constraints (`must run after X`, `not thread-safe`, `do not remove, prevents double-fire`), references (spec/RFC/ticket)
+
+**TS block rule:** multi-line comments use `/** ... */` (open `/**`, not `/*`). Single-line `//` is fine. Exceptions: generated files (`routeTree.gen.ts`) and inline single-line `/* best-effort */` inside a function. Dash bullets (`- item`) live _inside_ the `/** */` block, not as `// -`.
+
+During review: flag bans, prefer deleting bad comments over rewriting, and update or delete the comment when you change the code.
 
 ## Shadcn/ui
 
