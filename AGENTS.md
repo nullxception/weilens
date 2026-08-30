@@ -105,6 +105,16 @@ src-tauri/src/        # Rust backend
 - TypeScript strict mode, no unused locals/parameters
 - ESLint ignores `dist` and `src-tauri`
 
+## Code comments
+
+- Never add ASCII divider lines (`// ----`, `// ===`, `// ***`) or section banners (`// --- accessors ---`)
+- Never write numbered/ordinal step comments (`// 1. do X`, `// step 3`) — they rot on reorder/insert/delete. Use dash bullets inside a block if you must list steps, but prefer extracting well-named functions over any step list
+- Never leave refactoring or migration narrative ("this replaces old X", "migrated from Y", "previously we did Z") — describe what the code does now, not how it got here (git has the history)
+- Never leave commented-out / dead code (`// const x = oldThing()`) — delete it outright
+- In TypeScript, never use repeated `//` for a multi-line comment — collapse into one `/** ... */` block opening with `/**` (not `/*`). Single-line `//` is fine. Inline single-line `/* ... */` (e.g. CSS or `/* best-effort */` inside a function) and generated files (e.g. `routeTree.gen.ts`) are exceptions. Dash bullets belong inside the block, not as `// -` runs
+- Write intent, not mechanics: purpose (what a module/function/block does), non-obvious logic (why an algorithm/constant/edge-case exists), and the why — constraints, trade-offs, gotchas, contracts, preconditions, invariants, ordering (`// must run after X`, `// not thread-safe`, `// do not remove — prevents double-fire`), and references to specs/RFCs/tickets. Don't restate what the code already says aloud
+- Prefer deleting a bad comment over rewriting it; if you change code, update or delete its comment — a stale comment is worse than none. If a block needs structure, split into well-named functions instead of banner comments
+
 ## Shadcn/ui
 
 - Style: `base-nova`, base color: `neutral`, CSS variables enabled
