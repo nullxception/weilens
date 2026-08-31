@@ -1,8 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
+
 import { proxyImage } from "@/lib/proxy";
-import { useUiStore } from "../stores/useUiStore";
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+
 import type { BlogPost } from "../types/remote";
+
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { useUiStore } from "../stores/useUiStore";
 
 interface BlogCardHeaderProps {
   blog: BlogPost;

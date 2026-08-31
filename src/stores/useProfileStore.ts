@@ -1,7 +1,8 @@
-import { create } from "zustand";
-import { BlogResponseSchema, type BlogPost } from "../types/remote";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { create } from "zustand";
+
 import { queryClient } from "../lib/query-client";
+import { BlogResponseSchema, type BlogPost } from "../types/remote";
 import { useAuthStore } from "./useAuthStore";
 import { useHistoryStore } from "./useHistoryStore";
 

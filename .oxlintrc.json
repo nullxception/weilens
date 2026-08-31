@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "import",
+    "node",
+    "promise",
+    "react",
+    "react-perf",
+    "typescript",
+    "unicorn",
+    "vitest"
+  ],
+  "ignorePatterns": [
+    "dist/",
+    "src-tauri/",
+    "node_modules/",
+    ".git/",
+    "bun.lock",
+    "*/components/ui/*.tsx",
+    "AGENTS.md",
+    "LICENSE"
+  ],
+  "categories": {}
+}

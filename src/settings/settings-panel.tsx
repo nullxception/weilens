@@ -1,5 +1,16 @@
-import { ArrowLeftIcon, ClipboardTextIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
+import {
+  ArrowLeftIcon,
+  ClipboardTextIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
+import { Suspense, use, useEffect, useState, useCallback } from "react";
+
+import type { WmPosition } from "@/types/rpc";
+
+import { Button } from "../components/ui/button";
+import { ButtonGroup } from "../components/ui/button-group";
 import {
   Card,
   CardContent,
@@ -8,14 +19,7 @@ import {
   CardAction,
 } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { Textarea } from "../components/ui/textarea";
-import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
-import { chooseDownloadDir, defaultDownloadDir } from "../lib/api";
-import { useAuthStore } from "../stores/useAuthStore";
-import { useSettingsStore } from "../stores/useSettingsStore";
-import { ButtonGroup } from "../components/ui/button-group";
-import { Suspense, use, useEffect, useState, useCallback } from "react";
 import {
   Select,
   SelectContent,
@@ -25,7 +29,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import type { WmPosition } from "@/types/rpc";
+import { Textarea } from "../components/ui/textarea";
+import { chooseDownloadDir, defaultDownloadDir } from "../lib/api";
+import { useAuthStore } from "../stores/useAuthStore";
+import { useSettingsStore } from "../stores/useSettingsStore";
 
 const systemDownloadDir = defaultDownloadDir();
 

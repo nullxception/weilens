@@ -1,13 +1,15 @@
-import { useState } from "react";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { useNavigate } from "@tanstack/react-router";
 import { TrashIcon, XIcon } from "@phosphor-icons/react";
+import { useNavigate } from "@tanstack/react-router";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { useState } from "react";
+
+import { proxyImage } from "@/lib/proxy";
+import { useHistoryStore } from "@/stores/useHistoryStore";
+
+import { useUiStore } from "../stores/useUiStore";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { ConfirmDialog } from "./ui/confirm-dialog";
-import { proxyImage } from "@/lib/proxy";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { useUiStore } from "../stores/useUiStore";
-import { useHistoryStore } from "@/stores/useHistoryStore";
 
 export interface CheckedProfile {
   uid: string;

@@ -1,6 +1,8 @@
 import { create } from "zustand";
-import { StorageKeys } from "../storage-keys";
+
 import type { WmPosition } from "@/types/rpc";
+
+import { StorageKeys } from "../storage-keys";
 
 function readDownloadLocationFromStorage() {
   try {

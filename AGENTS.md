@@ -9,9 +9,10 @@ bun install              # install deps
 bun run tauri dev        # full app (Rust + frontend hot-reload)
 bun run dev              # frontend only (vite on :1420)
 bun run build            # tsc -b && vite build
-bun run lint             # eslint .
+bun run lint             # oxlint
+bun run fmt              # oxfmt --write .
+bun run check            # tsc --noEmit && oxlint && oxfmt --check .
 bun run typecheck        # tsc --noEmit
-bun run format           # prettier --write "**/*.{ts,tsx}"
 ```
 
 **Verification order:**
@@ -100,10 +101,9 @@ src-tauri/src/        # Rust backend
 
 ## Code style
 
-- Prettier: semicolons, double quotes, trailing commas (all), LF, 2-space indent
-- `prettier-plugin-tailwindcss` auto-sorts Tailwind classes (`cn` and `cva` configured as tailwind functions)
+- oxfmt for formatting, oxlint for linting (`bun run check` gates both + tsc)
 - TypeScript strict mode, no unused locals/parameters
-- ESLint ignores `dist` and `src-tauri`
+- oxlint ignores `dist` and `src-tauri`
 
 ## Comment Style
 

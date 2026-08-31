@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
+
+import { ArrowLeftIcon, GearIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
+import { useLocation } from "@tanstack/react-router";
+
+import { useProfileStore } from "../stores/useProfileStore";
+import { useUiStore } from "../stores/useUiStore";
+import { DownloadProgressPanel } from "./download-progress-panel";
 import { HistoryPanel } from "./history-panel";
 import { SearchForm } from "./search-form";
 import { Button } from "./ui/button";
@@ -13,11 +20,6 @@ import {
   useSidebar,
 } from "./ui/sidebar";
 import { TooltipProvider } from "./ui/tooltip";
-import { ArrowLeftIcon, GearIcon } from "@phosphor-icons/react";
-import { DownloadProgressPanel } from "./download-progress-panel";
-import { useProfileStore } from "../stores/useProfileStore";
-import { useUiStore } from "../stores/useUiStore";
-import { useLocation } from "@tanstack/react-router";
 
 function SidebarInner() {
   const { isMobile, setOpenMobile } = useSidebar();

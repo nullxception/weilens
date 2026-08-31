@@ -1,23 +1,27 @@
-import { useState } from "react";
-import type { DownloadItem, WmPosition } from "../types/rpc";
-import { useSettingsStore } from "../stores/useSettingsStore";
-import { useDownloadsStore } from "../stores/useDownloadsStore";
-import type { GPSData, Place } from "../types/gps";
-import { Button } from "../components/ui/button";
 import {
-  Progress,
-  ProgressLabel,
-  ProgressValue,
-} from "../components/ui/progress";
-import { cancelDownloadPost, downloadPost } from "../lib/api";
-import LocationDialog from "./location-dialog";
+  DownloadIcon,
+  EraserIcon,
+  FileXIcon,
+  SpinnerIcon,
+  XCircleIcon,
+} from "@phosphor-icons/react";
+import { useState } from "react";
+
+import type { GPSData, Place } from "../types/gps";
+import type { DownloadItem, WmPosition } from "../types/rpc";
+
+import { Button } from "../components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "../components/ui/dropdown-menu";
-import { DownloadIcon, EraserIcon, FileXIcon, SpinnerIcon, XCircleIcon } from "@phosphor-icons/react";
+import {
+  Progress,
+  ProgressLabel,
+  ProgressValue,
+} from "../components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -27,6 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { cancelDownloadPost, downloadPost } from "../lib/api";
+import { useDownloadsStore } from "../stores/useDownloadsStore";
+import { useSettingsStore } from "../stores/useSettingsStore";
+import LocationDialog from "./location-dialog";
 
 interface BlogCardDownloadActionsProps {
   uid: string;

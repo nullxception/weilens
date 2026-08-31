@@ -1,9 +1,18 @@
-import { useState, useCallback } from "react";
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  ClipboardTextIcon,
+  ArrowRightIcon,
+  CaretRightIcon,
+  CookieIcon,
+  ArrowSquareOutIcon,
+} from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
-import { EyeIcon, EyeSlashIcon, ClipboardTextIcon, ArrowRightIcon, CaretRightIcon, CookieIcon, ArrowSquareOutIcon } from "@phosphor-icons/react";
+import { useState, useCallback } from "react";
+
 import { Button } from "../components/ui/button";
-import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
 import { useAuthStore } from "../stores/useAuthStore";
 import { markOnboardingComplete } from "./onboarding-state";
 
@@ -171,7 +180,10 @@ function CookieStep({
           variants={fadeUp}
           className="flex size-14 items-center justify-center rounded-2xl border border-border bg-muted/50 p-3"
         >
-          <CookieIcon className="size-7 text-muted-foreground" strokeWidth={1.5} />
+          <CookieIcon
+            className="size-7 text-muted-foreground"
+            strokeWidth={1.5}
+          />
         </motion.div>
 
         <motion.div variants={fadeUp}>

@@ -1,4 +1,5 @@
 import { MapPinIcon } from "@phosphor-icons/react";
+
 import type { Place } from "../types/gps";
 
 interface BlogCardLocationProps {

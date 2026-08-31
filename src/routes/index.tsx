@@ -1,8 +1,9 @@
-import { useEffect } from "react";
 import { motion } from "motion/react";
-import { useUiStore } from "@/stores/useUiStore";
-import { useProfileStore } from "@/stores/useProfileStore";
+import { useEffect } from "react";
+
 import { BlogFeed } from "@/feed/blog-feed";
+import { useProfileStore } from "@/stores/useProfileStore";
+import { useUiStore } from "@/stores/useUiStore";
 
 export function IndexPage() {
   const pendingLookupUid = useUiStore((state) => state.pendingLookupUid);
@@ -18,13 +19,7 @@ export function IndexPage() {
     setActiveUid(pendingLookupUid);
     checkUid(pendingLookupUid);
     setPendingLookupUid(null);
-  }, [
-    pendingLookupUid,
-    setActiveUid,
-    setPendingLookupUid,
-    setUid,
-    checkUid,
-  ]);
+  }, [pendingLookupUid, setActiveUid, setPendingLookupUid, setUid, checkUid]);
 
   return (
     <motion.div

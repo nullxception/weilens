@@ -1,9 +1,10 @@
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
 import { SpinnerIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
+
 import { useProfileStore } from "../stores/useProfileStore";
+import { Button } from "./ui/button";
 import { ButtonGroup } from "./ui/button-group";
+import { Input } from "./ui/input";
 
 function extractUid(value: string): string {
   const trimmed = value.trim();

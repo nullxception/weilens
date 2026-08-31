@@ -3,6 +3,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
+
 import { RootLayout } from "./routes/__root";
 import { IndexPage } from "./routes/index";
 import { SettingsPage } from "./routes/settings";

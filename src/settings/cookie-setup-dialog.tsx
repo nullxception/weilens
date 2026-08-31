@@ -1,5 +1,7 @@
-import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+
+import { Button } from "../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../components/ui/dialog";
-import { Button } from "../components/ui/button";
 import { useAuthStore } from "../stores/useAuthStore";
 
 export function CookieSetupDialog() {

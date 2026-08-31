@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { SpinnerIcon } from "@phosphor-icons/react";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useState } from "react";
+
+import type { Place } from "../types/gps";
+
 import { ScrollArea } from "../components/ui/scroll-area";
 import { listPlaces } from "../lib/api";
-import { SpinnerIcon } from "@phosphor-icons/react";
-import type { Place } from "../types/gps";
 
 const PAGE_SIZE = 20;
 
@@ -31,7 +33,9 @@ export function SavedPlaces({ onSelect, placesLoading }: SavedPlacesProps) {
   });
 
   const places = placesPages?.pages.flatMap((p) => p.places) ?? [];
-  const [scrollViewport, setScrollViewport] = useState<HTMLDivElement | null>(null);
+  const [scrollViewport, setScrollViewport] = useState<HTMLDivElement | null>(
+    null,
+  );
 
   const vpRefCallback = useCallback((node: HTMLDivElement | null) => {
     setScrollViewport(node);
@@ -69,9 +73,7 @@ export function SavedPlaces({ onSelect, placesLoading }: SavedPlacesProps) {
         <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
           Saved places
         </span>
-        {placesLoading && (
-          <SpinnerIcon className="h-3.5 w-3.5 animate-spin" />
-        )}
+        {placesLoading && <SpinnerIcon className="h-3.5 w-3.5 animate-spin" />}
       </div>
       <ScrollArea
         viewportRef={vpRefCallback}
@@ -81,7 +83,9 @@ export function SavedPlaces({ onSelect, placesLoading }: SavedPlacesProps) {
           <div
             key={`${rp.lat}-${rp.lon}-${String(rp.name).slice(0, 30)}`}
             className="cursor-pointer rounded-sm p-3 transition-colors hover:bg-muted/50"
-            onClick={() => onSelect({ lat: rp.lat, lon: rp.lon, name: rp.name })}
+            onClick={() =>
+              onSelect({ lat: rp.lat, lon: rp.lon, name: rp.name })
+            }
           >
             <div className="text-sm">{rp.name}</div>
             <div className="mt-1 text-xs text-muted-foreground">

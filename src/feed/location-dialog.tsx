@@ -1,6 +1,19 @@
 "use client";
 
 import {
+  GlobeIcon,
+  ClockCounterClockwiseIcon,
+  SpinnerIcon,
+  MagnifyingGlassIcon,
+} from "@phosphor-icons/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { motion } from "motion/react";
+import { useCallback, useState } from "react";
+
+import { Button } from "../components/ui/button";
+import { ButtonGroup } from "../components/ui/button-group";
+import {
   Dialog,
   DialogTrigger,
   DialogContent,
@@ -8,18 +21,11 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
-import { Button } from "../components/ui/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { useCallback, useState } from "react";
-import { motion } from "motion/react";
-import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { addPlace, searchPlace } from "../lib/api";
-import { GlobeIcon, ClockCounterClockwiseIcon, SpinnerIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
-import { ButtonGroup } from "../components/ui/button-group";
-import { SavedPlaces } from "./saved-places";
+import { NominatimSearchSchema, type GPSData, type Place } from "../types/gps";
 import { CoordinatePrompt } from "./coordinate-prompt";
+import { SavedPlaces } from "./saved-places";
 
 function parseCoordinateInput(input: string): GPSData | null {
   const trimmed = input.trim();
@@ -70,7 +76,9 @@ async function searchNominatim(
   } catch (err) {
     throw new Error(
       `Nominatim parse error: ${err instanceof Error ? err.message : String(err)}`,
-      { cause: err },
+      {
+        cause: err,
+      },
     );
   }
 

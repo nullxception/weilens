@@ -1,10 +1,12 @@
 import { useState } from "react";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
-import { proxyImage } from "@/lib/proxy";
-import type { BlogPost } from "../types/remote";
-import { getPreferredImage } from "@/lib/remote";
+
 import { Skeleton } from "@/components/ui/skeleton";
+import { proxyImage } from "@/lib/proxy";
+import { getPreferredImage } from "@/lib/remote";
 import { cn } from "@/lib/utils";
+
+import type { BlogPost } from "../types/remote";
 
 interface BlogCardImageItemProps {
   src: string;

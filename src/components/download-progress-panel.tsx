@@ -1,11 +1,19 @@
-import { useDownloadsStore } from "@/stores/useDownloadsStore";
-import { CheckCircleIcon, XCircleIcon, SpinnerIcon, StopCircleIcon } from "@phosphor-icons/react";
-import { Progress } from "./ui/progress";
-import { Button } from "./ui/button";
-import { useEffect } from "react";
+import {
+  CheckCircleIcon,
+  XCircleIcon,
+  SpinnerIcon,
+  StopCircleIcon,
+} from "@phosphor-icons/react";
 import { listen } from "@tauri-apps/api/event";
+import { useEffect } from "react";
+
 import type { DownloadProgressPayload } from "@/types/rpc";
+
 import { cancelDownloadPost } from "@/lib/api";
+import { useDownloadsStore } from "@/stores/useDownloadsStore";
+
+import { Button } from "./ui/button";
+import { Progress } from "./ui/progress";
 
 export function DownloadProgressPanel() {
   const downloads = useDownloadsStore((state) => state.downloads);

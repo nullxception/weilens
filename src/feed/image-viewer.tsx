@@ -1,12 +1,20 @@
-import { useCallback, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { Button } from "../components/ui/button";
-import { cn } from "@/lib/utils";
-import { CaretLeftIcon, CaretRightIcon, SpinnerIcon, XIcon } from "@phosphor-icons/react";
-import { proxyImage } from "@/lib/proxy";
+import {
+  CaretLeftIcon,
+  CaretRightIcon,
+  SpinnerIcon,
+  XIcon,
+} from "@phosphor-icons/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useState } from "react";
+
 import type { Pic } from "@/types/remote";
+
+import { proxyImage } from "@/lib/proxy";
+import { cn } from "@/lib/utils";
+
+import { Button } from "../components/ui/button";
+import { Dialog, DialogPortal, DialogOverlay } from "../components/ui/dialog";
 
 interface ImageViewerProps {
   images: Pic[];

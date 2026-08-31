@@ -1,11 +1,12 @@
-import { Suspense, useEffect, useState } from "react";
-import { motion } from "motion/react";
 import { Outlet } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
+import { motion } from "motion/react";
+import { Suspense, useEffect, useState } from "react";
+
 import { AppShell } from "@/components/app-shell";
-import { CookieSetupDialog } from "@/settings/cookie-setup-dialog";
 import { Onboarding } from "@/onboarding/onboarding";
 import { isOnboardingComplete } from "@/onboarding/onboarding-state";
+import { CookieSetupDialog } from "@/settings/cookie-setup-dialog";
 import { usePlacesStore } from "@/stores/usePlacesStore";
 
 export function RootLayout() {

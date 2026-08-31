@@ -1,19 +1,26 @@
-import { useCallback, useState } from "react";
+import {
+  ThumbsUpIcon,
+  ChatCircleTextIcon,
+  ArrowsClockwiseIcon,
+} from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DownloadItem } from "../types/rpc";
-import type { BlogPost, Pic } from "../types/remote";
-import { useUiStore } from "../stores/useUiStore";
-import { useProfileStore } from "../stores/useProfileStore";
+import { useCallback, useState } from "react";
+
+import { getPreferredImage } from "@/lib/remote";
+
 import type { GPSData, Place } from "../types/gps";
+import type { BlogPost, Pic } from "../types/remote";
+import type { DownloadItem } from "../types/rpc";
+
 import { Card, CardContent } from "../components/ui/card";
 import { getPlaceByPost, setBlogPlace } from "../lib/api";
-import { BlogCardHeader } from "./blog-card-header";
-import { BlogCardLocation } from "./blog-card-location";
-import { BlogCardImages } from "./blog-card-images";
+import { useProfileStore } from "../stores/useProfileStore";
+import { useUiStore } from "../stores/useUiStore";
 import { BlogCardDownloadActions } from "./blog-card-download-actions";
+import { BlogCardHeader } from "./blog-card-header";
+import { BlogCardImages } from "./blog-card-images";
+import { BlogCardLocation } from "./blog-card-location";
 import { ImageViewer } from "./image-viewer";
-import { ThumbsUpIcon, ChatCircleTextIcon, ArrowsClockwiseIcon } from "@phosphor-icons/react";
-import { getPreferredImage } from "@/lib/remote";
 
 interface BlogCardProps {
   blog: BlogPost;
@@ -59,16 +66,13 @@ export function BlogCard({ blog }: BlogCardProps) {
   const [viewNonce, setViewNonce] = useState(0);
 
   // Keep gpsLocation in sync with place data
-  const updateGpsLocation = useCallback(
-    (place: Place | null) => {
-      if (place) {
-        setGpsLocation({ lat: place.lat, lon: place.lon });
-      } else {
-        setGpsLocation(null);
-      }
-    },
-    [],
-  );
+  const updateGpsLocation = useCallback((place: Place | null) => {
+    if (place) {
+      setGpsLocation({ lat: place.lat, lon: place.lon });
+    } else {
+      setGpsLocation(null);
+    }
+  }, []);
 
   // Invalidate on place change
   const handlePlaceChange = useCallback(

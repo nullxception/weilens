@@ -1,11 +1,12 @@
-import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useUiStore } from "../stores/useUiStore";
-import { useProfileStore } from "../stores/useProfileStore";
-import { useHistoryStore } from "../stores/useHistoryStore";
-import { BlogCard } from "./blog-card";
+import { useEffect, useRef } from "react";
+
 import { HistoryPanel } from "../components/history-panel";
 import { Card, CardContent } from "../components/ui/card";
+import { useHistoryStore } from "../stores/useHistoryStore";
+import { useProfileStore } from "../stores/useProfileStore";
+import { useUiStore } from "../stores/useUiStore";
+import { BlogCard } from "./blog-card";
 
 const stateVariants = {
   initial: { opacity: 0, y: 12 },

@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Input } from "../components/ui/input";
-import { Button } from "../components/ui/button";
-import { addPlace } from "../lib/api";
 import { BookmarkIcon, XIcon } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+
 import type { GPSData, Place } from "../types/gps";
+
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { addPlace } from "../lib/api";
 
 interface CoordinatePromptProps {
   pendingCoord: GPSData;

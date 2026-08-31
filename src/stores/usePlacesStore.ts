@@ -1,7 +1,9 @@
 import { create } from "zustand";
-import { StorageKeys } from "../storage-keys";
-import { NominatimResultSchema, PlaceSchema, type Place } from "@/types/gps";
+
 import { addPlace, listPlaces, setBlogPlace } from "@/lib/api";
+import { NominatimResultSchema, PlaceSchema, type Place } from "@/types/gps";
+
+import { StorageKeys } from "../storage-keys";
 
 function readPlacesFromStorage(): Place[] {
   try {
