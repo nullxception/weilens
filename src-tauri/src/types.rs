@@ -8,7 +8,8 @@ use tokio_util::sync::CancellationToken;
 
 pub const DEFAULT_REFERER: &str = "https://weibo.com/";
 pub const DEFAULT_DOWNLOAD_ROOT_NAME: &str = "WeiLens";
-pub const FALLBACK_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+pub const FALLBACK_USER_AGENT: &str =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 
 #[derive(Debug, Clone)]
 pub struct DownloadConfig {

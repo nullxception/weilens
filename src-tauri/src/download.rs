@@ -498,7 +498,7 @@ pub async fn download_post(
                             .min(config_clone.retry_max_delay_ms);
                         log::warn!(
                             "[Post {}:{}/{}] Attempt {}/{} failed ({}). Retrying in {}ms…",
-                            &post_id,
+                            post_id,
                             index + 1,
                             total,
                             attempt,
@@ -517,7 +517,7 @@ pub async fn download_post(
                     Err(e) => {
                         log::error!(
                             "[Post {}:{}/{}] All {} retries exhausted: {}",
-                            &post_id,
+                            post_id,
                             index + 1,
                             total,
                             config_clone.max_retries,

@@ -20,11 +20,7 @@ struct SefTag<'a> {
 /// accepted `mime`:
 /// - `video/mp4`
 /// - `video/quicktime`
-pub fn mux(
-    image_bytes: &[u8],
-    video_bytes: &[u8],
-    mime: &str,
-) -> Result<Vec<u8>, MotionError> {
+pub fn mux(image_bytes: &[u8], video_bytes: &[u8], mime: &str) -> Result<Vec<u8>, MotionError> {
     const SEFH_VERSION: u32 = 107;
     const TAG_MOTION_PHOTO_DATA: [u8; 4] = [0x00, 0x00, 0x30, 0x0A];
     const TAG_MOTION_PHOTO_VERSION: [u8; 4] = [0x00, 0x00, 0x31, 0x0A];
@@ -130,7 +126,7 @@ pub fn mux(
   </rdf:RDF>
 </x:xmpmeta>
 <?xpacket end="w"?>"#,
-        video_len, video_len, video_padstart, &mime, video_len
+        video_len, video_len, video_padstart, mime, video_len
     );
 
     let sign = b"http://ns.adobe.com/xap/1.0/\0";
