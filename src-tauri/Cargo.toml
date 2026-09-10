@@ -46,6 +46,9 @@ img-parts = "0.4.0"
 xmp-writer = "0.3"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
 
+[lints.clippy]
+absolute_paths = "warn"
+
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
 
