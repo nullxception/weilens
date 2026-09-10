@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tauri::Emitter;
 use tauri::Manager;
 use tokio::sync::Semaphore;
+use tokio::task::spawn_blocking;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use url::Url;
@@ -325,7 +326,7 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     }
     let target_path_str = target_path.to_string_lossy().to_string();
     tokio::select! {
-        result = tokio::task::spawn_blocking(move || -> Result<(), DownloadError> {
+        result = spawn_blocking(move || -> Result<(), DownloadError> {
             File::create(&target_path)?.write_all(&buffer)?;
             Ok(())
         }) => {

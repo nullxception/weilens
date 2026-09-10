@@ -19,12 +19,13 @@ use crate::types::{AppState, DownloadCancellationState, FALLBACK_USER_AGENT};
 use log::LevelFilter;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
+use tauri::async_runtime;
+use tauri::plugin::{Builder as PluginBuilder, TauriPlugin};
 use tauri::{webview::PageLoadEvent, Manager};
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_opener::OpenerExt;
-
-fn external_navigation_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    tauri::plugin::Builder::<R>::new("external-navigation")
+fn external_navigation_plugin<R: tauri::Runtime>() -> TauriPlugin<R> {
+    PluginBuilder::<R>::new("external-navigation")
         .on_navigation(|webview, url| {
             let is_internal_host = matches!(
                 url.host_str(),
@@ -118,7 +119,7 @@ pub fn run() {
                 let client = http_client.clone();
                 let user_agent = user_agent.clone();
 
-                tauri::async_runtime::spawn(async move {
+                async_runtime::spawn(async move {
                     handle_image_proxy(client, request, responder, &user_agent).await;
                 });
             },

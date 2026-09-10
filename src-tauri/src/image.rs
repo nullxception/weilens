@@ -17,7 +17,7 @@ pub fn dewatermark(
     no_wm_bytes: &[u8],
     position: WmPosition,
 ) -> Result<Vec<u8>, String> {
-    use image::{imageops, GenericImageView};
+    use image::{imageops, imageops::FilterType, GenericImageView};
 
     let mut img_wm = image::load_from_memory(wm_bytes)
         .map_err(|e| format!("Failed to load watermarked image: {}", e))?;
@@ -26,8 +26,7 @@ pub fn dewatermark(
 
     let (width, height) = img_wm.dimensions();
     let resized_no_wm =
-        img_no_wm.resize_exact(width, height, image::imageops::FilterType::Triangle);
-
+        img_no_wm.resize_exact(width, height, FilterType::Triangle);
     let strip_height = cmp::max(1, (height as f32 * 0.03).round() as u32);
 
     let start_y = match position {
