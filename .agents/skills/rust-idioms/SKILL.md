@@ -73,16 +73,6 @@ let Some(v) = opt else { return Ok(()); };
 - Accept `impl Into<T>` / `impl AsRef<T>` at ergonomic boundaries, implement
   `From<T>` (never bare `Into`).
 
-## Module imports (`use`)
-
-- Functions import parent modules (`use crate::dates; dates::parse_date()`).
-- Structs, enums, traits, and macros import directly (`use std::path::PathBuf; PathBuf`,
-  `use serde::Deserialize; Deserialize`, `use std::sync::Arc; Arc`).
-- Never use fully qualified paths in signatures, derives, or generics
-  (`std::path::PathBuf`, `#[derive(serde::Serialize)]` are violations).
-- Prelude clashes (e.g. `std::io::Result`) import the parent module
-  (`use std::io; io::Result<Value>`).
-
 ## Observability
 
 - `log` macros (`log::info!`, `log::warn!`, `log::error!`) via
