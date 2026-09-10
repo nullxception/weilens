@@ -1,9 +1,10 @@
+use crate::types;
+use std::cmp;
+use std::io;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tauri::{http::header::REFERER, http::Request, http::Response, UriSchemeResponder};
 use url::Url;
-
-use crate::types::FALLBACK_USER_AGENT;
 
 pub enum WmPosition {
     Top,
@@ -27,25 +28,32 @@ pub fn dewatermark(
     let resized_no_wm =
         img_no_wm.resize_exact(width, height, image::imageops::FilterType::Triangle);
 
-    let strip_height = std::cmp::max(1, (height as f32 * 0.03).round() as u32);
+    let strip_height = cmp::max(1, (height as f32 * 0.03).round() as u32);
 
     let start_y = match position {
         WmPosition::Top => 0,
         WmPosition::Center => (height.saturating_sub(strip_height)) / 2,
         WmPosition::Bottom => height.saturating_sub(strip_height),
     };
-    let end_y = std::cmp::min(start_y + strip_height, height);
+    let end_y = cmp::min(start_y + strip_height, height);
     let strip_h = end_y - start_y;
 
     let strip = resized_no_wm.view(0, start_y, width, strip_h).to_image();
     imageops::overlay(&mut img_wm, &strip, 0, start_y as i64);
 
-    let mut out_bytes = std::io::Cursor::new(Vec::new());
+    let mut out_bytes = io::Cursor::new(Vec::new());
     img_wm
         .write_to(&mut out_bytes, image::ImageFormat::Jpeg)
         .map_err(|e| format!("Failed to encode merged image: {}", e))?;
 
     Ok(out_bytes.into_inner())
+}
+
+fn error_response(status: u16) -> Response<Vec<u8>> {
+    Response::builder()
+        .status(status)
+        .body(Vec::new())
+        .expect("error response has no body")
 }
 
 pub async fn handle_image_proxy(
@@ -58,26 +66,17 @@ pub async fn handle_image_proxy(
 
     let parsed_uri = match Url::parse(&uri_string) {
         Ok(u) => u,
-        Err(_) => {
-            let res: Response<Vec<u8>> = Response::builder().status(400).body(Vec::new()).unwrap();
-            return responder.respond(res);
-        }
+        Err(_) => return responder.respond(error_response(400)),
     };
 
     let target_url_param = match parsed_uri.query_pairs().find(|(k, _)| k == "url") {
         Some((_, val)) => val.into_owned(),
-        None => {
-            let res = Response::builder().status(400).body(Vec::new()).unwrap();
-            return responder.respond(res);
-        }
+        None => return responder.respond(error_response(400)),
     };
 
     let target_url = match Url::parse(&target_url_param) {
         Ok(u) => u,
-        Err(_) => {
-            let res = Response::builder().status(422).body(Vec::new()).unwrap();
-            return responder.respond(res);
-        }
+        Err(_) => return responder.respond(error_response(422)),
     };
 
     let referer_host = format!(
@@ -89,7 +88,7 @@ pub async fn handle_image_proxy(
     let ua = user_agent
         .read()
         .map(|s| s.clone())
-        .unwrap_or_else(|_| FALLBACK_USER_AGENT.to_string());
+        .unwrap_or_else(|_| types::FALLBACK_USER_AGENT.to_string());
 
     let network_result = client
         .get(target_url.as_str())
@@ -138,9 +137,11 @@ pub async fn handle_image_proxy(
             if let Some(lm) = last_modified {
                 builder = builder.header("Last-Modified", lm);
             }
-            builder.body(bytes.to_vec()).unwrap()
+            builder
+                .body(bytes.to_vec())
+                .expect("proxied image body is bytes")
         }
-        Err(_) => Response::builder().status(502).body(Vec::new()).unwrap(),
+        Err(_) => error_response(502),
     };
 
     responder.respond(response);

@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
+use std::io;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, RwLock};
 use thiserror::Error;
 use tokio_util::sync::CancellationToken;
 
@@ -69,7 +71,7 @@ pub enum DownloadError {
     #[error("HTTP error: {0}")]
     Http(String),
     #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
     #[error("failed to create directory: {0}")]
     CreateDir(String),
     #[error("cancelled")]
@@ -95,21 +97,18 @@ mod tests {
         assert_eq!(config.effective_max_concurrency(), 1);
     }
 }
-
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 pub struct DownloadItem {
     pub url: String,
     #[serde(rename = "videoUrl")]
     pub video_url: Option<String>,
 }
-
-#[derive(serde::Deserialize, Clone, Copy)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct GpsData {
     pub lat: f64,
     pub lon: f64,
 }
-
-#[derive(serde::Serialize, Clone)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadProgressPayload {
     pub post_id: String,
@@ -123,7 +122,6 @@ pub struct DownloadProgressPayload {
 }
 
 pub struct DownloadCancellationState(pub Mutex<HashMap<String, CancellationToken>>);
-
 pub struct AppState {
-    pub user_agent: std::sync::Arc<std::sync::RwLock<String>>,
+    pub user_agent: Arc<RwLock<String>>,
 }

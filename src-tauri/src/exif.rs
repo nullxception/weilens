@@ -112,39 +112,35 @@ pub fn write_exif(
     metadata.set_tag(ExifTag::ExifVersion(b"0232".to_vec()));
     metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
     let mut rng = rand::rng();
-    // Exposure
+    // Plausible capture values so exports look camera-native.
     metadata.set_tag(ExifTag::ExposureTime(vec![uR64 {
         nominator: 1,
         denominator: rng.random_range(100..=200),
-    }])); // 1/(100-200) sec
-    metadata.set_tag(ExifTag::ISO(vec![rng.random_range(60..=99)])); //60-99
+    }]));
+    metadata.set_tag(ExifTag::ISO(vec![rng.random_range(60..=99)]));
     metadata.set_tag(ExifTag::FocalLength(vec![uR64 {
         nominator: rng.random_range(686..=693),
         denominator: 100,
-    }])); // 6.86-6.93
-    metadata.set_tag(ExifTag::FNumber(vec![uR64::from(1.8)])); // f/1.8
-    metadata.set_tag(ExifTag::ExposureProgram(vec![2])); // Program AE
-    metadata.set_tag(ExifTag::MeteringMode(vec![5])); // Multi-segment
-    metadata.set_tag(ExifTag::Flash(vec![16])); // Flash did not fire
+    }]));
+    metadata.set_tag(ExifTag::FNumber(vec![uR64::from(1.8)]));
+    metadata.set_tag(ExifTag::ExposureProgram(vec![2]));
+    metadata.set_tag(ExifTag::MeteringMode(vec![5]));
+    metadata.set_tag(ExifTag::Flash(vec![16]));
 
-    metadata.set_tag(ExifTag::FocalLengthIn35mmFormat(vec![24])); // 24 mm equivalent
+    metadata.set_tag(ExifTag::FocalLengthIn35mmFormat(vec![24]));
     metadata.set_tag(ExifTag::ExposureCompensation(vec![iR64 {
         nominator: -1,
         denominator: 1,
     }]));
 
-    // White balance
-    metadata.set_tag(ExifTag::WhiteBalance(vec![0])); // Auto
-
-    // Color space
-    metadata.set_tag(ExifTag::ColorSpace(vec![1])); // sRGB
-
-    metadata.set_tag(ExifTag::Orientation(vec![1])); // Normal
-    metadata.set_tag(ExifTag::ResolutionUnit(vec![2])); // Inches
+    metadata.set_tag(ExifTag::WhiteBalance(vec![0]));
+    metadata.set_tag(ExifTag::ColorSpace(vec![1]));
+    metadata.set_tag(ExifTag::Orientation(vec![1]));
+    metadata.set_tag(ExifTag::ResolutionUnit(vec![2]));
     metadata.set_tag(ExifTag::XResolution(vec![uR64::from(72)]));
     metadata.set_tag(ExifTag::YResolution(vec![uR64::from(72)]));
-    metadata.set_tag(ExifTag::SceneCaptureType(vec![0])); // Standard
-    metadata.set_tag(ExifTag::DigitalZoomRatio(vec![uR64::from(1)])); // 1×
+    metadata.set_tag(ExifTag::SceneCaptureType(vec![0]));
+    metadata.set_tag(ExifTag::DigitalZoomRatio(vec![uR64::from(1)]));
 
     if let Some(gps) = location {
         let lat_ref = if gps.lat >= 0.0 { "N" } else { "S" };

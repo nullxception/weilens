@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
+use serde::Deserialize;
+use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::Emitter;
 use tauri::Manager;
@@ -10,20 +12,18 @@ use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
-use crate::dates::{get_date_folder, parse_date};
-use crate::dates::{get_exif_date_string, get_formatted_date};
-use crate::exif::write_exif;
-use crate::image::dewatermark;
+use crate::dates;
+use crate::exif;
+use crate::image;
 use crate::image::WmPosition;
-use crate::motion::mux;
-use crate::types::FALLBACK_USER_AGENT;
+use crate::motion;
 use crate::types::{
-    DownloadCancellationState, DownloadConfig, DownloadError, DownloadItem,
-    DownloadProgressPayload, GpsData,
+    AppState, DownloadCancellationState, DownloadConfig, DownloadError, DownloadItem,
+    DownloadProgressPayload, GpsData, FALLBACK_USER_AGENT,
 };
-use crate::util::get_no_watermark_url;
+use crate::util;
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadPostRequest {
     pub uid: String,
@@ -44,7 +44,7 @@ pub struct DownloadTask {
     pub item_video_url: Option<String>,
     pub index: usize,
     pub total: usize,
-    pub target_dir: std::path::PathBuf,
+    pub target_dir: PathBuf,
     pub gps_loc: Option<GpsData>,
     pub client: reqwest::Client,
     pub config: DownloadConfig,
@@ -126,13 +126,13 @@ async fn process_motion(
         return Err("cancelled".to_string());
     }
 
-    mux(image_bytes, &video_bytes, mime).map_err(|e| format!("Mux failed: {}", e))
+    motion::mux(image_bytes, &video_bytes, mime).map_err(|e| format!("Mux failed: {}", e))
 }
 
 pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>), DownloadError> {
     let mut saved_paths = Vec::new();
     let is_motion = task.item_video_url.is_some();
-    let no_watermark_url = get_no_watermark_url(&task.item_url);
+    let no_watermark_url = util::get_no_watermark_url(&task.item_url);
     let mut warning = None;
 
     log::info!(
@@ -227,7 +227,7 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
                             "bottom" => WmPosition::Bottom,
                             _ => WmPosition::Bottom,
                         };
-                        if let Ok(merged) = dewatermark(&buffer, &no_wm_bytes, pos) {
+                        if let Ok(merged) = image::dewatermark(&buffer, &no_wm_bytes, pos) {
                             buffer = merged;
                         } else {
                             log::warn!(
@@ -264,15 +264,15 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
         .map(|ext| format!(".{}", ext))
         .unwrap_or_else(|| ".jpg".to_string());
 
-    let formatted_date = get_formatted_date(&task.created_at_dt, task.index as i64);
+    let formatted_date = dates::get_formatted_date(&task.created_at_dt, task.index as i64);
     let image_filename = format!("{}{}", formatted_date, extension);
     let target_path = task.target_dir.join(&image_filename);
 
-    let exif_date_str = get_exif_date_string(&task.created_at_dt, task.index as i64);
+    let exif_date_str = dates::get_exif_date_string(&task.created_at_dt, task.index as i64);
     if task.cancellation_token.is_cancelled() {
         return Err(DownloadError::Cancelled);
     }
-    if let Err(e) = write_exif(
+    if let Err(e) = exif::write_exif(
         &mut buffer,
         &exif_date_str,
         task.gps_loc.as_ref(),
@@ -403,11 +403,11 @@ pub async fn download_post(
         &request.uid
     };
 
-    let created_at_dt = parse_date(&request.date).unwrap_or_else(chrono::Utc::now);
-    let date_segment = get_date_folder(&created_at_dt);
+    let created_at_dt = dates::parse_date(&request.date).unwrap_or_else(chrono::Utc::now);
+    let date_segment = dates::get_date_folder(&created_at_dt);
 
     let download_dir = base_dir.join(uid_segment).join(date_segment);
-    std::fs::create_dir_all(&download_dir)
+    fs::create_dir_all(&download_dir)
         .map_err(|e| DownloadError::CreateDir(e.to_string()))
         .map_err(|e| e.to_string())?;
 
@@ -416,7 +416,7 @@ pub async fn download_post(
 
     let client = app_handle.state::<reqwest::Client>().inner().clone();
     let user_agent = app_handle
-        .state::<crate::types::AppState>()
+        .state::<AppState>()
         .user_agent
         .read()
         .map(|s| s.clone())
@@ -525,7 +525,7 @@ pub async fn download_post(
                         );
                         let _ = app.emit(
                             "download-progress",
-                            crate::types::DownloadProgressPayload {
+                            DownloadProgressPayload {
                                 post_id: post_id.clone(),
                                 index,
                                 total,

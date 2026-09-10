@@ -1,9 +1,10 @@
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Place {
     pub lat: f64,
     pub lon: f64,
@@ -17,7 +18,7 @@ pub fn init_db(app: &AppHandle) -> Result<Connection, rusqlite::Error> {
         .path()
         .app_data_dir()
         .expect("Failed to get app data dir");
-    std::fs::create_dir_all(&app_data_dir)
+    fs::create_dir_all(&app_data_dir)
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     let db_path = app_data_dir.join("weipoint.db");
     let conn = Connection::open(db_path)?;
@@ -56,7 +57,7 @@ fn cleanup_orphans(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Places {
     pub places: Vec<Place>,
