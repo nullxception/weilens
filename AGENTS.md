@@ -2,6 +2,13 @@
 
 Sina Weibo viewer/downloader desktop app. Tauri v2 (Rust backend in `src-tauri/`) + React 19 (Vite frontend in `src/`).
 
+## House Skills (read before writing code)
+
+Repo-local taste rules, committed so they work on any PC and in isolated subagents:
+
+- Rust idioms: `.agents/skills/rust-idioms/SKILL.md` (unwrap policy, borrow vs clone, `use` style, iterators, types)
+- Comment style: `.agents/skills/comment-style/SKILL.md` (quiet, intent-first, non-rotting)
+
 ## What Belongs Here
 
 Keep this file compact. Every line must answer: "would an agent likely miss this
@@ -74,35 +81,13 @@ Config: `.oxlintrc.json`, `.oxfmtrc.json` (sorts imports, sorts Tailwind classes
 - Server data lives in React Query (`queryClient` defaults: 5min stale, 30min gc, no refetch on window focus); UI/domain state lives in zustand stores. Don't mix the two.
 - Styling: Tailwind v4 via `@tailwindcss/vite`; `cn()` helper in `src/lib/utils.ts`.
 - shadcn: style `base-nova`, base color `neutral`, phosphor icons (`components.json`).
-- Cookie accepts plain `name=value` or Netscape/cookie-jar text, parsed in `useAuthStore.ts`.
 - Rust lib name `weilens_lib` works around a Windows bin/lib name conflict (see `Cargo.toml`); do not rename.
+- Rust taste (unwrap policy, borrow vs clone, `use` style): `.agents/skills/rust-idioms/SKILL.md`; violations are reject-on-review.
 
 ## Comment Style
 
 House style: quiet, intent-first, non-rotting. A stale/wrong comment is worse than none.
-Full rule with samples lives in the `code-comment-style` skill; load it before writing or reviewing any comment.
-
-**Never write:**
-
-- Dividers / banners (`// ----`, `// ===`, `// ***`, `// --- accessors ---`)
-- Numbered/ordered labels in any form, they rot on reorder/insert/delete; never use order-implying labels in comments. This bans all of: numeric delimiters (`// 1. X`, `// 1) X`, `// 1: X`, `// 1 - X`, `// (1) X`, `// [1] X`, `// #1 X`), word-form (`// Step 1`, `// step 1:`, `// Phase 1`, `// Stage 2`, `// Part 3`), ordinal words (`// First,`, `// Second,`, `// Third,`), alphabetic (`// A. X`, `// B) X`, `// a) X`), roman (`// i) X`, `// ii. X`, `// IV. X`), circled/emoji digits (circled 1, circled 2, emoji 1), fractional (`// 1/3`, `// 1 of 3`, `// 1-3`), and numbered dividers/banners (`// --- 1. Setup ---`, `// === Step 1 ===`). Do not number at all, make sequence obvious from control flow / early-return / function names. If you must list, use unordered dash bullets inside a single `/** */` block, or extract well-named helpers (`try_pidfile()` then `fallback_by_port()`). Bad: `// 1) pidfile` / `// 2) port scan`. Good: `// pidfile first, precise` / `// fallback via port scan, ownership not guaranteed`
-- Non-QWERTY symbols in comments, no emoji, no em dashes, no en dashes, no smart quotes, no circled numbers, no box-drawing or other non-ASCII glyphs. If you need a pause, use comma or semicolon; for ranges use hyphen-minus `-`. Only characters found on a standard US QWERTY keyboard belong in comments
-- Refactoring / migration narrative (`replaces old X`, `migrated from Y`, `previously we did Z`, _why_ the change was made)
-- Commented-out dead code (`// const x = oldThing()`), delete it; git has history
-- In TS: `/** ... */` one-liners for plain prose with no tags, a single sentence stays `//`; block form is only for comments spanning multiple lines, with `/**` alone on its opening line
-- In TS: repeated `//` across multiple lines for one thought, collapse into one `/** ... */` block shaped as `/**` alone on its opening line, then ` * ...` lines, then ` */` (never text on the `/**` line)
-- Exception: tool-mandated comments are exempt from the banner and one-liner rules (license/copyright headers, eslint-disable / `@ts-ignore` / biome-ignore directives, anything else a tool or build step requires). Keep a suppression reason on the same line or directly above.
-
-**Always write:**
-
-- Intent / why (constraint, trade-off, gotcha), not a restatement of mechanics the code already says
-- Purpose (one line for a module/fn/block), non-obvious logic (why this constant/algo/edge-case), contracts (preconditions, invariants, return semantics), ordering constraints (`must run after X`, `not thread-safe`, `do not remove, prevents double-fire`), references (spec/RFC/ticket)
-- JSDoc with tags (`@param`, `@returns`, `@throws`) stays in multi-line block form with each tag on its own line, even when the prose is short
-- TODO, FIXME, and HACK comments are allowed, but each must describe a concrete condition, not a vague intent (`// HACK: remove once upstream fixes #4213`, never `// TODO: clean this up later`)
-
-**TS block rule:** multi-line comments use `/** ... */` (open `/**` alone on its line, never text on the opening line, not `/*`). Single-line `//` is fine. Exceptions: generated files (`routeTree.gen.ts`) and inline single-line `/* best-effort */` inside a function. Dash bullets (`- item`) live _inside_ the `/** */` block, not as `// -`. Where `//` does not exist (CSS), a single-line `/* ... */` with one star is allowed, never `/** ... */` with two stars.
-
-During review: flag bans, prefer deleting bad comments over rewriting, update or delete the comment when you change the code, and use separate well-named functions instead of banner comments when a block needs structure.
+Full rule with samples lives in `.agents/skills/comment-style/SKILL.md`; load it before writing or reviewing any comment.
 
 ## Committing
 
