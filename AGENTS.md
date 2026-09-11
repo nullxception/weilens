@@ -101,6 +101,7 @@ Key reminders:
 - **Blank window that never shows?** The Tauri window starts hidden until the main webview fires `Finished` (`lib.rs` `on_page_load`); the frontend failed to load, check the Vite/devUrl side.
 - **`invoke()` fails under `bun dev`?** Expected, no Rust backend there. Use `bun tauri dev`.
 - **Weibo API auth failures?** Cookie lives in localStorage (`wei_cookie`); re-check it in settings, both plain and Netscape formats are accepted.
+- **Need to test while the app runs?** Never kill or restart the user's running `bun tauri dev`; verify frontend-only via `bun dev` or `bun build` instead.
 
 ## Gotchas
 
