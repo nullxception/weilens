@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { api, isWebMode } from "@/lib/backend";
+import { isWebMode } from "@/lib/backend";
 
 import { queryClient } from "../lib/query-client";
 import { BlogResponseSchema, type BlogPost } from "../types/remote";
@@ -54,7 +54,7 @@ async function fetchProfile(
   if (isWebMode) {
     const qs = params.toString();
     const cookieHeader = cookie ? { "x-wei-cookie": cookie } : {};
-    response = await fetch(api(`/api/weibo/mymblog?${qs}`), {
+    response = await fetch(`/api/weibo/mymblog?${qs}`, {
       method: "GET",
       headers: cookieHeader as Record<string, string>,
     });

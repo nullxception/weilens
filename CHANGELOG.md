@@ -8,6 +8,10 @@
 - `app.log` + `/app-log` viewer (follow/pause/filter/copy, `GET /api/app-log` — alias `/api/daemon-log` — single file for Tauri + server)
 - `crash.log` + `/crash-log` viewer (panic/segfault capture with backtrace, `GET /api/crash-log` tail endpoint)
 
+### Changed
+
+- `dev:web` uses Vite proxy (`/api`, `/img-proxy` → `:1421`, firouter-style) on `:1420`; `VITE_BACKEND_URL` removed, frontend is same-host only (no CORS, no ports); dev host comes from `WEI_HOST` in `.env` (`0.0.0.0` for LAN testing)
+
 ## [0.2.0] - 2026-07-16
 
 ### Added

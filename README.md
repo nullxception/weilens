@@ -255,7 +255,7 @@ bun run server:stop
 - Binds `0.0.0.0:${WEI_PORT:-1421}` (`--port` flag wins over `WEI_PORT` env).
 - Open `http://<pc-lan-ip>:1421` from a phone on the same network.
 - First visit shows onboarding (cookie gate derived from server DB); set the cookie once and it sticks for all devices. Theme stays per-device.
-- To use the web UI in dev, run `VITE_BACKEND_URL=http://localhost:1421 bun run dev` or `bun run dev:web`.
+- Web dev loop: start the backend once (`bun run server:start`), then `bun run dev:web` (Vite on `:1420` with proxy to `:1421` — firouter-style, no env var). Shares port with Tauri's `devUrl`. For LAN testing, copy `.env.example` to `.env` and set `WEI_HOST=0.0.0.0`, then open `http://<pc-lan-ip>:1420` from the phone.
 - Downloads write under the server machine's `Downloads/WeiLens/<uid>/<date>/`; grab them via FTP or file share (no zip streaming in v1).
 - Windows may prompt for firewall approval on first `0.0.0.0:1421` bind — allow it.
 - `server start` daemonizes the same exe (detached child serves, parent returns once the port answers); child logs to `<app_data_dir>/app.log`, pidfile at `<app_data_dir>/weilens.pid`.

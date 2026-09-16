@@ -1,7 +1,7 @@
 import type { GPSData, Place } from "../types/gps";
 import type { DownloadItem, WmPosition } from "../types/rpc";
 
-import { api, isWebMode } from "./backend";
+import { isWebMode } from "./backend";
 
 // Lazy import — @tauri-apps/api/core requires __TAURI__ which only exists in Tauri WebView.
 // Dynamic import defers resolution until the first non-web-mode call, so browser loads don't crash.
@@ -14,12 +14,12 @@ async function tauriInvoke<T>(
 }
 
 async function webGet<T>(path: string): Promise<T> {
-  const res = await fetch(api(path));
+  const res = await fetch(path);
   if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
   return res.json() as Promise<T>;
 }
 async function webPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(api(path), {
+  const res = await fetch(path, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -29,7 +29,7 @@ async function webPost<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 async function webPut<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(api(path), {
+  const res = await fetch(path, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -167,9 +167,7 @@ export async function removeBlogPlace(
 ): Promise<void> {
   if (isWebMode) {
     const res = await fetch(
-      api(
-        `/api/places/by-post?uid=${encodeURIComponent(uid)}&blogId=${encodeURIComponent(blogId)}`,
-      ),
+      `/api/places/by-post?uid=${encodeURIComponent(uid)}&blogId=${encodeURIComponent(blogId)}`,
       { method: "DELETE" },
     );
     if (!res.ok) throw new Error(`removeBlogPlace failed: ${res.status}`);
@@ -251,7 +249,7 @@ export async function addHistory(item: {
 
 export async function removeHistory(uid: string): Promise<void> {
   if (isWebMode) {
-    await fetch(api(`/api/history/${encodeURIComponent(uid)}`), {
+    await fetch(`/api/history/${encodeURIComponent(uid)}`, {
       method: "DELETE",
     });
     return;
@@ -261,7 +259,7 @@ export async function removeHistory(uid: string): Promise<void> {
 
 export async function clearHistoryRemote(): Promise<void> {
   if (isWebMode) {
-    await fetch(api("/api/history"), { method: "DELETE" });
+    await fetch("/api/history", { method: "DELETE" });
     return;
   }
   return tauriInvoke("clear_profile_history_cmd");

@@ -9,7 +9,7 @@ import { useEffect } from "react";
 import type { DownloadProgressPayload } from "@/types/rpc";
 
 import { cancelDownloadPost } from "@/lib/api";
-import { api, isWebMode } from "@/lib/backend";
+import { isWebMode } from "@/lib/backend";
 import { useDownloadsStore } from "@/stores/useDownloadsStore";
 
 import { Button } from "./ui/button";
@@ -38,7 +38,7 @@ export function DownloadProgressPanel() {
 
   useEffect(() => {
     if (isWebMode) {
-      const es = new EventSource(api("/api/download/events"));
+      const es = new EventSource("/api/download/events");
       es.onmessage = (ev) => {
         try {
           handlePayload(JSON.parse(ev.data) as DownloadProgressPayload);

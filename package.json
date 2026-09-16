@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "tauri": "tauri",
-    "dev:web": "VITE_BACKEND_URL=http://localhost:1421 vite --port 1420 --strictPort",
+    "dev:web": "vite --port 1420 --strictPort",
     "server:start": "cargo run --manifest-path src-tauri/Cargo.toml -- server start --port 1421",
     "server:stop": "cargo run --manifest-path src-tauri/Cargo.toml -- server stop --port 1421"
   },
