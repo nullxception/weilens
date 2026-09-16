@@ -70,7 +70,6 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         "/api": "http://127.0.0.1:1421",
-        "/img-proxy": "http://127.0.0.1:1421",
       },
       watch: {
         ignored: ["**/src-tauri/**"],

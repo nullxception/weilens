@@ -398,7 +398,7 @@ pub fn build_router(ctx: AppContext) -> Router {
         .route("/api/download-dir/default", get(get_download_dir_default))
         .route("/api/download/events", get(get_events))
         .route("/api/user-agent", post(post_user_agent))
-        .route("/img-proxy", get(get_img_proxy))
+        .route("/api/img-proxy", get(get_img_proxy))
         .route("/api/weibo/mymblog", get(get_weibo))
         .route("/api/app-log", get(get_daemon_log))
         .route("/api/crash-log", get(get_crash_log))
