@@ -27,5 +27,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Generated files
+/target/
+/gen/schemas
+
 # Local env overrides (see .env.example)
 .env

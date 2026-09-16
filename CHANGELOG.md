@@ -11,6 +11,7 @@
 ### Changed
 
 - `dev:web` uses Vite proxy (`/api`, `/img-proxy` → `:1421`, firouter-style) on `:1420`; `VITE_BACKEND_URL` removed, frontend is same-host only (no CORS, no ports); dev host comes from `WEI_HOST` in `.env` (`0.0.0.0` for LAN testing)
+- Cargo workspace at root (`members = ["src-tauri"]`, firouter-style): `cargo run -p weilens`, single `Cargo.lock`, release profile with thin LTO
 
 ## [0.2.0] - 2026-07-16
 

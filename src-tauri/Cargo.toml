@@ -61,12 +61,3 @@ windows-sys = { version = "0.59", features = ["Win32_System_Diagnostics_Debug", 
 
 [lints.clippy]
 absolute_paths = "warn"
-
-[profile.dev]
-incremental = true # Compile your binary in smaller steps.
-
-[profile.release]
-codegen-units = 1 # Allows LLVM to perform better optimization.
-lto = true # Enables link-time-optimizations.
-opt-level = 3 # Speed
-strip = true # Ensures debug symbols are removed.

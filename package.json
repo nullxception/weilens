@@ -14,8 +14,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "dev:web": "vite --port 1420 --strictPort",
-    "server:start": "cargo run --manifest-path src-tauri/Cargo.toml -- server start --port 1421",
-    "server:stop": "cargo run --manifest-path src-tauri/Cargo.toml -- server stop --port 1421"
+    "server:start": "cargo run -p weilens -- server start --port 1421",
+    "server:stop": "cargo run -p weilens -- server stop --port 1421"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

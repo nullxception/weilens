@@ -58,7 +58,7 @@ Config: `.oxlintrc.json`, `.oxfmtrc.json` (sorts imports, sorts Tailwind classes
 ## Testing
 
 - **Frontend**: no test runner, no `*.test.*` under `src/`. Verify with `bun build`.
-- **Rust**: `cargo test` from `src-tauri/` (single unit test in `types.rs`, no `tests/` dir).
+- **Rust**: `cargo test -p weilens` from root (workspace member `src-tauri/`, single unit test in `types.rs`, no `tests/` dir).
 - Run `bun check` before submitting frontend changes; add `cargo clippy` + `cargo test` when `src-tauri/` changed.
 
 ## Structure
