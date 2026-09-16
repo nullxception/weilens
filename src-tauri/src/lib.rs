@@ -1,5 +1,7 @@
 #![allow(clippy::absolute_paths)]
 mod app_context;
+pub mod daemon;
+mod crash;
 mod dates;
 mod db;
 mod download;
@@ -59,6 +61,33 @@ fn external_navigation_plugin<R: tauri::Runtime>() -> TauriPlugin<R> {
 }
 
 #[tauri::command]
+fn debug_read_app_log(lines: Option<usize>) -> Result<Vec<String>, String> {
+    tail_log_file("app.log", lines)
+}
+
+#[tauri::command]
+fn debug_read_crash_log(lines: Option<usize>) -> Result<Vec<String>, String> {
+    tail_log_file("crash.log", lines)
+}
+
+fn tail_log_file(file: &str, lines: Option<usize>) -> Result<Vec<String>, String> {
+    use std::fs;
+    let n = lines.unwrap_or(500).clamp(1, 2000);
+    let Some(dir) = dirs::data_dir() else {
+        return Ok(vec![]);
+    };
+    let path = dir.join("io.chaldeaprjkt.WeiLens").join(file);
+    let Ok(text) = fs::read_to_string(&path) else {
+        return Ok(vec![]);
+    };
+    let all: Vec<String> = text.lines().map(|l| l.to_string()).collect();
+    if all.len() <= n {
+        return Ok(all);
+    }
+    Ok(all[all.len() - n..].to_vec())
+}
+
+#[tauri::command]
 fn set_user_agent(state: tauri::State<AppState>, ua: String) {
     if let Ok(mut current) = state.user_agent.write() {
         *current = ua;
@@ -88,7 +117,10 @@ pub fn run() {
                 .level_for("little_exif", log::LevelFilter::Off)
                 .targets([
                     Target::new(TargetKind::Stdout),
-                    Target::new(TargetKind::LogDir { file_name: None }),
+                    Target::new(TargetKind::Folder {
+                        path: db::standalone_home(),
+                        file_name: Some("app".into()),
+                    }),
                     Target::new(TargetKind::Webview),
                 ])
                 .build(),
@@ -102,6 +134,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             set_user_agent,
+            debug_read_app_log,
+            debug_read_crash_log,
             download_post,
             cancel_download_post,
             choose_download_dir,
@@ -142,13 +176,13 @@ pub fn run() {
 }
 #[allow(clippy::absolute_paths)]
 pub fn serve(port: u16) {
-    // File logging for release (--serve has no console on GUI subsystem)
-    let log_dir = db::standalone_db_path().parent().map(|p| p.join("logs")).unwrap_or_else(|| std::path::PathBuf::from("./data/logs"));
-    let _ = std::fs::create_dir_all(&log_dir);
-    let log_file = log_dir.join("serve.log");
-    // Simple file logger: append to file + also eprintln when console exists (debug)
-    // File logging: release GUI has no console, so serve.log is the only visibility
-    // We use a minimal logger that writes to both stderr and the log file
+    crash::init();
+    // File logging for release (background server has no console on GUI subsystem)
+    let home = db::standalone_home();
+    let _ = std::fs::create_dir_all(&home);
+    let log_file = home.join("app.log");
+    // File-only logger: stderr is redirected to app.log for the detached
+    // child, so echoing there would duplicate every line.
     if let Ok(f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_file) {
         struct FileLogger { file: std::sync::Mutex<std::fs::File> }
         impl log::Log for FileLogger {
@@ -157,7 +191,6 @@ pub fn serve(port: u16) {
                 if self.enabled(r.metadata()) {
                     let line = format!("[{} {}] {}\n", r.level(), r.target(), r.args());
                     let _ = std::io::Write::write_all(&mut *self.file.lock().unwrap(), line.as_bytes());
-                    eprint!("{}", line);
                 }
             }
             fn flush(&self) {}
@@ -167,7 +200,7 @@ pub fn serve(port: u16) {
         let _ = log::set_logger(leaked);
         log::set_max_level(log::LevelFilter::Info);
     }
-    log::info!("WeiLens --serve starting on 0.0.0.0:{port}, log at {}", log_file.display());
+    log::info!("WeiLens server starting on 0.0.0.0:{port}, log at {}", log_file.display());
 
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("tokio runtime");
     rt.block_on(async move { serve_async(port).await });

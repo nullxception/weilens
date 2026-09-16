@@ -50,6 +50,14 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 rust-embed = "8"
 mime_guess = "2"
+sysinfo = "0.32"
+
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.3"
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_System_Diagnostics_Debug", "Win32_System_Kernel"] }
 
 [lints.clippy]
 absolute_paths = "warn"
@@ -61,5 +69,4 @@ incremental = true # Compile your binary in smaller steps.
 codegen-units = 1 # Allows LLVM to perform better optimization.
 lto = true # Enables link-time-optimizations.
 opt-level = 3 # Speed
-panic = "abort" # Higher performance by disabling panic handlers.
 strip = true # Ensures debug symbols are removed.

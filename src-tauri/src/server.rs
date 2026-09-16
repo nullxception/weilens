@@ -13,6 +13,7 @@ use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::Infallible;
+use tokio::fs;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 use tower_http::cors::{Any, CorsLayer};
@@ -331,6 +332,58 @@ async fn get_weibo(State(ctx): State<AppContext>, headers: HeaderMap, Query(q): 
     Response::builder().status(status).header(header::CONTENT_TYPE, "application/json").body(Body::from(body)).unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "body error").into_response())
 }
 
+// ── App log ──
+
+#[derive(Deserialize)]
+struct AppLogQuery {
+    lines: Option<usize>,
+}
+
+#[derive(Serialize)]
+struct AppLogResponse {
+    lines: Vec<String>,
+}
+
+fn last_n_lines(text: &str, n: usize) -> Vec<String> {
+    let all: Vec<&str> = text.lines().collect();
+    let start = all.len().saturating_sub(n);
+    all[start..].iter().map(|l| l.to_string()).collect()
+}
+
+async fn get_daemon_log(Query(q): Query<AppLogQuery>) -> Json<AppLogResponse> {
+    let n = q.lines.unwrap_or(500).clamp(1, 1000);
+    let text = fs::read_to_string(db::standalone_home().join("app.log"))
+        .await
+        .unwrap_or_default();
+    Json(AppLogResponse {
+        lines: last_n_lines(&text, n),
+    })
+}
+
+// ── Crash log ──
+
+#[derive(Deserialize)]
+struct CrashLogQuery {
+    lines: Option<usize>,
+}
+
+#[derive(Serialize)]
+struct CrashLogResponse {
+    lines: Vec<String>,
+    path: String,
+}
+
+async fn get_crash_log(Query(q): Query<CrashLogQuery>) -> Json<CrashLogResponse> {
+    let n = q.lines.unwrap_or(500).clamp(1, 2000);
+    let text = fs::read_to_string(crate::crash::crash_log_path())
+        .await
+        .unwrap_or_default();
+    Json(CrashLogResponse {
+        lines: last_n_lines(&text, n),
+        path: crate::crash::crash_log_path().to_string_lossy().to_string(),
+    })
+}
+
 pub fn build_router(ctx: AppContext) -> Router {
     let cors = CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any);
     Router::new()
@@ -347,7 +400,25 @@ pub fn build_router(ctx: AppContext) -> Router {
         .route("/api/user-agent", post(post_user_agent))
         .route("/img-proxy", get(get_img_proxy))
         .route("/api/weibo/mymblog", get(get_weibo))
+        .route("/api/app-log", get(get_daemon_log))
+        .route("/api/crash-log", get(get_crash_log))
         .fallback(serve_embed)
         .layer(cors)
         .with_state(ctx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tail_keeps_last_n_lines() {
+        let text = "a\nb\nc\nd";
+        assert_eq!(
+            last_n_lines(text, 2),
+            vec!["c".to_string(), "d".to_string()]
+        );
+        assert_eq!(last_n_lines(text, 10).len(), 4);
+        assert!(last_n_lines("", 5).is_empty());
+    }
 }

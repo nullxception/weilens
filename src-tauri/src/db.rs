@@ -23,6 +23,14 @@ pub fn standalone_db_path() -> PathBuf {
     }
 }
 
+// Home dir for standalone server artifacts (pidfile, logs), next to the DB.
+pub fn standalone_home() -> PathBuf {
+    standalone_db_path()
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("./data"))
+}
+
 fn init_common(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "PRAGMA journal_mode=WAL;
