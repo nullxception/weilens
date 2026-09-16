@@ -39,6 +39,38 @@ async function webPut<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export async function readAppLogViaTauri(lines?: number): Promise<string[]> {
+  return tauriInvoke<string[]>("debug_read_app_log", {
+    lines: lines ?? 500,
+  });
+}
+
+export async function readCrashLogViaTauri(lines?: number): Promise<string[]> {
+  return tauriInvoke<string[]>("debug_read_crash_log", {
+    lines: lines ?? 500,
+  });
+}
+
+export async function readAppLog(lines?: number): Promise<string[]> {
+  if (isWebMode) {
+    const data = await webGet<{ lines: string[] }>(
+      `/api/app-log?lines=${lines ?? 500}`,
+    );
+    return data.lines;
+  }
+  return readAppLogViaTauri(lines);
+}
+
+export async function readCrashLog(lines?: number): Promise<string[]> {
+  if (isWebMode) {
+    const data = await webGet<{ lines: string[]; path: string }>(
+      `/api/crash-log?lines=${lines ?? 500}`,
+    );
+    return data.lines;
+  }
+  return readCrashLogViaTauri(lines);
+}
+
 export async function defaultDownloadDir(): Promise<string> {
   if (isWebMode) {
     const data = await webGet<{ path: string }>("/api/download-dir/default");

@@ -6,6 +6,7 @@ import {
 
 import { RootLayout } from "./routes/__root";
 import { IndexPage } from "./routes/index";
+import { LogsPage } from "./routes/logs";
 import { SettingsPage } from "./routes/settings";
 
 const rootRoute = createRootRoute({
@@ -24,7 +25,13 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, settingsRoute]);
+const logsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/logs",
+  component: LogsPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, logsRoute]);
 
 export const router = createRouter({
   routeTree,

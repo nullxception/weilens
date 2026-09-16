@@ -26,6 +26,7 @@ function SidebarInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const isSettingsPage = location.pathname === "/settings";
+  const isLogsPage = location.pathname === "/logs";
 
   const blogs = useProfileStore((state) => state.blogs);
   const isLoading = useProfileStore((state) => state.isLoading);
@@ -42,7 +43,7 @@ function SidebarInner() {
   };
 
   const handleNavigateSettings = () => {
-    if (isSettingsPage) {
+    if (isSettingsPage || isLogsPage) {
       navigate({ to: "/" });
     } else {
       navigate({ to: "/settings" });

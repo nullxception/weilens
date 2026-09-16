@@ -3,6 +3,7 @@ import {
   ClipboardTextIcon,
   EyeIcon,
   EyeSlashIcon,
+  TerminalIcon,
 } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { Suspense, use, useEffect, useState, useCallback } from "react";
@@ -254,6 +255,18 @@ export function SettingsPanel() {
               </SelectGroup>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => navigate({ to: "/logs" })}
+          >
+            <TerminalIcon className="size-4" />
+            View logs
+          </Button>
         </div>
       </CardContent>
     </Card>
