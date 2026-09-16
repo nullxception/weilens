@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `server start/stop/restart/status` commands (firouter-style background lifecycle with pidfile + port probe)
+- `app.log` + `/app-log` viewer (follow/pause/filter/copy, `GET /api/app-log` — alias `/api/daemon-log` — single file for Tauri + server)
+- `crash.log` + `/crash-log` viewer (panic/segfault capture with backtrace, `GET /api/crash-log` tail endpoint)
+
 ## [0.2.0] - 2026-07-16
 
 ### Added

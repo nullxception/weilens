@@ -243,9 +243,13 @@ Run WeiLens as a LAN web server so a phone or another PC can use the full UI whi
 bun run build
 
 # 2. Serve on LAN (same exe, same DB, same installer)
-cargo run --manifest-path src-tauri/Cargo.toml -- --serve --port 1421
-# or after install:
-weilens.exe --serve --port 1421
+weilens.exe server start --port 1421
+# manage it:
+weilens.exe server status --port 1421
+weilens.exe server stop --port 1421
+# or via bun:
+bun run server:start
+bun run server:stop
 ```
 
 - Binds `0.0.0.0:${WEI_PORT:-1421}` (`--port` flag wins over `WEI_PORT` env).
@@ -254,6 +258,8 @@ weilens.exe --serve --port 1421
 - To use the web UI in dev, run `VITE_BACKEND_URL=http://localhost:1421 bun run dev` or `bun run dev:web`.
 - Downloads write under the server machine's `Downloads/WeiLens/<uid>/<date>/`; grab them via FTP or file share (no zip streaming in v1).
 - Windows may prompt for firewall approval on first `0.0.0.0:1421` bind — allow it.
-- Release `--serve` has no console (GUI subsystem); check `<app_data_dir>/logs/serve.log` if it silently fails. Debug with `cargo run -- --serve`.
+- `server start` daemonizes the same exe (detached child serves, parent returns once the port answers); child logs to `<app_data_dir>/app.log`, pidfile at `<app_data_dir>/weilens.pid`.
+- `server stop` kills via pidfile, falling back to a port scan that only targets weilens processes.
+- Release server has no console (GUI subsystem); check `<app_data_dir>/app.log` if it silently fails, or open `/app-log` in the UI (sidebar App log: follow/pause/filter/copy, polled every 2s) — legacy `/api/daemon-log` alias still works.
 
-Boot persistence (same pattern as ciel): add hidden `weilens.exe --serve --port 1421` to `Startup/my-apps.vbs` and a `:1421` card to the services dashboard; restart via kill-by-port then relaunch.
+Boot persistence (same pattern as ciel): add hidden `weilens.exe server start --port 1421` to `Startup/my-apps.vbs` and a `:1421` card to the services dashboard; restart via `weilens.exe server restart --port 1421`.
