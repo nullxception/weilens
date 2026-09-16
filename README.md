@@ -233,3 +233,27 @@ Please run the verification pipeline (`lint` → `typecheck` → `build` for fro
 ## License
 
 It's [MIT](./LICENSE).
+
+## LAN web mode
+
+Run WeiLens as a LAN web server so a phone or another PC can use the full UI while downloads land on the server.
+
+```sh
+# 1. Build the frontend (embeds into the binary as dist/)
+bun run build
+
+# 2. Serve on LAN (same exe, same DB, same installer)
+cargo run --manifest-path src-tauri/Cargo.toml -- --serve --port 1421
+# or after install:
+weilens.exe --serve --port 1421
+```
+
+- Binds `0.0.0.0:${WEI_PORT:-1421}` (`--port` flag wins over `WEI_PORT` env).
+- Open `http://<pc-lan-ip>:1421` from a phone on the same network.
+- First visit shows onboarding (cookie gate derived from server DB); set the cookie once and it sticks for all devices. Theme stays per-device.
+- To use the web UI in dev, run `VITE_BACKEND_URL=http://localhost:1421 bun run dev` or `bun run dev:web`.
+- Downloads write under the server machine's `Downloads/WeiLens/<uid>/<date>/`; grab them via FTP or file share (no zip streaming in v1).
+- Windows may prompt for firewall approval on first `0.0.0.0:1421` bind — allow it.
+- Release `--serve` has no console (GUI subsystem); check `<app_data_dir>/logs/serve.log` if it silently fails. Debug with `cargo run -- --serve`.
+
+Boot persistence (same pattern as ciel): add hidden `weilens.exe --serve --port 1421` to `Startup/my-apps.vbs` and a `:1421` card to the services dashboard; restart via kill-by-port then relaunch.

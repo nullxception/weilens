@@ -1,21 +1,28 @@
+#![allow(clippy::absolute_paths)]
+mod app_context;
 mod dates;
 mod db;
 mod download;
 mod exif;
 mod image;
 mod motion;
+mod server;
 mod types;
 mod util;
+mod weibo;
 
 use crate::db::{
-    add_place, get_place_by_post, init_db, list_places, remove_blog_place, search_place,
-    set_blog_place, DbState,
+    add_place, clear_profile_history_cmd, delete_profile_history_cmd, get_place_by_post, init_db,
+    list_places, list_profile_history_cmd, remove_blog_place, search_place, set_blog_place,
+    upsert_profile_history_cmd, DbState,
 };
+#[allow(unused_imports)]
+use crate::app_context::AppContext;
 use crate::download::{
     cancel_download_post, choose_download_dir, default_download_dir, download_post,
 };
 use crate::image::handle_image_proxy;
-use crate::types::{AppState, DownloadCancellationState, FALLBACK_USER_AGENT};
+use crate::types::{AppState, DownloadCancellationState, DownloadConfig, FALLBACK_USER_AGENT};
 use log::LevelFilter;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
@@ -69,7 +76,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(http_client.clone())
-        .manage(DownloadCancellationState(Mutex::new(HashMap::new())))
+        .manage(DownloadCancellationState(Arc::new(Mutex::new(HashMap::new()))))
         .manage(AppState {
             user_agent: user_agent.clone(),
         })
@@ -105,6 +112,12 @@ pub fn run() {
             search_place,
             set_blog_place,
             remove_blog_place,
+            list_profile_history_cmd,
+            upsert_profile_history_cmd,
+            delete_profile_history_cmd,
+            clear_profile_history_cmd,
+            crate::db::get_settings,
+            crate::db::save_settings,
         ])
         .on_page_load(|webview, payload| {
             if webview.label() == "main" && matches!(payload.event(), PageLoadEvent::Finished) {
@@ -127,3 +140,80 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+#[allow(clippy::absolute_paths)]
+pub fn serve(port: u16) {
+    // File logging for release (--serve has no console on GUI subsystem)
+    let log_dir = db::standalone_db_path().parent().map(|p| p.join("logs")).unwrap_or_else(|| std::path::PathBuf::from("./data/logs"));
+    let _ = std::fs::create_dir_all(&log_dir);
+    let log_file = log_dir.join("serve.log");
+    // Simple file logger: append to file + also eprintln when console exists (debug)
+    // File logging: release GUI has no console, so serve.log is the only visibility
+    // We use a minimal logger that writes to both stderr and the log file
+    if let Ok(f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_file) {
+        struct FileLogger { file: std::sync::Mutex<std::fs::File> }
+        impl log::Log for FileLogger {
+            fn enabled(&self, m: &log::Metadata) -> bool { m.level() <= log::Level::Info }
+            fn log(&self, r: &log::Record) {
+                if self.enabled(r.metadata()) {
+                    let line = format!("[{} {}] {}\n", r.level(), r.target(), r.args());
+                    let _ = std::io::Write::write_all(&mut *self.file.lock().unwrap(), line.as_bytes());
+                    eprint!("{}", line);
+                }
+            }
+            fn flush(&self) {}
+        }
+        let logger = Box::new(FileLogger { file: std::sync::Mutex::new(f) });
+        let leaked: &'static FileLogger = Box::leak(logger);
+        let _ = log::set_logger(leaked);
+        log::set_max_level(log::LevelFilter::Info);
+    }
+    log::info!("WeiLens --serve starting on 0.0.0.0:{port}, log at {}", log_file.display());
+
+    let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("tokio runtime");
+    rt.block_on(async move { serve_async(port).await });
+}
+
+#[allow(clippy::absolute_paths)]
+async fn serve_async(port: u16) {
+    let http_client = reqwest::Client::builder()
+        .pool_max_idle_per_host(15)
+        .build()
+        .expect("HTTP client");
+    let user_agent = Arc::new(RwLock::new(FALLBACK_USER_AGENT.to_string()));
+    let config = DownloadConfig::default();
+    let cancel_map = Arc::new(Mutex::new(HashMap::new()));
+    let (progress_tx, _rx) = tokio::sync::broadcast::channel::<crate::types::DownloadProgressPayload>(256);
+
+    // Ensure DB exists and has correct schema
+    let db_path = db::standalone_db_path();
+    match db::init_standalone_db() {
+        Ok(conn) => drop(conn),
+        Err(e) => {
+            log::error!("Failed to init DB at {}: {}", db_path.display(), e);
+            eprintln!("Failed to init DB: {e}");
+            std::process::exit(1);
+        }
+    }
+    log::info!("DB at {}", db_path.display());
+
+    let ctx = AppContext {
+        http: http_client,
+        user_agent,
+        config,
+        cancel: cancel_map,
+        progress_tx,
+        db_path,
+    };
+
+    let app = server::build_router(ctx);
+    let addr = format!("0.0.0.0:{port}");
+    let listener = tokio::net::TcpListener::bind(&addr).await.expect("bind");
+    log::info!("Listening on http://{addr}");
+    println!("WeiLens server listening on http://{addr}");
+    if let Err(e) = axum::serve(listener, app).await {
+        log::error!("Server error: {e}");
+        eprintln!("Server error: {e}");
+        std::process::exit(1);
+    }
+}
+

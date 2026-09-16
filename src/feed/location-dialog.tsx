@@ -7,7 +7,6 @@ import {
   MagnifyingGlassIcon,
 } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { motion } from "motion/react";
 import { useCallback, useState } from "react";
 
@@ -57,7 +56,7 @@ async function searchNominatim(
   if (!q) return [];
 
   const [nominatimRes, localPlaces] = await Promise.all([
-    tauriFetch(
+    fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=${limit}`,
       { headers: { Accept: "application/json" } },
     ),

@@ -10,11 +10,13 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useState, useCallback } from "react";
 
+import { isWebMode } from "@/lib/backend";
+
 import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import { useAuthStore } from "../stores/useAuthStore";
-import { markOnboardingComplete } from "./onboarding-state";
+import { dismissOnboarding, markOnboardingComplete } from "./onboarding-state";
 
 /* ── Animation variants ─────────────────────────────────────── */
 
@@ -296,8 +298,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<"welcome" | "cookie">("welcome");
 
   const handleComplete = useCallback(() => {
-    markOnboardingComplete();
-    onComplete();
+    if (isWebMode) void dismissOnboarding().then(() => onComplete());
+    else {
+      markOnboardingComplete();
+      onComplete();
+    }
   }, [onComplete]);
 
   return (

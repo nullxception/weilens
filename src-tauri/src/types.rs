@@ -121,7 +121,7 @@ pub struct DownloadProgressPayload {
     pub warning: Option<String>,
 }
 
-pub struct DownloadCancellationState(pub Mutex<HashMap<String, CancellationToken>>);
+pub struct DownloadCancellationState(pub Arc<Mutex<HashMap<String, CancellationToken>>>);
 pub struct AppState {
     pub user_agent: Arc<RwLock<String>>,
 }

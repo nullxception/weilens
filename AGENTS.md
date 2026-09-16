@@ -68,7 +68,7 @@ Config: `.oxlintrc.json`, `.oxfmtrc.json` (sorts imports, sorts Tailwind classes
 - `src/stores/` — zustand per concern (`useAuthStore`, `useProfileStore`, `useDownloadsStore`, `useHistoryStore`, `usePlacesStore`, `useSettingsStore`, `useUiStore`)
 - `src/types/remote.ts` — Zod schemas for Sina API responses; `src/types/rpc.ts` — Tauri IPC shapes; `src/types/gps.ts`
 - `src/lib/api.ts` — `invoke()` wrappers (only caller of Tauri commands); `proxy.ts` (img-proxy URL builder); `remote.ts` (image variant picker); `query-client.ts`; `storage-keys.ts` (localStorage keys)
-- `src-tauri/src/` — `lib.rs` (builder, plugins, `img-proxy` scheme, command registry), `db.rs` (`weipoint.db` places in app data dir), `download.rs` (semaphore concurrency + backoff + progress events), `image.rs` (proxy handler), `exif.rs`, `motion.rs`, `dates.rs`, `types.rs`, `util.rs`
+- `src-tauri/src/` — `lib.rs` (`run()` vs `serve(port)` with Axum on `0.0.0.0:1421`, `img-proxy` scheme, command registry), `db.rs` (`weipoint.db` + `settings` + `profile_history`, WAL), `server.rs` (Axum routes + embedded `dist/` via `rust-embed`), `app_context.rs` (`AppContext` shared state), `weibo.rs` (`build_mymblog_url`), `download.rs` (now `download_post_core` + broadcast `progress_tx`), `image.rs`, `exif.rs`, `motion.rs`, `dates.rs`, `types.rs`, `util.rs`; `src/lib/backend.ts` (`isWebMode`/`api()`) is the frontend transport switch
 
 ## Conventions
 

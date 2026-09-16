@@ -1,19 +1,34 @@
 import {
   CheckCircleIcon,
-  XCircleIcon,
   SpinnerIcon,
   StopCircleIcon,
+  XCircleIcon,
 } from "@phosphor-icons/react";
-import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 
 import type { DownloadProgressPayload } from "@/types/rpc";
 
 import { cancelDownloadPost } from "@/lib/api";
+import { api, isWebMode } from "@/lib/backend";
 import { useDownloadsStore } from "@/stores/useDownloadsStore";
 
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
+
+function handlePayload(payload: DownloadProgressPayload) {
+  const { updateDownloadProgress } = useDownloadsStore.getState();
+  updateDownloadProgress(payload.postId, payload.index, payload.status);
+  const updated = useDownloadsStore.getState().downloads[payload.postId];
+  if (updated) {
+    const allFinished =
+      updated.completed + updated.failed + updated.cancelled === updated.total;
+    if (allFinished)
+      setTimeout(
+        () => useDownloadsStore.getState().clearDownload(payload.postId),
+        600,
+      );
+  }
+}
 
 export function DownloadProgressPanel() {
   const downloads = useDownloadsStore((state) => state.downloads);
@@ -22,50 +37,52 @@ export function DownloadProgressPanel() {
   );
 
   useEffect(() => {
-    const unlistenPromise = listen<DownloadProgressPayload>(
-      "download-progress",
-      (ev) => {
+    if (isWebMode) {
+      const es = new EventSource(api("/api/download/events"));
+      es.onmessage = (ev) => {
+        try {
+          handlePayload(JSON.parse(ev.data) as DownloadProgressPayload);
+        } catch {}
+      };
+      return () => es.close();
+    }
+    let unlisten: (() => void) | undefined;
+    void import("@tauri-apps/api/event").then(({ listen }) => {
+      void listen<DownloadProgressPayload>("download-progress", (ev) => {
         updateDownloadProgress(
           ev.payload.postId,
           ev.payload.index,
           ev.payload.status,
         );
-
-        // Auto-clear after all items finish
-        const updatedProgress =
+        const updated =
           useDownloadsStore.getState().downloads[ev.payload.postId];
-        if (updatedProgress) {
+        if (updated) {
           const allFinished =
-            updatedProgress.completed +
-              updatedProgress.failed +
-              updatedProgress.cancelled ===
-            updatedProgress.total;
-          if (allFinished) {
+            updated.completed + updated.failed + updated.cancelled ===
+            updated.total;
+          if (allFinished)
             setTimeout(
               () =>
                 useDownloadsStore.getState().clearDownload(ev.payload.postId),
               600,
             );
-          }
         }
-      },
-    );
+      }).then((fn) => {
+        unlisten = fn;
+      });
+    });
     return () => {
-      unlistenPromise.then((unlisten) => unlisten());
+      if (unlisten) unlisten();
     };
   }, [updateDownloadProgress]);
 
   const entries = Object.values(downloads);
   if (entries.length === 0) return null;
-
   return (
     <div className="flex flex-col gap-2">
-      {/* Header */}
       <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
         Downloads
       </span>
-
-      {/* Per-post progress */}
       {entries.map((d) => {
         const finished = d.completed + d.failed + d.cancelled;
         const percent =
@@ -74,7 +91,6 @@ export function DownloadProgressPanel() {
         const hasError = d.failed > 0;
         const isCancelled = d.cancelled > 0;
         const isDownloading = !isAllDone && !isCancelled;
-
         return (
           <div
             key={d.postId}

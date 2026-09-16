@@ -1,15 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use std::fs;
-use std::fs::File;
+use std::collections::HashMap;
+use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use tauri::Emitter;
-use tauri::Manager;
-use tokio::sync::Semaphore;
+use std::sync::{Arc, Mutex};
+use tokio::sync::{broadcast, Semaphore};
 use tokio::task::spawn_blocking;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
@@ -19,8 +17,7 @@ use crate::image;
 use crate::image::WmPosition;
 use crate::motion;
 use crate::types::{
-    AppState, DownloadCancellationState, DownloadConfig, DownloadError, DownloadItem,
-    DownloadProgressPayload, GpsData, FALLBACK_USER_AGENT,
+    DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData,
 };
 use crate::util;
 
@@ -37,7 +34,7 @@ pub struct DownloadPostRequest {
 }
 
 pub struct DownloadTask {
-    pub app_handle: tauri::AppHandle,
+    pub progress_tx: broadcast::Sender<DownloadProgressPayload>,
     pub post_id: String,
     pub created_at_dt: DateTime<Utc>,
     pub dewatermark: String,
@@ -53,19 +50,26 @@ pub struct DownloadTask {
     pub cancellation_token: CancellationToken,
 }
 
-fn emit_cancelled(app: &tauri::AppHandle, post_id: &str, index: usize, total: usize, url: &str) {
-    let _ = app.emit(
-        "download-progress",
-        DownloadProgressPayload {
-            post_id: post_id.to_string(),
-            index,
-            total,
-            status: "cancelled".to_string(),
-            url: url.to_string(),
-            saved_path: None,
-            warning: None,
-        },
-    );
+fn emit_cancelled(
+    tx: &broadcast::Sender<DownloadProgressPayload>,
+    post_id: &str,
+    index: usize,
+    total: usize,
+    url: &str,
+) {
+    let _ = tx.send(DownloadProgressPayload {
+        post_id: post_id.to_string(),
+        index,
+        total,
+        status: "cancelled".to_string(),
+        url: url.to_string(),
+        saved_path: None,
+        warning: None,
+    });
+}
+
+fn emit_progress(tx: &broadcast::Sender<DownloadProgressPayload>, payload: DownloadProgressPayload) {
+    let _ = tx.send(payload);
 }
 
 async fn process_motion(
@@ -144,8 +148,8 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
         task.item_url
     );
 
-    let _ = task.app_handle.emit(
-        "download-progress",
+    emit_progress(
+        &task.progress_tx,
         DownloadProgressPayload {
             post_id: task.post_id.clone(),
             index: task.index,
@@ -343,8 +347,8 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
         target_path_str
     );
 
-    let _ = task.app_handle.emit(
-        "download-progress",
+    emit_progress(
+        &task.progress_tx,
         DownloadProgressPayload {
             post_id: task.post_id.clone(),
             index: task.index,
@@ -368,76 +372,36 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     Ok((saved_paths, warning))
 }
 
-#[tauri::command]
-pub async fn choose_download_dir(starting_folder: Option<String>) -> Result<String, String> {
-    let mut dialog = rfd::FileDialog::new();
-    if let Some(ref folder) = starting_folder {
-        if !folder.is_empty() {
-            dialog = dialog.set_directory(Path::new(folder));
-        }
-    }
-    let result = dialog.pick_folder();
-    Ok(result
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default())
-}
-
-#[tauri::command]
-pub fn default_download_dir() -> String {
-    DownloadConfig::default()
-        .effective_download_root(None)
-        .to_string_lossy()
-        .into()
-}
-
-#[tauri::command]
-pub async fn download_post(
-    app_handle: tauri::AppHandle,
+pub async fn download_post_core(
     request: DownloadPostRequest,
+    client: reqwest::Client,
+    user_agent: String,
+    config: DownloadConfig,
+    cancel_map: Arc<Mutex<HashMap<String, CancellationToken>>>,
+    progress_tx: broadcast::Sender<DownloadProgressPayload>,
 ) -> Result<serde_json::Value, String> {
-    let config = DownloadConfig::default();
     let base_dir = config.effective_download_root(request.target);
-
-    let uid_segment = if request.uid.trim().is_empty() {
-        "unknown_user"
-    } else {
-        &request.uid
-    };
-
+    let uid_segment = if request.uid.trim().is_empty() { "unknown_user" } else { &request.uid };
     let created_at_dt = dates::parse_date(&request.date).unwrap_or_else(chrono::Utc::now);
     let date_segment = dates::get_date_folder(&created_at_dt);
-
     let download_dir = base_dir.join(uid_segment).join(date_segment);
-    fs::create_dir_all(&download_dir)
+    create_dir_all(&download_dir)
         .map_err(|e| DownloadError::CreateDir(e.to_string()))
         .map_err(|e| e.to_string())?;
-
-    let mut saved_paths = Vec::new();
     let total = request.items.len();
-
-    let client = app_handle.state::<reqwest::Client>().inner().clone();
-    let user_agent = app_handle
-        .state::<AppState>()
-        .user_agent
-        .read()
-        .map(|s| s.clone())
-        .unwrap_or_else(|_| FALLBACK_USER_AGENT.to_string());
     let semaphore = Arc::new(Semaphore::new(config.effective_max_concurrency()));
-
     let cancellation_token = CancellationToken::new();
     {
-        let state = app_handle.state::<DownloadCancellationState>();
-        let mut map = state.0.lock().map_err(|e| e.to_string())?;
+        let mut map = cancel_map.lock().map_err(|e| e.to_string())?;
         map.insert(request.blog_id.clone(), cancellation_token.clone());
     }
-
     let mut handles = Vec::new();
     for (index, item) in request.items.iter().enumerate() {
         let sem = semaphore.clone();
         let token = cancellation_token.clone();
         let config_clone = config.clone();
         let post_id = request.blog_id.clone();
-        let app = app_handle.clone();
+        let progress_tx_clone = progress_tx.clone();
         let item_url = item.url.clone();
         let item_video = item.video_url.clone();
         let dewatermark = request.dewatermark.clone();
@@ -446,30 +410,26 @@ pub async fn download_post(
         let client_clone = client.clone();
         let user_agent_clone = user_agent.clone();
         let created_at = created_at_dt;
-
         let handle = tokio::spawn(async move {
             if token.is_cancelled() {
-                emit_cancelled(&app, &post_id, index, total, &item_url);
+                emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
                 return Err(DownloadError::Cancelled);
             }
-
             let _permit = tokio::select! {
                 permit = sem.acquire() => permit,
                 _ = token.cancelled() => {
-                    emit_cancelled(&app, &post_id, index, total, &item_url);
+                    emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
                     return Err(DownloadError::Cancelled);
                 }
             };
-
             let mut attempt = 0u32;
             loop {
                 if token.is_cancelled() {
-                    emit_cancelled(&app, &post_id, index, total, &item_url);
+                    emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
                     return Err(DownloadError::Cancelled);
                 }
-
                 let task = DownloadTask {
-                    app_handle: app.clone(),
+                    progress_tx: progress_tx_clone.clone(),
                     post_id: post_id.clone(),
                     created_at_dt: created_at,
                     dewatermark: dewatermark.clone(),
@@ -484,97 +444,106 @@ pub async fn download_post(
                     user_agent: user_agent_clone.clone(),
                     cancellation_token: token.clone(),
                 };
-
                 match download(task).await {
                     Ok(paths) => break Ok(paths),
                     Err(DownloadError::Cancelled) => {
-                        emit_cancelled(&app, &post_id, index, total, &item_url);
+                        emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
                         break Err(DownloadError::Cancelled);
                     }
                     Err(ref e) if attempt < config_clone.max_retries => {
                         attempt += 1;
-                        let delay_ms = config_clone
-                            .retry_base_delay_ms
-                            .saturating_mul(1u64 << attempt.min(10))
-                            .min(config_clone.retry_max_delay_ms);
-                        log::warn!(
-                            "[Post {}:{}/{}] Attempt {}/{} failed ({}). Retrying in {}ms…",
-                            post_id,
-                            index + 1,
-                            total,
-                            attempt,
-                            config_clone.max_retries,
-                            e,
-                            delay_ms
-                        );
+                        let delay_ms = config_clone.retry_base_delay_ms.saturating_mul(1u64 << attempt.min(10)).min(config_clone.retry_max_delay_ms);
+                        log::warn!("[Post {}:{}/{}] Attempt {}/{} failed ({}). Retrying in {}ms…", post_id, index + 1, total, attempt, config_clone.max_retries, e, delay_ms);
                         tokio::select! {
                             _ = sleep(Duration::from_millis(delay_ms)) => {},
                             _ = token.cancelled() => {
-                                emit_cancelled(&app, &post_id, index, total, &item_url);
+                                emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
                                 return Err(DownloadError::Cancelled);
                             }
                         }
                     }
                     Err(e) => {
-                        log::error!(
-                            "[Post {}:{}/{}] All {} retries exhausted: {}",
-                            post_id,
-                            index + 1,
-                            total,
-                            config_clone.max_retries,
-                            e
-                        );
-                        let _ = app.emit(
-                            "download-progress",
-                            DownloadProgressPayload {
-                                post_id: post_id.clone(),
-                                index,
-                                total,
-                                status: "failed".to_string(),
-                                url: item_url.clone(),
-                                saved_path: None,
-                                warning: None,
-                            },
-                        );
+                        log::error!("[Post {}:{}/{}] All {} retries exhausted: {}", post_id, index + 1, total, config_clone.max_retries, e);
+                        emit_progress(&progress_tx_clone, DownloadProgressPayload { post_id: post_id.clone(), index, total, status: "failed".to_string(), url: item_url.clone(), saved_path: None, warning: None });
                         break Err(e);
                     }
                 }
             }
         });
-
         handles.push(handle);
     }
-
+    let mut saved_paths = Vec::new();
     for handle in handles {
         match handle.await {
             Ok(Ok((paths, _))) => saved_paths.extend(paths),
-            Ok(Err(DownloadError::Cancelled)) => {
-                log::info!("Download item cancelled");
-            }
+            Ok(Err(DownloadError::Cancelled)) => log::info!("Download item cancelled"),
             Ok(Err(e)) => log::error!("Error downloading item: {}", e),
             Err(e) => log::error!("Join error: {}", e),
         }
     }
-
     {
-        let state = app_handle.state::<DownloadCancellationState>();
-        let mut map = state.0.lock().map_err(|e| e.to_string())?;
+        let mut map = cancel_map.lock().map_err(|e| e.to_string())?;
         map.remove(&request.blog_id);
     }
+    Ok(serde_json::json!({ "savedPaths": saved_paths, "count": saved_paths.len() }))
+}
 
-    Ok(serde_json::json!({
-        "savedPaths": saved_paths,
-        "count": saved_paths.len()
-    }))
+pub fn cancel_download_core(
+    cancel_map: &Arc<Mutex<HashMap<String, CancellationToken>>>,
+    post_id: &str,
+) {
+    if let Ok(map) = cancel_map.lock() {
+        if let Some(token) = map.get(post_id) {
+            token.cancel();
+            log::info!("Cancelled download for post {}", post_id);
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn choose_download_dir(starting_folder: Option<String>) -> Result<String, String> {
+    let mut dialog = rfd::FileDialog::new();
+    if let Some(ref folder) = starting_folder {
+        if !folder.is_empty() {
+            dialog = dialog.set_directory(Path::new(folder));
+        }
+    }
+    let result = dialog.pick_folder();
+    Ok(result.map(|p| p.to_string_lossy().to_string()).unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn default_download_dir() -> String {
+    DownloadConfig::default().effective_download_root(None).to_string_lossy().into()
+}
+
+#[tauri::command]
+pub async fn download_post(
+    app_handle: tauri::AppHandle,
+    request: DownloadPostRequest,
+) -> Result<serde_json::Value, String> {
+    use crate::types::{AppState, DownloadCancellationState, FALLBACK_USER_AGENT};
+    use tauri::Manager;
+    let config = DownloadConfig::default();
+    let client = app_handle.state::<reqwest::Client>().inner().clone();
+    let user_agent = app_handle.state::<AppState>().user_agent.read().map(|s| s.clone()).unwrap_or_else(|_| FALLBACK_USER_AGENT.to_string());
+    let cancel_map = app_handle.state::<DownloadCancellationState>().0.clone();
+    let (progress_tx, mut progress_rx) = broadcast::channel::<DownloadProgressPayload>(256);
+    let app_for_forward = app_handle.clone();
+    tokio::spawn(async move {
+        use tauri::Emitter;
+        while let Ok(payload) = progress_rx.recv().await {
+            let _ = app_for_forward.emit("download-progress", payload);
+        }
+    });
+    download_post_core(request, client, user_agent, config, cancel_map, progress_tx).await
 }
 
 #[tauri::command]
 pub fn cancel_download_post(app_handle: tauri::AppHandle, post_id: String) -> Result<(), String> {
+    use crate::types::DownloadCancellationState;
+    use tauri::Manager;
     let state = app_handle.state::<DownloadCancellationState>();
-    let map = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(token) = map.get(&post_id) {
-        token.cancel();
-        log::info!("Cancelled download for post {}", post_id);
-    }
+    cancel_download_core(&state.0, &post_id);
     Ok(())
 }

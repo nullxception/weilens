@@ -1,5 +1,6 @@
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { create } from "zustand";
+
+import { api, isWebMode } from "@/lib/backend";
 
 import { queryClient } from "../lib/query-client";
 import { BlogResponseSchema, type BlogPost } from "../types/remote";
@@ -49,13 +50,24 @@ async function fetchProfile(
     params.set("since_id", sinceId);
   }
 
-  const response = await tauriFetch(
-    `https://weibo.com/ajax/statuses/mymblog?${params.toString()}`,
-    {
+  let response: Response;
+  if (isWebMode) {
+    const qs = params.toString();
+    const cookieHeader = cookie ? { "x-wei-cookie": cookie } : {};
+    response = await fetch(api(`/api/weibo/mymblog?${qs}`), {
       method: "GET",
-      headers,
-    },
-  );
+      headers: cookieHeader as Record<string, string>,
+    });
+  } else {
+    const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
+    response = (await tauriFetch(
+      `https://weibo.com/ajax/statuses/mymblog?${params.toString()}`,
+      {
+        method: "GET",
+        headers,
+      },
+    )) as unknown as Response;
+  }
 
   const body = await response.text();
   const parsedJson = JSON.parse(body);

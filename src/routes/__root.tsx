@@ -1,24 +1,40 @@
 import { Outlet } from "@tanstack/react-router";
-import { invoke } from "@tauri-apps/api/core";
 import { motion } from "motion/react";
 import { Suspense, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { setUserAgent } from "@/lib/api";
 import { Onboarding } from "@/onboarding/onboarding";
-import { isOnboardingComplete } from "@/onboarding/onboarding-state";
+import { shouldShowOnboarding } from "@/onboarding/onboarding-state";
 import { CookieSetupDialog } from "@/settings/cookie-setup-dialog";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useHistoryStore } from "@/stores/useHistoryStore";
 import { usePlacesStore } from "@/stores/usePlacesStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 export function RootLayout() {
-  const [showOnboarding, setShowOnboarding] = useState(
-    () => !isOnboardingComplete(),
-  );
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const initStore = usePlacesStore((state) => state.initStore);
+  const hydrateAuth = useAuthStore((s) => s.hydrate);
+  const hydrateSettings = useSettingsStore((s) => s.hydrate);
+  const hydrateHistory = useHistoryStore((s) => s.hydrate);
 
   useEffect(() => {
     initStore();
-    invoke("set_user_agent", { ua: navigator.userAgent });
-  }, [initStore]);
+    void hydrateAuth();
+    void hydrateSettings();
+    void hydrateHistory();
+    void setUserAgent(navigator.userAgent);
+    void shouldShowOnboarding().then((show) => setShowOnboarding(show));
+  }, [initStore, hydrateAuth, hydrateSettings, hydrateHistory]);
+
+  if (showOnboarding === null) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    );
+  }
 
   return (
     <>
