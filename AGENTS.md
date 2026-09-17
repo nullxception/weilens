@@ -4,10 +4,10 @@ Sina Weibo viewer/downloader desktop app. Tauri v2 (Rust backend in `src-tauri/`
 
 ## House Skills (read before writing code)
 
-Repo-local taste rules, committed so they work on any PC and in isolated subagents:
+Load these before writing code:
 
-- Rust idioms: `.agents/skills/rust-idioms/SKILL.md` (unwrap policy, borrow vs clone, iterators, types)
 - Comment style: `.agents/skills/comment-style/SKILL.md` (quiet, intent-first, non-rotting)
+- Rust (`src-tauri/`): load the global rust-related skills before writing or reviewing Rust code.
 
 ## What Belongs Here
 
@@ -82,7 +82,7 @@ Config: `.oxlintrc.json`, `.oxfmtrc.json` (sorts imports, sorts Tailwind classes
 - Styling: Tailwind v4 via `@tailwindcss/vite`; `cn()` helper in `src/lib/utils.ts`.
 - shadcn: style `base-nova`, base color `neutral`, phosphor icons (`components.json`).
 - Rust lib name `weilens_lib` works around a Windows bin/lib name conflict (see `Cargo.toml`); do not rename.
-- Rust taste (unwrap policy, borrow vs clone, iterators, types): `.agents/skills/rust-idioms/SKILL.md`; violations are reject-on-review.
+- Rust (`src-tauri/`): follow the global rust-related skills; violations are reject-on-review.
 
 ## Comment Style
 
