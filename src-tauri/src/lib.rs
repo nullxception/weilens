@@ -9,6 +9,7 @@ mod exif;
 mod image;
 mod motion;
 mod server;
+mod tray;
 mod types;
 mod util;
 mod weibo;
@@ -132,8 +133,10 @@ pub fn run() {
         .setup(|app| {
             let conn = init_db(app.handle())?;
             app.manage(DbState(Mutex::new(conn)));
+            crate::tray::build_tray(app)?;
             Ok(())
         })
+        .on_window_event(crate::tray::handle_window_event)
         .invoke_handler(tauri::generate_handler![
             set_user_agent,
             debug_read_app_log,
