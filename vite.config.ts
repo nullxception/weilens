@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
         "/api": "http://127.0.0.1:1421",
       },
       watch: {
-        ignored: ["**/src-tauri/**"],
+        ignored: ["**/src-tauri/**", "**/target/**"],
       },
       middlewareMode: false,
     },
