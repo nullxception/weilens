@@ -11,12 +11,9 @@
     "fmt": "oxfmt --write .",
     "check": "tsc --noEmit && oxlint && oxfmt --check .",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview",
     "tauri": "tauri",
-    "dev:web": "vite --port 1420 --strictPort",
-    "server:start": "cargo run -p weilens -- server start --port 1421",
-    "server:run": "cargo run -p weilens -- server run --port 1421",
-    "server:stop": "cargo run -p weilens -- server stop --port 1421"
+    "server": "cargo run -- server run --port 1421",
+    "dev:web": "bun --parallel server dev"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
