@@ -21,6 +21,23 @@ use crate::app_context::AppContext;
 use crate::db;
 use crate::download::{cancel_download_core, download_post_core, DownloadPostRequest};
 use crate::weibo;
+use rusqlite::OptionalExtension;
+use std::path::Path as FsPath;
+
+// Sync SQLite runs on a blocking thread so the Tokio worker never stalls.
+async fn db_blocking<T, F>(db_path: &FsPath, f: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce(&mut rusqlite::Connection) -> Result<T, rusqlite::Error> + Send + 'static,
+{
+    let path = db_path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let mut conn = db::init_db_at_path(&path).map_err(|e| e.to_string())?;
+        f(&mut conn).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 
 #[derive(RustEmbed)]
 #[folder = "../dist"]
@@ -80,22 +97,31 @@ struct SettingsGet {
     onboarding_dismissed: Option<String>,
 }
 
-fn read_setting(ctx: &AppContext, key: &str) -> Option<String> {
-    let conn = rusqlite::Connection::open(&ctx.db_path).ok()?;
-    db::get_setting(&conn, key).ok().flatten()
+// Settings reads are plain lookups, writes are single-row upserts.
+async fn read_setting_async(ctx: &AppContext, key: &str) -> Option<String> {
+    let key = key.to_string();
+    db_blocking(&ctx.db_path, move |conn| db::get_setting(conn, &key))
+        .await
+        .ok()
+        .flatten()
 }
 
-fn write_setting(ctx: &AppContext, key: &str, val: &str) -> Result<(), String> {
-    let conn = rusqlite::Connection::open(&ctx.db_path).map_err(|e| e.to_string())?;
-    db::set_setting(&conn, key, val).map_err(|e| e.to_string())
+async fn write_setting_async(ctx: &AppContext, key: &str, val: &str) -> Result<(), String> {
+    let key = key.to_string();
+    let val = val.to_string();
+    db_blocking(&ctx.db_path, move |conn| db::set_setting(conn, &key, &val)).await
 }
 
 async fn get_settings(State(ctx): State<AppContext>) -> Json<SettingsGet> {
+    let cookie = read_setting_async(&ctx, "cookie").await;
+    let download_path = read_setting_async(&ctx, "download_path").await;
+    let wm_position = read_setting_async(&ctx, "wm_position").await;
+    let onboarding_dismissed = read_setting_async(&ctx, "onboarding_dismissed").await;
     Json(SettingsGet {
-        cookie: read_setting(&ctx, "cookie"),
-        download_path: read_setting(&ctx, "download_path"),
-        wm_position: read_setting(&ctx, "wm_position"),
-        onboarding_dismissed: read_setting(&ctx, "onboarding_dismissed"),
+        cookie,
+        download_path,
+        wm_position,
+        onboarding_dismissed,
     })
 }
 
@@ -112,25 +138,34 @@ async fn put_settings(
         }
     }
     if let Some(v) = body.cookie {
-        write_setting(&ctx, "cookie", &v).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+        write_setting_async(&ctx, "cookie", &v)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     }
     if let Some(v) = body.download_path {
-        write_setting(&ctx, "download_path", &v)
+        write_setting_async(&ctx, "download_path", &v)
+            .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     }
     if let Some(v) = body.wm_position {
-        write_setting(&ctx, "wm_position", &v)
+        write_setting_async(&ctx, "wm_position", &v)
+            .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     }
     if let Some(v) = body.onboarding_dismissed {
-        write_setting(&ctx, "onboarding_dismissed", &v)
+        write_setting_async(&ctx, "onboarding_dismissed", &v)
+            .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     }
+    let cookie = read_setting_async(&ctx, "cookie").await;
+    let download_path = read_setting_async(&ctx, "download_path").await;
+    let wm_position = read_setting_async(&ctx, "wm_position").await;
+    let onboarding_dismissed = read_setting_async(&ctx, "onboarding_dismissed").await;
     Ok(Json(SettingsGet {
-        cookie: read_setting(&ctx, "cookie"),
-        download_path: read_setting(&ctx, "download_path"),
-        wm_position: read_setting(&ctx, "wm_position"),
-        onboarding_dismissed: read_setting(&ctx, "onboarding_dismissed"),
+        cookie,
+        download_path,
+        wm_position,
+        onboarding_dismissed,
     }))
 }
 
@@ -147,10 +182,9 @@ struct HistoryItem {
 async fn get_history(
     State(ctx): State<AppContext>,
 ) -> Result<Json<Vec<HistoryItem>>, (StatusCode, String)> {
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let rows = db::list_profile_history(&conn)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let rows = db_blocking(&ctx.db_path, |conn| db::list_profile_history(conn))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(
         rows.into_iter()
             .map(|r| HistoryItem {
@@ -167,26 +201,23 @@ async fn post_history(
     State(ctx): State<AppContext>,
     Json(item): Json<HistoryItem>,
 ) -> Result<Json<HistoryItem>, (StatusCode, String)> {
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    db::upsert_profile_history(
-        &conn,
-        &db::ProfileHistoryRow {
-            uid: item.uid.clone(),
-            screen_name: item.screen_name.clone(),
-            avatar: item.profile_image_url.clone(),
-            timestamp: item.timestamp,
-        },
-    )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let row = db::ProfileHistoryRow {
+        uid: item.uid.clone(),
+        screen_name: item.screen_name.clone(),
+        avatar: item.profile_image_url.clone(),
+        timestamp: item.timestamp,
+    };
+    db_blocking(&ctx.db_path, move |conn| {
+        db::upsert_profile_history(conn, &row)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(item))
 }
-
 async fn delete_history(State(ctx): State<AppContext>) -> Result<StatusCode, (StatusCode, String)> {
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    db::clear_profile_history(&conn)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    db_blocking(&ctx.db_path, |conn| db::clear_profile_history(conn))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -194,10 +225,11 @@ async fn delete_history_item(
     State(ctx): State<AppContext>,
     Path(uid): Path<String>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    db::delete_profile_history(&conn, &uid)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    db_blocking(&ctx.db_path, move |conn| {
+        db::delete_profile_history(conn, &uid)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -211,20 +243,22 @@ async fn get_places(
     State(ctx): State<AppContext>,
     Query(q): Query<PlacesQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let total: usize = conn
-        .query_row("SELECT COUNT(*) FROM places", [], |r| r.get(0))
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let limit = q.limit.unwrap_or(total);
-    let offset = q.offset.unwrap_or(0);
-    let mut stmt = conn
-        .prepare("SELECT lat, lon, name FROM places LIMIT ? OFFSET ?")
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let places: Vec<serde_json::Value> = stmt.query_map(rusqlite::params![limit as i64, offset as i64], |row| {
-        Ok(serde_json::json!({ "lat": row.get::<_, f64>(0)?, "lon": row.get::<_, f64>(1)?, "name": row.get::<_, String>(2)? }))
-    }).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .collect::<Result<_, _>>().map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let limit = q.limit;
+    let offset = q.offset;
+    let (places, total) = db_blocking(&ctx.db_path, move |conn| {
+        let total: usize = conn.query_row("SELECT COUNT(*) FROM places", [], |r| r.get(0))?;
+        let limit = limit.unwrap_or(total);
+        let offset = offset.unwrap_or(0);
+        let mut stmt = conn.prepare("SELECT lat, lon, name FROM places LIMIT ? OFFSET ?")?;
+        let places: Vec<serde_json::Value> = stmt
+            .query_map(rusqlite::params![limit as i64, offset as i64], |row| {
+                Ok(serde_json::json!({ "lat": row.get::<_, f64>(0)?, "lon": row.get::<_, f64>(1)?, "name": row.get::<_, String>(2)? }))
+            })?
+            .collect::<Result<_, _>>()?;
+        Ok((places, total))
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(
         serde_json::json!({ "places": places, "total": total }),
     ))
@@ -241,16 +275,18 @@ async fn search_places(
     Query(q): Query<SearchQuery>,
 ) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, String)> {
     let term = q.q.or(q.query).unwrap_or_default();
-    let pattern = format!("%{}%", term);
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let mut stmt = conn
-        .prepare("SELECT lat, lon, name FROM places WHERE name LIKE ?1")
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let rows = stmt.query_map(rusqlite::params![pattern], |row| {
-        Ok(serde_json::json!({ "lat": row.get::<_, f64>(0)?, "lon": row.get::<_, f64>(1)?, "name": row.get::<_, String>(2)? }))
-    }).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .collect::<Result<Vec<_>, _>>().map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let pattern = format!("%{term}%");
+    let rows = db_blocking(&ctx.db_path, move |conn| {
+        let mut stmt = conn.prepare("SELECT lat, lon, name FROM places WHERE name LIKE ?1")?;
+        let rows = stmt
+            .query_map(rusqlite::params![pattern], |row| {
+                Ok(serde_json::json!({ "lat": row.get::<_, f64>(0)?, "lon": row.get::<_, f64>(1)?, "name": row.get::<_, String>(2)? }))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(rows))
 }
 
@@ -265,13 +301,18 @@ async fn post_place(
     State(ctx): State<AppContext>,
     Json(body): Json<PlaceBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    conn.execute(
-        "INSERT OR IGNORE INTO places (lat, lon, name) VALUES (?1, ?2, ?3)",
-        rusqlite::params![body.lat, body.lon, body.name],
-    )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let lat = body.lat;
+    let lon = body.lon;
+    let name = body.name;
+    db_blocking(&ctx.db_path, move |conn| {
+        conn.execute(
+            "INSERT OR IGNORE INTO places (lat, lon, name) VALUES (?1, ?2, ?3)",
+            rusqlite::params![lat, lon, name],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
@@ -283,18 +324,22 @@ struct BlogPlaceQuery {
     #[serde(alias = "mblogid")]
     mblogid: Option<String>,
 }
-
 async fn get_blog_place(
     State(ctx): State<AppContext>,
     Query(q): Query<BlogPlaceQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let bid = q.mblogid.unwrap_or(q.blog_id);
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let mut stmt = conn.prepare("SELECT p.lat, p.lon, p.name FROM blog_places bp JOIN places p ON bp.place_id = p.id WHERE bp.user_id = ?1 AND bp.mblogid = ?2 LIMIT 1").map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let place: serde_json::Value = stmt.query_row(rusqlite::params![q.uid, bid], |row| {
-        Ok(serde_json::json!({ "lat": row.get::<_, f64>(0)?, "lon": row.get::<_, f64>(1)?, "name": row.get::<_, String>(2)? }))
-    }).map_err(|e| (StatusCode::NOT_FOUND, e.to_string()))?;
+    let bid = q.mblogid.clone().unwrap_or(q.blog_id.clone());
+    let uid = q.uid.clone();
+    let place = db_blocking(&ctx.db_path, move |conn| {
+        let mut stmt = conn.prepare("SELECT p.lat, p.lon, p.name FROM blog_places bp JOIN places p ON bp.place_id = p.id WHERE bp.user_id = ?1 AND bp.mblogid = ?2 LIMIT 1")?;
+        let found = stmt.query_row(rusqlite::params![uid, bid], |row| {
+            Ok(serde_json::json!({ "lat": row.get::<_, f64>(0)?, "lon": row.get::<_, f64>(1)?, "name": row.get::<_, String>(2)? }))
+        }).optional()?;
+        found.ok_or(rusqlite::Error::QueryReturnedNoRows)
+    })
+    .await;
+    // Absent mapping reads as NOT_FOUND, real DB failures also surface here.
+    let place = place.map_err(|e| (StatusCode::NOT_FOUND, e))?;
     Ok(Json(place))
 }
 
@@ -310,23 +355,21 @@ async fn put_blog_place(
     State(ctx): State<AppContext>,
     Json(body): Json<BlogPlacePut>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let place_id: i64 = conn.query_row(
-        "INSERT INTO places (lat, lon, name) VALUES (?1, ?2, ?3) ON CONFLICT(lat, lon, name) DO UPDATE SET lat = lat RETURNING id",
-        rusqlite::params![body.place.lat, body.place.lon, body.place.name],
-        |row| row.get(0)
-    ).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    conn.execute(
-        "INSERT OR REPLACE INTO blog_places (user_id, mblogid, place_id) VALUES (?1, ?2, ?3)",
-        rusqlite::params![body.uid, body.blog_id, place_id],
-    )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    conn.execute(
-        "DELETE FROM places WHERE id NOT IN (SELECT place_id FROM blog_places)",
-        [],
-    )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let uid = body.uid;
+    let blog_id = body.blog_id;
+    let place = db::Place {
+        lat: body.place.lat,
+        lon: body.place.lon,
+        name: body.place.name,
+    };
+    db_blocking(&ctx.db_path, move |conn| {
+        let tx = conn.transaction()?;
+        db::set_blog_place_txn(&tx, &uid, &blog_id, &place)?;
+        tx.commit()?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
@@ -335,18 +378,15 @@ async fn delete_blog_place(
     Query(q): Query<BlogPlaceQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let bid = q.mblogid.unwrap_or(q.blog_id);
-    let conn = rusqlite::Connection::open(&ctx.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    conn.execute(
-        "DELETE FROM blog_places WHERE user_id = ?1 AND mblogid = ?2",
-        rusqlite::params![q.uid, bid],
-    )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    conn.execute(
-        "DELETE FROM places WHERE id NOT IN (SELECT place_id FROM blog_places)",
-        [],
-    )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let uid = q.uid;
+    db_blocking(&ctx.db_path, move |conn| {
+        let tx = conn.transaction()?;
+        db::remove_blog_place_txn(&tx, &uid, &bid)?;
+        tx.commit()?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
@@ -390,12 +430,12 @@ async fn post_cancel(
 }
 
 async fn get_download_dir_default(State(ctx): State<AppContext>) -> Json<serde_json::Value> {
+    let override_path = read_setting_async(&ctx, "download_path").await;
     let path = ctx
         .config
-        .effective_download_root(read_setting(&ctx, "download_path").as_deref())
+        .effective_download_root(override_path.as_deref())
         .to_string_lossy()
         .to_string();
-    // Prefer server-side download_path setting if present, else default
     Json(serde_json::json!({ "path": path }))
 }
 
@@ -467,7 +507,9 @@ async fn get_img_proxy(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("image/jpeg")
         .to_string();
-    let bytes = res.bytes().await.unwrap_or_default();
+    let Ok(bytes) = res.bytes().await else {
+        return (StatusCode::BAD_GATEWAY, "upstream body failed").into_response();
+    };
     let mut builder = Response::builder()
         .status(status)
         .header(header::CONTENT_TYPE, mime);
@@ -500,12 +542,14 @@ async fn get_weibo(
     let since_id = q.since_id.or(q.since_id2);
     let target_url = weibo::build_mymblog_url(&q.uid, page, since_id.as_deref());
     // First-seed request carries the cookie in a header, later ones reuse the stored setting.
-    let cookie = headers
+    let header_cookie = headers
         .get("x-wei-cookie")
         .and_then(|v| v.to_str().ok())
-        .map(str::to_string)
-        .or_else(|| read_setting(&ctx, "cookie"))
-        .unwrap_or_default();
+        .map(str::to_string);
+    let cookie = match header_cookie {
+        Some(v) => v,
+        None => read_setting_async(&ctx, "cookie").await.unwrap_or_default(),
+    };
     let ua = ctx
         .user_agent
         .read()

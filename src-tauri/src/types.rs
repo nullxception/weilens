@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
+use std::fmt;
 use std::io;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -102,6 +103,22 @@ mod tests {
 
         assert_eq!(config.effective_max_concurrency(), 1);
     }
+
+    #[test]
+    fn download_status_mirrors_ts_union() {
+        // Keep in sync with DownloadProgressStatus in src/types/rpc.ts.
+        let cases = [
+            (DownloadStatus::Downloading, "downloading"),
+            (DownloadStatus::Completed, "completed"),
+            (DownloadStatus::Failed, "failed"),
+            (DownloadStatus::Cancelled, "cancelled"),
+        ];
+        for (status, expected) in cases {
+            let json = serde_json::to_value(status).expect("status serializes");
+            assert_eq!(json, serde_json::json!(expected));
+            assert_eq!(status.to_string(), expected);
+        }
+    }
 }
 #[derive(Deserialize)]
 pub struct DownloadItem {
@@ -114,13 +131,69 @@ pub struct GpsData {
     pub lat: f64,
     pub lon: f64,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DownloadStatus {
+    #[allow(dead_code)] // wire mirror: frontend sets "downloading" locally, Rust only reads it
+    Downloading,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl fmt::Display for DownloadStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DownloadStatus::Downloading => write!(f, "downloading"),
+            DownloadStatus::Completed => write!(f, "completed"),
+            DownloadStatus::Failed => write!(f, "failed"),
+            DownloadStatus::Cancelled => write!(f, "cancelled"),
+        }
+    }
+}
+
+macro_rules! id_newtype {
+    ($name:ident) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        #[serde(transparent)]
+        pub struct $name(pub String);
+
+        impl From<String> for $name {
+            fn from(value: String) -> Self {
+                $name(value)
+            }
+        }
+
+        impl From<&str> for $name {
+            fn from(value: &str) -> Self {
+                $name(value.to_string())
+            }
+        }
+
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(&self.0)
+            }
+        }
+    };
+}
+
+id_newtype!(UserId);
+id_newtype!(BlogId);
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadProgressPayload {
     pub post_id: String,
     pub index: usize,
     pub total: usize,
-    pub status: String,
+    pub status: DownloadStatus,
     pub url: String,
     pub saved_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

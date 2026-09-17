@@ -7,6 +7,13 @@ use thiserror::Error;
 pub enum MotionError {
     #[error("JPEG processing error: {0}")]
     Jpeg(String),
+    #[error("invalid motion input: {0}")]
+    InvalidInput(String),
+}
+// Mux lengths land in little-endian u32 fields, so inputs past 4 GiB fail instead of truncating.
+fn u32_len(len: usize, field: &str) -> Result<u32, MotionError> {
+    u32::try_from(len)
+        .map_err(|_| MotionError::InvalidInput(format!("{field} length {len} exceeds u32 range")))
 }
 
 struct SefTag<'a> {
@@ -51,7 +58,7 @@ pub fn mux(image_bytes: &[u8], video_bytes: &[u8], mime: &str) -> Result<Vec<u8>
     for (i, tag) in tags.iter().enumerate() {
         let start = tag_data.len();
         tag_data.extend_from_slice(&tag.id);
-        tag_data.extend_from_slice(&(tag.name.len() as u32).to_le_bytes());
+        tag_data.extend_from_slice(&u32_len(tag.name.len(), "tag name")?.to_le_bytes());
         tag_data.extend_from_slice(tag.name.as_bytes());
 
         if i == 0 {
@@ -60,7 +67,7 @@ pub fn mux(image_bytes: &[u8], video_bytes: &[u8], mime: &str) -> Result<Vec<u8>
         }
 
         tag_data.extend_from_slice(tag.payload);
-        tag_lengths.push((tag_data.len() - start) as u32);
+        tag_lengths.push(u32_len(tag_data.len() - start, "tag")?);
     }
 
     let mut offsets = vec![0u32; tags.len()];
@@ -73,18 +80,22 @@ pub fn mux(image_bytes: &[u8], video_bytes: &[u8], mime: &str) -> Result<Vec<u8>
     let mut sefh = Vec::new();
     sefh.extend_from_slice(b"SEFH");
     sefh.extend_from_slice(&SEFH_VERSION.to_le_bytes());
-    sefh.extend_from_slice(&(tags.len() as u32).to_le_bytes());
+    sefh.extend_from_slice(&u32_len(tags.len(), "tag count")?.to_le_bytes());
     for ((tag, &offset), &len) in tags.iter().zip(&offsets).zip(&tag_lengths) {
         sefh.extend_from_slice(&tag.id);
         sefh.extend_from_slice(&offset.to_le_bytes());
         sefh.extend_from_slice(&len.to_le_bytes());
     }
-    let sefh_len = sefh.len() as u32;
+    let sefh_len = u32_len(sefh.len(), "sefh")?;
     sefh.extend_from_slice(&sefh_len.to_le_bytes());
     sefh.extend_from_slice(b"SEFT");
 
     let total_trailing = tag_data.len() + sefh.len();
-    let video_len = total_trailing - video_padstart;
+    let Some(video_len) = total_trailing.checked_sub(video_padstart) else {
+        return Err(MotionError::InvalidInput(format!(
+            "trailing length {total_trailing} smaller than video offset {video_padstart}"
+        )));
+    };
 
     let xmp_packet = format!(
         r#"<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.0-jc003">

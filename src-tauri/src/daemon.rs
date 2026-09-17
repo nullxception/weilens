@@ -101,6 +101,7 @@ async fn clear_stale_pid_file() {
     }
 }
 
+/// Start the detached server, exiting the CLI on spawn or bind failure.
 pub async fn daemon_start(port: u16) {
     if probe_port(port).await {
         println!("weilens already running on :{port}.");
@@ -199,6 +200,7 @@ async fn kill_by_port(port: u16) {
     }
 }
 
+/// Stop the server via pidfile first, port scan as fallback.
 pub async fn daemon_stop(port: u16) {
     if !probe_port(port).await {
         println!("nothing running on :{port}.");
@@ -250,11 +252,13 @@ pub async fn daemon_stop(port: u16) {
     println!("weilens server stopped (:{port}).");
 }
 
+/// Stop then start the server on the same port.
 pub async fn daemon_restart(port: u16) {
     daemon_stop(port).await;
     daemon_start(port).await;
 }
 
+/// Report whether the port answers and whether the pidfile process is alive.
 pub async fn daemon_status(port: u16) {
     let live = probe_port(port).await;
     let pid = tokio_fs::read_to_string(pid_file())

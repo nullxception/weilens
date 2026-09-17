@@ -66,6 +66,7 @@ fn install_panic_hook() {
 fn install_signal_handlers() {
     use signal_hook::consts::signal::*;
     for sig in [SIGSEGV, SIGBUS, SIGILL, SIGABRT, SIGFPE] {
+        // SAFETY: handler only writes to a file and aborts, both async-signal-safe enough for a fatal path.
         let _ = unsafe { signal_hook::low_level::register(sig, move || handle_signal(sig)) };
     }
 }
@@ -84,7 +85,8 @@ fn handle_signal(sig: i32) {
     let body = format!("signal: {name} ({sig})\nbacktrace:\n{bt}");
     append_crash_block(&format!("FATAL {name}"), &body);
     std::thread::sleep(std::time::Duration::from_millis(200));
-    unsafe { libc::abort() };
+    // SAFETY: process is fatally compromised; abort never returns and runs after the log flush.
+    unsafe { libc::abort() }
 }
 
 #[cfg(windows)]
@@ -96,6 +98,7 @@ fn install_windows_handler() {
         Option<unsafe extern "system" fn(*const Dbg::EXCEPTION_POINTERS) -> i32>,
     > = OnceLock::new();
 
+    // SAFETY: OS supplies a valid pointer or null for the duration of the filter call; nulls return early.
     unsafe extern "system" fn filter(info: *const Dbg::EXCEPTION_POINTERS) -> i32 {
         const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
         let code: u32 = if info.is_null() || (*info).ExceptionRecord.is_null() {
@@ -115,6 +118,7 @@ fn install_windows_handler() {
         let body = format!("exception: {name} 0x{code:08X}\nbacktrace:\n{bt}");
         append_crash_block("FATAL SEH", &body);
         if let Some(Some(prev)) = PREV.get() {
+            // SAFETY: pointer came from SetUnhandledExceptionFilter and stays valid for process lifetime.
             unsafe {
                 return prev(info);
             }
@@ -122,6 +126,7 @@ fn install_windows_handler() {
         EXCEPTION_CONTINUE_SEARCH
     }
 
+    // SAFETY: filter is a plain fn item with the required ABI; it lives for the process lifetime.
     unsafe {
         let prev = Dbg::SetUnhandledExceptionFilter(Some(filter));
         let _ = PREV.set(prev);

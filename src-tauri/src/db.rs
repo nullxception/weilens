@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -176,8 +176,25 @@ pub fn clear_profile_history(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
-fn cleanup_orphans(conn: &Connection) -> Result<(), rusqlite::Error> {
-    conn.execute(
+// Multi-write blog place core shared by Tauri commands and the server path.
+pub fn set_blog_place_txn(
+    tx: &Transaction<'_>,
+    uid: &str,
+    blog_id: &str,
+    place: &Place,
+) -> Result<(), rusqlite::Error> {
+    let place_id: i64 = tx.query_row(
+        "INSERT INTO places (lat, lon, name) VALUES (?1, ?2, ?3)
+         ON CONFLICT(lat, lon, name) DO UPDATE SET lat = lat
+         RETURNING id",
+        params![place.lat, place.lon, place.name],
+        |row| row.get(0),
+    )?;
+    tx.execute(
+        "INSERT OR REPLACE INTO blog_places (user_id, mblogid, place_id) VALUES (?1, ?2, ?3)",
+        params![uid, blog_id, place_id],
+    )?;
+    tx.execute(
         "DELETE FROM places
          WHERE id NOT IN (SELECT place_id FROM blog_places)",
         [],
@@ -185,6 +202,22 @@ fn cleanup_orphans(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
+pub fn remove_blog_place_txn(
+    tx: &Transaction<'_>,
+    uid: &str,
+    blog_id: &str,
+) -> Result<(), rusqlite::Error> {
+    tx.execute(
+        "DELETE FROM blog_places WHERE user_id = ?1 AND mblogid = ?2",
+        params![uid, blog_id],
+    )?;
+    tx.execute(
+        "DELETE FROM places
+         WHERE id NOT IN (SELECT place_id FROM blog_places)",
+        [],
+    )?;
+    Ok(())
+}
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Places {
@@ -295,23 +328,10 @@ pub fn set_blog_place(
     blog_id: String,
     place: Place,
 ) -> Result<(), String> {
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let place_id: i64 = conn
-        .query_row(
-            "INSERT INTO places (lat, lon, name) VALUES (?1, ?2, ?3)
-             ON CONFLICT(lat, lon, name) DO UPDATE SET lat = lat
-             RETURNING id",
-            params![place.lat, place.lon, place.name],
-            |row| row.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT OR REPLACE INTO blog_places (user_id, mblogid, place_id) VALUES (?1, ?2, ?3)",
-        params![uid, blog_id, place_id],
-    )
-    .map_err(|e| e.to_string())?;
-    cleanup_orphans(&conn).map_err(|e| e.to_string())?;
-    Ok(())
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    set_blog_place_txn(&tx, &uid, &blog_id, &place).map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -320,14 +340,10 @@ pub fn remove_blog_place(
     uid: String,
     blog_id: String,
 ) -> Result<(), String> {
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "DELETE FROM blog_places WHERE user_id = ?1 AND mblogid = ?2",
-        params![uid, blog_id],
-    )
-    .map_err(|e| e.to_string())?;
-    cleanup_orphans(&conn).map_err(|e| e.to_string())?;
-    Ok(())
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    remove_blog_place_txn(&tx, &uid, &blog_id).map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())
 }
 
 #[allow(dead_code)]

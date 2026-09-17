@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{broadcast, Semaphore};
-use tokio::task::spawn_blocking;
+use tokio::task::{spawn_blocking, JoinError, JoinSet};
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use url::Url;
@@ -16,14 +16,17 @@ use crate::exif;
 use crate::image;
 use crate::image::WmPosition;
 use crate::motion;
-use crate::types::{DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData};
+use crate::types::{
+    BlogId, DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, DownloadStatus,
+    GpsData, UserId,
+};
 use crate::util;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadPostRequest {
-    pub uid: String,
-    pub blog_id: String,
+    pub uid: UserId,
+    pub blog_id: BlogId,
     pub date: String,
     pub dewatermark: String,
     pub items: Vec<DownloadItem>,
@@ -33,7 +36,7 @@ pub struct DownloadPostRequest {
 
 pub struct DownloadTask {
     pub progress_tx: broadcast::Sender<DownloadProgressPayload>,
-    pub post_id: String,
+    pub post_id: BlogId,
     pub created_at_dt: DateTime<Utc>,
     pub dewatermark: String,
     pub item_url: String,
@@ -59,7 +62,7 @@ fn emit_cancelled(
         post_id: post_id.to_string(),
         index,
         total,
-        status: "cancelled".to_string(),
+        status: DownloadStatus::Cancelled,
         url: url.to_string(),
         saved_path: None,
         warning: None,
@@ -157,7 +160,7 @@ async fn try_merge_watermark_free(task: &DownloadTask, buffer: &mut Vec<u8>) {
     if check_cancelled(&task.cancellation_token).is_err() {
         return;
     }
-    let pos = WmPosition::from(task.dewatermark.as_str());
+    let pos: WmPosition = task.dewatermark.parse().unwrap_or_default();
     if image::dewatermark(buffer, &no_wm_bytes, pos)
         .map(|merged| *buffer = merged)
         .is_err()
@@ -218,30 +221,30 @@ async fn process_motion(
     motion::mux(image_bytes, &video_bytes, mime).map_err(|e| DownloadError::Mux(e.to_string()))
 }
 
-pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>), DownloadError> {
+pub async fn download(task: &DownloadTask) -> Result<(Vec<String>, Option<String>), DownloadError> {
     let mut saved_paths = Vec::new();
     let mut warning = None;
 
     check_cancelled(&task.cancellation_token)?;
 
     let response = cancellable_send(
-        fetch_request(&task, &task.item_url),
+        fetch_request(task, &task.item_url),
         &task.cancellation_token,
     )
     .await
-    .inspect_err(|err| log_download_error(&task, err))?;
+    .inspect_err(|err| log_download_error(task, err))?;
 
     if !response.status().is_success() {
         let err = DownloadError::Http(format!("HTTP error: {}", response.status()));
-        log_download_error(&task, &err);
+        log_download_error(task, &err);
         return Err(err);
     }
 
     let mut buffer = cancellable_bytes(response, &task.cancellation_token)
         .await
-        .inspect_err(|err| log_download_error(&task, err))?;
+        .inspect_err(|err| log_download_error(task, err))?;
 
-    try_merge_watermark_free(&task, &mut buffer).await;
+    try_merge_watermark_free(task, &mut buffer).await;
 
     let extension = Path::new(&task.item_url)
         .extension()
@@ -273,7 +276,7 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     // Mux in memory so the later file write stays single-shot.
     if let Some(video_url) = &task.item_video_url {
         check_cancelled(&task.cancellation_token)?;
-        match process_motion(&task, video_url, &buffer).await {
+        match process_motion(task, video_url, &buffer).await {
             Ok(muxed) => {
                 buffer = muxed;
                 log::info!(
@@ -301,14 +304,20 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
 
     check_cancelled(&task.cancellation_token)?;
     let target_path_str = target_path.to_string_lossy().to_string();
+    let mut write_task = spawn_blocking(move || -> Result<(), DownloadError> {
+        File::create(&target_path)?.write_all(&buffer)?;
+        Ok(())
+    });
     tokio::select! {
-        result = spawn_blocking(move || -> Result<(), DownloadError> {
-            File::create(&target_path)?.write_all(&buffer)?;
-            Ok(())
-        }) => {
-            result.map_err(|e| DownloadError::Request(format!("Join error: {}", e)))??;
-        },
-        _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
+        result = &mut write_task => {
+            result.map_err(|e| DownloadError::Request(format!("Join error: {e}")))??;
+        }
+        _ = task.cancellation_token.cancelled() => {
+            // Detaching would let the write land after "cancelled"; abort instead and best-effort remove a partially written file.
+            write_task.abort();
+            let _ = std::fs::remove_file(&target_path_str);
+            return Err(DownloadError::Cancelled);
+        }
     }
 
     log::info!(
@@ -322,10 +331,10 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     emit_progress(
         &task.progress_tx,
         DownloadProgressPayload {
-            post_id: task.post_id.clone(),
+            post_id: task.post_id.to_string(),
             index: task.index,
             total: task.total,
-            status: "completed".to_string(),
+            status: DownloadStatus::Completed,
             url: task.item_url.clone(),
             saved_path: Some(target_path_str.clone()),
             warning: warning.clone(),
@@ -344,6 +353,147 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     Ok((saved_paths, warning))
 }
 
+struct ItemOutcome {
+    index: usize,
+    result: Result<(Vec<String>, Option<String>), DownloadError>,
+}
+
+// Shared per-item attempt state is built once by the caller; retries borrow it.
+async fn run_item_with_retries(
+    task: &DownloadTask,
+    semaphore: &Semaphore,
+) -> Result<(Vec<String>, Option<String>), DownloadError> {
+    if task.cancellation_token.is_cancelled() {
+        emit_cancelled(
+            &task.progress_tx,
+            task.post_id.as_ref(),
+            task.index,
+            task.total,
+            &task.item_url,
+        );
+        return Err(DownloadError::Cancelled);
+    }
+    let permit_result = tokio::select! {
+        permit = semaphore.acquire() => permit.map_err(|_| DownloadError::Cancelled),
+        _ = task.cancellation_token.cancelled() => Err(DownloadError::Cancelled),
+    };
+    let Ok(_permit) = permit_result else {
+        emit_cancelled(
+            &task.progress_tx,
+            task.post_id.as_ref(),
+            task.index,
+            task.total,
+            &task.item_url,
+        );
+        return Err(DownloadError::Cancelled);
+    };
+    let mut attempt = 0u32;
+    loop {
+        if task.cancellation_token.is_cancelled() {
+            emit_cancelled(
+                &task.progress_tx,
+                task.post_id.as_ref(),
+                task.index,
+                task.total,
+                &task.item_url,
+            );
+            return Err(DownloadError::Cancelled);
+        }
+        match download(task).await {
+            Ok(paths) => break Ok(paths),
+            Err(DownloadError::Cancelled) => {
+                emit_cancelled(
+                    &task.progress_tx,
+                    task.post_id.as_ref(),
+                    task.index,
+                    task.total,
+                    &task.item_url,
+                );
+                break Err(DownloadError::Cancelled);
+            }
+            Err(e) if attempt < task.config.max_retries => {
+                attempt += 1;
+                let delay_ms = task
+                    .config
+                    .retry_base_delay_ms
+                    .saturating_mul(1u64 << attempt.min(10))
+                    .min(task.config.retry_max_delay_ms);
+                log::warn!(
+                    "[Post {}:{}/{}] Attempt {}/{} failed ({}). Retrying in {}ms…",
+                    task.post_id,
+                    task.index + 1,
+                    task.total,
+                    attempt,
+                    task.config.max_retries,
+                    e,
+                    delay_ms
+                );
+                tokio::select! {
+                    _ = sleep(Duration::from_millis(delay_ms)) => {}
+                    _ = task.cancellation_token.cancelled() => {
+                        emit_cancelled(
+                            &task.progress_tx,
+                            task.post_id.as_ref(),
+                            task.index,
+                            task.total,
+                            &task.item_url,
+                        );
+                        return Err(DownloadError::Cancelled);
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!(
+                    "[Post {}:{}/{}] All {} retries exhausted: {}",
+                    task.post_id,
+                    task.index + 1,
+                    task.total,
+                    task.config.max_retries,
+                    e
+                );
+                emit_progress(
+                    &task.progress_tx,
+                    DownloadProgressPayload {
+                        post_id: task.post_id.to_string(),
+                        index: task.index,
+                        total: task.total,
+                        status: DownloadStatus::Failed,
+                        url: task.item_url.clone(),
+                        saved_path: None,
+                        warning: None,
+                    },
+                );
+                break Err(e);
+            }
+        }
+    }
+}
+
+fn collect_outcome(
+    res: Result<ItemOutcome, JoinError>,
+    saved_paths: &mut Vec<String>,
+    reported: &mut [bool],
+) {
+    match res {
+        Ok(outcome) => {
+            if let Some(seen) = reported.get_mut(outcome.index) {
+                *seen = true;
+            }
+            match outcome.result {
+                Ok((paths, _)) => saved_paths.extend(paths),
+                Err(DownloadError::Cancelled) => log::info!("Download item cancelled"),
+                Err(e) => log::error!("Error downloading item: {e}"),
+            }
+        }
+        Err(e) if e.is_cancelled() => log::info!("Download item cancelled"),
+        Err(e) => {
+            // Panics and other join failures never retry; surface them as request errors.
+            let e = DownloadError::Request(format!("task panicked: {e}"));
+            log::error!("Error downloading item: {e}");
+        }
+    }
+}
+
 pub async fn download_post_core(
     request: DownloadPostRequest,
     client: reqwest::Client,
@@ -353,10 +503,10 @@ pub async fn download_post_core(
     progress_tx: broadcast::Sender<DownloadProgressPayload>,
 ) -> Result<serde_json::Value, String> {
     let base_dir = config.effective_download_root(request.target.as_deref());
-    let uid_segment = if request.uid.trim().is_empty() {
+    let uid_segment = if request.uid.as_ref().trim().is_empty() {
         "unknown_user"
     } else {
-        &request.uid
+        request.uid.as_ref()
     };
     let created_at_dt = dates::parse_date(&request.date).unwrap_or_else(chrono::Utc::now);
     let date_segment = dates::get_date_folder(&created_at_dt);
@@ -370,127 +520,80 @@ pub async fn download_post_core(
     cancel_map
         .lock()
         .map_err(|e| e.to_string())?
-        .insert(request.blog_id.clone(), cancellation_token.clone());
-    let mut handles = Vec::with_capacity(total);
+        .insert(request.blog_id.to_string(), cancellation_token.clone());
+    let mut tasks = JoinSet::new();
     for (index, item) in request.items.iter().enumerate() {
-        let sem = semaphore.clone();
-        let token = cancellation_token.clone();
-        let config_clone = config.clone();
-        let post_id = request.blog_id.clone();
-        let progress_tx_clone = progress_tx.clone();
-        let item_url = item.url.clone();
-        let item_video = item.video_url.clone();
-        let dewatermark = request.dewatermark.clone();
-        let gps_loc = request.gps;
-        let resolved_dir = download_dir.clone();
-        let client_clone = client.clone();
-        let user_agent_clone = user_agent.clone();
-        let created_at = created_at_dt;
-        let handle = tokio::spawn(async move {
-            if token.is_cancelled() {
-                emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
-                return Err(DownloadError::Cancelled);
+        let semaphore = semaphore.clone();
+        let progress_tx = progress_tx.clone();
+        // Single task value per item; retries borrow it instead of rebuilding.
+        let task = DownloadTask {
+            progress_tx: progress_tx.clone(),
+            post_id: request.blog_id.clone(),
+            created_at_dt,
+            dewatermark: request.dewatermark.clone(),
+            item_url: item.url.clone(),
+            item_video_url: item.video_url.clone(),
+            index,
+            total,
+            target_dir: download_dir.clone(),
+            gps_loc: request.gps,
+            client: client.clone(),
+            config: config.clone(),
+            user_agent: user_agent.clone(),
+            cancellation_token: cancellation_token.clone(),
+        };
+        tasks.spawn(async move {
+            let result = run_item_with_retries(&task, &semaphore).await;
+            ItemOutcome { index, result }
+        });
+    }
+    let mut reported = vec![false; total];
+    let mut saved_paths = Vec::new();
+    while let Some(res) = tasks.join_next().await {
+        let cancelled_before_drain = cancellation_token.is_cancelled();
+        collect_outcome(res, &mut saved_paths, &mut reported);
+        if cancelled_before_drain {
+            tasks.abort_all();
+            while let Some(res) = tasks.join_next().await {
+                collect_outcome(res, &mut saved_paths, &mut reported);
             }
-            let permit_result = tokio::select! {
-                permit = sem.acquire() => permit.map_err(|_| DownloadError::Cancelled),
-                _ = token.cancelled() => Err(DownloadError::Cancelled),
-            };
-            let Ok(_permit) = permit_result else {
-                emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
-                return Err(DownloadError::Cancelled);
-            };
-            let mut attempt = 0u32;
-            loop {
-                if token.is_cancelled() {
-                    emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
-                    return Err(DownloadError::Cancelled);
-                }
-                let task = DownloadTask {
-                    progress_tx: progress_tx_clone.clone(),
-                    post_id: post_id.clone(),
-                    created_at_dt: created_at,
-                    dewatermark: dewatermark.clone(),
-                    item_url: item_url.clone(),
-                    item_video_url: item_video.clone(),
+            break;
+        }
+    }
+    let was_cancelled = cancellation_token.is_cancelled();
+    for (index, seen) in reported.iter().enumerate() {
+        if *seen {
+            continue;
+        }
+        if let Some(item) = request.items.get(index) {
+            // Aborted tasks after a cancel read cancelled, anything else reads failed.
+            if was_cancelled {
+                emit_cancelled(
+                    &progress_tx,
+                    request.blog_id.as_ref(),
                     index,
                     total,
-                    target_dir: resolved_dir.clone(),
-                    gps_loc,
-                    client: client_clone.clone(),
-                    config: config_clone.clone(),
-                    user_agent: user_agent_clone.clone(),
-                    cancellation_token: token.clone(),
-                };
-                match download(task).await {
-                    Ok(paths) => break Ok(paths),
-                    Err(DownloadError::Cancelled) => {
-                        emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
-                        break Err(DownloadError::Cancelled);
-                    }
-                    Err(e) if attempt < config_clone.max_retries => {
-                        attempt += 1;
-                        let delay_ms = config_clone
-                            .retry_base_delay_ms
-                            .saturating_mul(1u64 << attempt.min(10))
-                            .min(config_clone.retry_max_delay_ms);
-                        log::warn!(
-                            "[Post {}:{}/{}] Attempt {}/{} failed ({}). Retrying in {}ms…",
-                            post_id,
-                            index + 1,
-                            total,
-                            attempt,
-                            config_clone.max_retries,
-                            e,
-                            delay_ms
-                        );
-                        tokio::select! {
-                            _ = sleep(Duration::from_millis(delay_ms)) => {},
-                            _ = token.cancelled() => {
-                                emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
-                                return Err(DownloadError::Cancelled);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        log::error!(
-                            "[Post {}:{}/{}] All {} retries exhausted: {}",
-                            post_id,
-                            index + 1,
-                            total,
-                            config_clone.max_retries,
-                            e
-                        );
-                        emit_progress(
-                            &progress_tx_clone,
-                            DownloadProgressPayload {
-                                post_id: post_id.clone(),
-                                index,
-                                total,
-                                status: "failed".to_string(),
-                                url: item_url.clone(),
-                                saved_path: None,
-                                warning: None,
-                            },
-                        );
-                        break Err(e);
-                    }
-                }
+                    &item.url,
+                );
+            } else {
+                emit_progress(
+                    &progress_tx,
+                    DownloadProgressPayload {
+                        post_id: request.blog_id.to_string(),
+                        index,
+                        total,
+                        status: DownloadStatus::Failed,
+                        url: item.url.clone(),
+                        saved_path: None,
+                        warning: None,
+                    },
+                );
             }
-        });
-        handles.push(handle);
-    }
-    let mut saved_paths = Vec::new();
-    for handle in handles {
-        match handle.await {
-            Ok(Ok((paths, _))) => saved_paths.extend(paths),
-            Ok(Err(DownloadError::Cancelled)) => log::info!("Download item cancelled"),
-            Ok(Err(e)) => log::error!("Error downloading item: {}", e),
-            Err(e) => log::error!("Join error: {}", e),
         }
     }
     {
         let mut map = cancel_map.lock().map_err(|e| e.to_string())?;
-        map.remove(&request.blog_id);
+        map.remove(&request.blog_id.0);
     }
     Ok(serde_json::json!({ "savedPaths": saved_paths, "count": saved_paths.len() }))
 }
@@ -549,8 +652,17 @@ pub async fn download_post(
     let app_for_forward = app_handle.clone();
     tokio::spawn(async move {
         use tauri::Emitter;
-        while let Ok(payload) = progress_rx.recv().await {
-            let _ = app_for_forward.emit("download-progress", payload);
+        loop {
+            match progress_rx.recv().await {
+                Ok(payload) => {
+                    let _ = app_for_forward.emit("download-progress", payload);
+                }
+                // Slow frontend consumer: keep the latest progress flowing, never stall.
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    log::warn!("download-progress forwarder lagged, skipped {skipped} events");
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
         }
     });
     download_post_core(request, client, user_agent, config, cancel_map, progress_tx).await

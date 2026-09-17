@@ -1,25 +1,45 @@
 use crate::types;
+use serde::Deserialize;
 use std::cmp;
 use std::io;
+use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tauri::{http::header::REFERER, http::Request, http::Response, UriSchemeResponder};
+use thiserror::Error;
 use url::Url;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum WmPosition {
     Top,
     Center,
+    #[default]
     Bottom,
 }
 
-impl From<&str> for WmPosition {
-    fn from(value: &str) -> Self {
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[error("unknown watermark position: {0}")]
+pub struct InvalidWmPosition(String);
+
+impl FromStr for WmPosition {
+    type Err = InvalidWmPosition;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "top" => WmPosition::Top,
-            "center" => WmPosition::Center,
-            _ => WmPosition::Bottom,
+            "top" => Ok(WmPosition::Top),
+            "center" => Ok(WmPosition::Center),
+            "bottom" => Ok(WmPosition::Bottom),
+            _ => Err(InvalidWmPosition(value.to_string())),
         }
+    }
+}
+
+impl TryFrom<&str> for WmPosition {
+    type Error = InvalidWmPosition;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 
@@ -31,13 +51,16 @@ pub fn dewatermark(
     use image::{imageops, imageops::FilterType, GenericImageView};
 
     let mut img_wm = image::load_from_memory(wm_bytes)
-        .map_err(|e| format!("Failed to load watermarked image: {}", e))?;
+        .map_err(|e| format!("failed to load watermarked image: {e}"))?;
     let img_no_wm = image::load_from_memory(no_wm_bytes)
-        .map_err(|e| format!("Failed to load no-watermark image: {}", e))?;
+        .map_err(|e| format!("failed to load no-watermark image: {e}"))?;
 
     let (width, height) = img_wm.dimensions();
     let resized_no_wm = img_no_wm.resize_exact(width, height, FilterType::Triangle);
-    let strip_height = cmp::max(1, (f64::from(height) * 0.03).round() as u32);
+    // Height is a small image dimension, so clamping bounds the float cast to 1..=height.
+    let upper = f64::from(height.max(1));
+    let scaled = (f64::from(height) * 0.03).round().clamp(1.0, upper);
+    let strip_height = cmp::max(1, scaled as u32);
 
     let start_y = match position {
         WmPosition::Top => 0,
@@ -53,7 +76,7 @@ pub fn dewatermark(
     let mut out_bytes = io::Cursor::new(Vec::new());
     img_wm
         .write_to(&mut out_bytes, image::ImageFormat::Jpeg)
-        .map_err(|e| format!("Failed to encode merged image: {}", e))?;
+        .map_err(|e| format!("failed to encode merged image: {e}"))?;
 
     Ok(out_bytes.into_inner())
 }
@@ -114,7 +137,9 @@ pub async fn handle_image_proxy(
                 .to_string();
 
             let status_code = outbound_res.status().as_u16();
-            let bytes = outbound_res.bytes().await.unwrap_or_default();
+            let Ok(bytes) = outbound_res.bytes().await else {
+                return responder.respond(error_response(502));
+            };
 
             let cache_control = headers.get("cache-control").and_then(|h| h.to_str().ok());
             let etag = headers.get("etag").and_then(|h| h.to_str().ok());

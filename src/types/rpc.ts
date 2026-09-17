@@ -18,4 +18,5 @@ export interface DownloadProgressPayload {
   status: DownloadProgressStatus;
   url: string;
   savedPath?: string;
+  warning?: string;
 }

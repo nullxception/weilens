@@ -93,6 +93,7 @@ fn set_user_agent(state: tauri::State<AppState>, ua: String) {
     }
 }
 
+/// Launch the Tauri desktop app; exits when the webview runtime fails.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let http_client = reqwest::Client::builder()
@@ -175,6 +176,7 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+/// Serve the HTTP API on `port`; exits on DB init or bind failure.
 #[allow(clippy::absolute_paths)]
 pub fn serve(port: u16) {
     crash::init();

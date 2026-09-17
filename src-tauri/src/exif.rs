@@ -69,6 +69,11 @@ fn get_iphone_model(exif_date_str: &str) -> IPhoneExif {
         .unwrap_or(MODELS[0]) // Default to the first model if none match
 }
 
+/// Stamp capture metadata onto an encoded image buffer.
+///
+/// # Errors
+///
+/// Returns `Err` when the image type is unsupported or the tag write fails.
 pub fn write_exif(
     buffer: &mut Vec<u8>,
     exif_date: &str,
@@ -140,7 +145,8 @@ pub fn write_exif(
     metadata.set_tag(ExifTag::SceneCaptureType(vec![0]));
     metadata.set_tag(ExifTag::DigitalZoomRatio(vec![uR64::from(1)]));
 
-    if let Some(gps) = location {
+    // Invalid input is dropped, never written.
+    if let Some(gps) = location.filter(|g| valid_gps(g.lat, g.lon)) {
         let lat_ref = if gps.lat >= 0.0 { "N" } else { "S" };
         metadata.set_tag(ExifTag::GPSLatitudeRef(lat_ref.into()));
         let lon_ref = if gps.lon >= 0.0 { "E" } else { "W" };
@@ -148,6 +154,7 @@ pub fn write_exif(
 
         let build_dms = |coord: f64| -> Vec<uR64> {
             let abs = coord.abs();
+            // Each component is clamped to its valid range before casting, so `as` cannot wrap.
             let deg = abs.trunc().clamp(0.0, f64::from(u32::MAX)) as u32;
             let min_f = (abs - f64::from(deg)).mul_add(60.0, 0.0);
             let min = min_f.trunc().clamp(0.0, 59.0) as u32;
@@ -161,11 +168,21 @@ pub fn write_exif(
 
         let lon_components = build_dms(gps.lon);
         metadata.set_tag(ExifTag::GPSLongitude(lon_components));
+    } else if location.is_some() {
+        log::warn!("skipping GPS tag: lat/lon out of range or non-finite");
     }
 
     metadata
         .write_to_vec(buffer, file_type)
-        .map_err(|e| format!("Metadata write error: {:?}", e))?;
+        .map_err(|e| format!("failed to write exif metadata: {e:?}"))?;
 
     Ok(())
+}
+
+// Finite coordinates inside the WGS84 bounds.
+fn valid_gps(lat: f64, lon: f64) -> bool {
+    lat.is_finite()
+        && lon.is_finite()
+        && (-90.0..=90.0).contains(&lat)
+        && (-180.0..=180.0).contains(&lon)
 }
