@@ -15,6 +15,7 @@
     "tauri": "tauri",
     "dev:web": "vite --port 1420 --strictPort",
     "server:start": "cargo run -p weilens -- server start --port 1421",
+    "server:run": "cargo run -p weilens -- server run --port 1421",
     "server:stop": "cargo run -p weilens -- server stop --port 1421"
   },
   "dependencies": {
