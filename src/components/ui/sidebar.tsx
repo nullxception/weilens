@@ -192,6 +192,7 @@ function Sidebar({
             } as React.CSSProperties
           }
           side={side}
+          initialFocus={false}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Sidebar</SheetTitle>
