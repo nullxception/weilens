@@ -12,7 +12,7 @@
     "check": "tsc --noEmit && oxlint && oxfmt --check .",
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
-    "server": "cargo run -- server run --port 1421",
+    "server": "cargo run -p weilens -- server --port 1421",
     "dev:web": "bun --parallel server dev"
   },
   "dependencies": {

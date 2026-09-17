@@ -100,7 +100,7 @@ WeiLens lets you browse a Weibo user's blog feed, view and download posts with w
 - AnimatePresence for state transitions
 - shadcn/ui components (base-nova style, neutral base color)
 - Responsive sidebar with mobile hamburger toggle
-- Lucide icons throughout
+- Phosphor icons throughout
 
 ## Tech Stack
 
@@ -158,14 +158,12 @@ Run the full verification pipeline before submitting changes:
 
 ```bash
 # Frontend
-bun run lint
-bun run typecheck
+bun check
 bun run build
 
-# Rust backend (from src-tauri/)
-cd src-tauri
-cargo clippy
-cargo build
+# Rust backend
+cargo clippy -p weilens
+cargo test -p weilens
 ```
 
 ## Architecture
@@ -243,23 +241,15 @@ Run WeiLens as a LAN web server so a phone or another PC can use the full UI whi
 bun run build
 
 # 2. Serve on LAN (same exe, same DB, same installer)
-weilens.exe server start --port 1421
-# manage it:
-weilens.exe server status --port 1421
-weilens.exe server stop --port 1421
+weilens.exe server --port 1421
 # or via bun:
-bun run server:start
-bun run server:stop
+bun run server
 ```
 
 - Binds `0.0.0.0:${WEI_PORT:-1421}` (`--port` flag wins over `WEI_PORT` env).
 - Open `http://<pc-lan-ip>:1421` from a phone on the same network.
 - First visit shows onboarding (cookie gate derived from server DB); set the cookie once and it sticks for all devices. Theme stays per-device.
-- Web dev loop: start the backend once (`bun run server:start`), then `bun run dev:web` (Vite on `:1420` with proxy to `:1421` — firouter-style, no env var). Shares port with Tauri's `devUrl`. For LAN testing, copy `.env.example` to `.env` and set `WEI_HOST=0.0.0.0`, then open `http://<pc-lan-ip>:1420` from the phone.
+- Web dev loop: start the backend once (`bun run server`), then `bun run dev:web` (Vite on `:1420` with proxy to `:1421` — firouter-style, no env var). Shares port with Tauri's `devUrl`. For LAN testing, copy `.env.example` to `.env` and set `WEI_HOST=0.0.0.0`, then open `http://<pc-lan-ip>:1420` from the phone.
 - Downloads write under the server machine's `Downloads/WeiLens/<uid>/<date>/`; grab them via FTP or file share (no zip streaming in v1).
 - Windows may prompt for firewall approval on first `0.0.0.0:1421` bind — allow it.
-- `server start` daemonizes the same exe (detached child serves, parent returns once the port answers); child logs to `<app_data_dir>/app.log`, pidfile at `<app_data_dir>/weilens.pid`.
-- `server stop` kills via pidfile, falling back to a port scan that only targets weilens processes.
-- Release server has no console (GUI subsystem); check `<app_data_dir>/app.log` if it silently fails, or open `/app-log` in the UI (sidebar App log: follow/pause/filter/copy, polled every 2s) — legacy `/api/daemon-log` alias still works.
-
-Boot persistence (same pattern as ciel): add hidden `weilens.exe server start --port 1421` to `Startup/my-apps.vbs` and a `:1421` card to the services dashboard; restart via `weilens.exe server restart --port 1421`.
+- The server runs in the foreground; stop it with Ctrl+C. It logs to `<app_data_dir>/app.log`; check that file if it silently fails in release (GUI subsystem has no console), or open `/logs` in the UI (App log: follow/pause/filter/copy, polled every 2s).

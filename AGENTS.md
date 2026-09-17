@@ -43,7 +43,7 @@ without help?" If not, leave it out.
 ## Run / Build
 
 Scripts (`package.json` is the source of truth, don't restate them here):
-`bun tauri dev` (full app, `beforeDevCommand` serves Vite on `:1420`), `bun dev` (frontend only, no Rust backend), `bun build` (`tsc -b && vite build`), `bun preview`, `bun tauri` (Tauri CLI passthrough), `bun check`, `bun typecheck`.
+`bun tauri dev` (full app, `beforeDevCommand` serves Vite on `:1420`), `bun dev` (frontend only, no Rust backend), `bun build` (`tsc -b && vite build`), `bun preview`, `bun tauri` (Tauri CLI passthrough), `bun check`, `bun typecheck`, `bun server` (Axum backend on `:1421`), `bun dev:web` (Vite on `:1420` proxying `/api` to `:1421`).
 
 > **Port note**: `tauri.conf.json` `devUrl` is `http://localhost:1420` with Vite `strictPort`. `bun dev` alone cannot serve `invoke()` calls; use `bun tauri dev` for any IPC/download/db feature.
 
@@ -58,17 +58,17 @@ Config: `.oxlintrc.json`, `.oxfmtrc.json` (sorts imports, sorts Tailwind classes
 ## Testing
 
 - **Frontend**: no test runner, no `*.test.*` under `src/`. Verify with `bun build`.
-- **Rust**: `cargo test -p weilens` from root (workspace member `src-tauri/`, single unit test in `types.rs`, no `tests/` dir).
+- **Rust**: `cargo test -p weilens` from root (workspace member `src-tauri/`, tests in `dates.rs`/`db.rs`/`server.rs`, no `tests/` dir).
 - Run `bun check` before submitting frontend changes; add `cargo clippy` + `cargo test` when `src-tauri/` changed.
 
 ## Structure
 
 - `src/main.tsx` — entry (QueryClientProvider, ThemeProvider, code-based TanStack Router in `src/router.ts`)
-- `src/routes/` — `__root`, index, settings, app-log, crash-log (no router plugin, routes wired by hand)
+- `src/routes/` — `__root`, index, settings, logs (single `/logs` page with app + crash tabs, no router plugin, routes wired by hand in `src/router.ts`)
 - `src/stores/` — zustand per concern (`useAuthStore`, `useProfileStore`, `useDownloadsStore`, `useHistoryStore`, `usePlacesStore`, `useSettingsStore`, `useUiStore`)
 - `src/types/remote.ts` — Zod schemas for Sina API responses; `src/types/rpc.ts` — Tauri IPC shapes; `src/types/gps.ts`
-- `src/lib/api.ts` — `invoke()` wrappers (only caller of Tauri commands); `proxy.ts` (img-proxy URL builder); `remote.ts` (image variant picker); `query-client.ts`; `storage-keys.ts` (localStorage keys)
-- `src-tauri/src/` — `lib.rs` (`run()` vs `serve(port)` with Axum on `0.0.0.0:1421`, `img-proxy` scheme, command registry), `db.rs` (`weipoint.db` + `settings` + `profile_history`, WAL), `server.rs` (Axum routes + embedded `dist/` via `rust-embed`), `app_context.rs` (`AppContext` shared state), `crash.rs` (`crash.log` — panic hook, signal/SEH handlers, backtrace), `daemon.rs` (`server start/stop/restart/status` lifecycle, pidfile + detached child, `app.log`/`crash.log` tails via `/api/*-log`), `weibo.rs` (`build_mymblog_url`), `download.rs` (now `download_post_core` + broadcast `progress_tx`), `image.rs`, `exif.rs`, `motion.rs`, `dates.rs`, `types.rs`, `util.rs`; `src/lib/backend.ts` (`isWebMode`/`api()`) is the frontend transport switch
+- `src/lib/` — `api.ts` (only caller of Tauri commands); `proxy.ts` (img-proxy URL builder); `remote.ts` (image variant picker); `query-client.ts`; `backend.ts` (`isWebMode`/`api()` frontend transport switch); storage keys in `src/storage-keys.ts`
+- `src-tauri/src/` — `main.rs` (CLI: desktop app vs `server [--port N]` foreground Axum), `lib.rs` (`run()` with tray icon + `serve(port)` on `0.0.0.0:1421`, `img-proxy` scheme, command registry), `tray.rs` (tray icon with Show/Quit, close hides to tray), `db.rs` (`weipoint.db` + `settings` + `profile_history`, WAL), `server.rs` (Axum routes + embedded `dist/` via `rust-embed`, `/api/app-log` + `/api/crash-log`), `app_context.rs` (`AppContext` shared state), `crash.rs` (`crash.log` — panic hook, signal/SEH handlers, backtrace), `weibo.rs` (`build_mymblog_url`), `download.rs` (now `download_post_core` + broadcast `progress_tx`), `image.rs`, `exif.rs`, `motion.rs`, `dates.rs`, `types.rs`, `util.rs`
 
 ## Conventions
 

@@ -600,7 +600,7 @@ fn last_n_lines(text: &str, n: usize) -> Vec<String> {
         .collect()
 }
 
-async fn get_daemon_log(Query(q): Query<LogQuery>) -> Json<AppLogResponse> {
+async fn get_app_log(Query(q): Query<LogQuery>) -> Json<AppLogResponse> {
     let n = q.lines.unwrap_or(500).clamp(1, 1000);
     // Missing log reads as empty, the tail below then yields no lines.
     let text = fs::read_to_string(db::standalone_home().join("app.log"))
@@ -661,7 +661,7 @@ pub fn build_router(ctx: AppContext) -> Router {
         .route("/api/user-agent", post(post_user_agent))
         .route("/api/img-proxy", get(get_img_proxy))
         .route("/api/weibo/mymblog", get(get_weibo))
-        .route("/api/app-log", get(get_daemon_log))
+        .route("/api/app-log", get(get_app_log))
         .route("/api/crash-log", get(get_crash_log))
         .fallback(serve_embed)
         .layer(cors)

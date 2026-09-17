@@ -1,7 +1,6 @@
 #![allow(clippy::absolute_paths)]
 mod app_context;
 mod crash;
-pub mod daemon;
 mod dates;
 mod db;
 mod download;

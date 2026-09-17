@@ -3,21 +3,11 @@
 
 use std::process;
 
-use weilens_lib::daemon;
-
 const DEFAULT_PORT: u16 = 1421;
-
-enum DaemonOp {
-    Start,
-    Run,
-    Stop,
-    Restart,
-    Status,
-}
 
 enum Action {
     App,
-    Daemon(DaemonOp, u16),
+    Server(u16),
     Help,
 }
 
@@ -66,76 +56,30 @@ fn parse_args() -> Action {
     if !raw.first().is_some_and(|a| a == "server") {
         return Action::App;
     }
-    let port = resolve_port(&raw);
-    match raw.get(1).map(String::as_str) {
-        Some("start") => Action::Daemon(DaemonOp::Start, port),
-        Some("run") => Action::Daemon(DaemonOp::Run, port),
-        Some("stop") => Action::Daemon(DaemonOp::Stop, port),
-        Some("restart") => Action::Daemon(DaemonOp::Restart, port),
-        Some("status") => Action::Daemon(DaemonOp::Status, port),
-        other => {
-            eprintln!(
-                "unknown server subcommand: {}",
-                other.unwrap_or("(missing)")
-            );
-            print_usage();
-            process::exit(1);
-        }
+    if raw.len() > 1 && !raw[1].starts_with('-') {
+        eprintln!("unknown server argument: {}", raw[1]);
+        print_usage();
+        process::exit(1);
     }
+    Action::Server(resolve_port(&raw))
 }
 
 fn print_usage() {
     println!(
         "Weilens - Sina Weibo viewer and downloader
 
-  weilens                          Run the desktop app
-  weilens server start [--port N]  Start the server in the background
-  weilens server run [--port N]    Run the server in the foreground
-  weilens server stop [--port N]   Stop the background server
-  weilens server restart [--port N]  Restart the background server
-  weilens server status [--port N]  Show server status
+  weilens                 Run the desktop app
+  weilens server [--port N]  Run the server in the foreground
 
 Options:
   --port, -p N   Server port (default {DEFAULT_PORT}, WEI_PORT env when the flag is omitted)"
     );
 }
-fn run_daemon_op(op: DaemonOp, port: u16) {
-    // `server run` serves in the foreground; the detached child re-enters
-    // `server start` with the marker set and serves.
-    if matches!(op, DaemonOp::Run) {
-        weilens_lib::serve(port);
-        return;
-    }
-    // Detached child re-enters `server start` with the marker set and serves.
-    if matches!(op, DaemonOp::Start) && std::env::var(daemon::SERVER_CHILD_ENV).is_ok() {
-        weilens_lib::serve(port);
-        return;
-    }
-    let rt = match tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-    {
-        Ok(rt) => rt,
-        Err(e) => {
-            eprintln!("failed to start async runtime: {e}");
-            process::exit(1);
-        }
-    };
-    rt.block_on(async move {
-        match op {
-            DaemonOp::Start => daemon::daemon_start(port).await,
-            DaemonOp::Run => unreachable!("served synchronously above"),
-            DaemonOp::Stop => daemon::daemon_stop(port).await,
-            DaemonOp::Restart => daemon::daemon_restart(port).await,
-            DaemonOp::Status => daemon::daemon_status(port).await,
-        }
-    });
-}
 
 fn main() {
     match parse_args() {
         Action::App => weilens_lib::run(),
-        Action::Daemon(op, port) => run_daemon_op(op, port),
+        Action::Server(port) => weilens_lib::serve(port),
         Action::Help => print_usage(),
     }
 }
