@@ -1,7 +1,7 @@
 #![allow(clippy::absolute_paths)]
 mod app_context;
-pub mod daemon;
 mod crash;
+pub mod daemon;
 mod dates;
 mod db;
 mod download;
@@ -13,13 +13,13 @@ mod types;
 mod util;
 mod weibo;
 
+#[allow(unused_imports)]
+use crate::app_context::AppContext;
 use crate::db::{
     add_place, clear_profile_history_cmd, delete_profile_history_cmd, get_place_by_post, init_db,
     list_places, list_profile_history_cmd, remove_blog_place, search_place, set_blog_place,
     upsert_profile_history_cmd, DbState,
 };
-#[allow(unused_imports)]
-use crate::app_context::AppContext;
 use crate::download::{
     cancel_download_post, choose_download_dir, default_download_dir, download_post,
 };
@@ -80,11 +80,10 @@ fn tail_log_file(file: &str, lines: Option<usize>) -> Result<Vec<String>, String
     let Ok(text) = fs::read_to_string(&path) else {
         return Ok(vec![]);
     };
-    let all: Vec<String> = text.lines().map(|l| l.to_string()).collect();
-    if all.len() <= n {
-        return Ok(all);
-    }
-    Ok(all[all.len() - n..].to_vec())
+    // Missing log reads as empty, the slice below then yields no lines.
+    let all: Vec<&str> = text.lines().collect();
+    let start = all.len().saturating_sub(n);
+    Ok(all[start..].iter().map(|l| l.to_string()).collect())
 }
 
 #[tauri::command]
@@ -105,7 +104,9 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(http_client.clone())
-        .manage(DownloadCancellationState(Arc::new(Mutex::new(HashMap::new()))))
+        .manage(DownloadCancellationState(Arc::new(Mutex::new(
+            HashMap::new(),
+        ))))
         .manage(AppState {
             user_agent: user_agent.clone(),
         })
@@ -183,26 +184,45 @@ pub fn serve(port: u16) {
     let log_file = home.join("app.log");
     // File-only logger: stderr is redirected to app.log for the detached
     // child, so echoing there would duplicate every line.
-    if let Ok(f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_file) {
-        struct FileLogger { file: std::sync::Mutex<std::fs::File> }
+    if let Ok(f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file)
+    {
+        struct FileLogger {
+            file: std::sync::Mutex<std::fs::File>,
+        }
         impl log::Log for FileLogger {
-            fn enabled(&self, m: &log::Metadata) -> bool { m.level() <= log::Level::Info }
+            fn enabled(&self, m: &log::Metadata) -> bool {
+                m.level() <= log::Level::Info
+            }
             fn log(&self, r: &log::Record) {
                 if self.enabled(r.metadata()) {
                     let line = format!("[{} {}] {}\n", r.level(), r.target(), r.args());
-                    let _ = std::io::Write::write_all(&mut *self.file.lock().unwrap(), line.as_bytes());
+                    let _ = std::io::Write::write_all(
+                        &mut *self.file.lock().expect("log file lock poisoned"),
+                        line.as_bytes(),
+                    );
                 }
             }
             fn flush(&self) {}
         }
-        let logger = Box::new(FileLogger { file: std::sync::Mutex::new(f) });
+        let logger = Box::new(FileLogger {
+            file: std::sync::Mutex::new(f),
+        });
         let leaked: &'static FileLogger = Box::leak(logger);
         let _ = log::set_logger(leaked);
         log::set_max_level(log::LevelFilter::Info);
     }
-    log::info!("WeiLens server starting on 0.0.0.0:{port}, log at {}", log_file.display());
+    log::info!(
+        "WeiLens server starting on 0.0.0.0:{port}, log at {}",
+        log_file.display()
+    );
 
-    let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("tokio runtime");
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("tokio runtime");
     rt.block_on(async move { serve_async(port).await });
 }
 
@@ -215,7 +235,8 @@ async fn serve_async(port: u16) {
     let user_agent = Arc::new(RwLock::new(FALLBACK_USER_AGENT.to_string()));
     let config = DownloadConfig::default();
     let cancel_map = Arc::new(Mutex::new(HashMap::new()));
-    let (progress_tx, _rx) = tokio::sync::broadcast::channel::<crate::types::DownloadProgressPayload>(256);
+    let (progress_tx, _rx) =
+        tokio::sync::broadcast::channel::<crate::types::DownloadProgressPayload>(256);
 
     // Ensure DB exists and has correct schema
     let db_path = db::standalone_db_path();
@@ -249,4 +270,3 @@ async fn serve_async(port: u16) {
         std::process::exit(1);
     }
 }
-

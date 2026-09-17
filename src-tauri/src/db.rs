@@ -87,10 +87,7 @@ fn open_and_init(path: &Path) -> Result<Connection, rusqlite::Error> {
 }
 
 pub fn init_db(app: &AppHandle) -> Result<Connection, rusqlite::Error> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .expect("Failed to get app data dir");
+    let app_data_dir = app.path().app_data_dir().expect("app data dir available");
     let db_path = app_data_dir.join("weipoint.db");
     open_and_init(&db_path)
 }
@@ -102,8 +99,8 @@ pub fn init_standalone_db() -> Result<Connection, rusqlite::Error> {
 }
 
 #[allow(dead_code)]
-pub fn init_db_at_path(path: PathBuf) -> Result<Connection, rusqlite::Error> {
-    open_and_init(&path)
+pub fn init_db_at_path(path: &Path) -> Result<Connection, rusqlite::Error> {
+    open_and_init(path)
 }
 
 #[allow(dead_code)]
@@ -140,8 +137,9 @@ pub struct ProfileHistoryRow {
 
 #[allow(dead_code)]
 pub fn list_profile_history(conn: &Connection) -> Result<Vec<ProfileHistoryRow>, rusqlite::Error> {
-    let mut stmt =
-        conn.prepare("SELECT uid, screen_name, avatar, timestamp FROM profile_history ORDER BY timestamp DESC")?;
+    let mut stmt = conn.prepare(
+        "SELECT uid, screen_name, avatar, timestamp FROM profile_history ORDER BY timestamp DESC",
+    )?;
     let rows = stmt.query_map([], |row| {
         Ok(ProfileHistoryRow {
             uid: row.get(0)?,
@@ -154,7 +152,10 @@ pub fn list_profile_history(conn: &Connection) -> Result<Vec<ProfileHistoryRow>,
 }
 
 #[allow(dead_code)]
-pub fn upsert_profile_history(conn: &Connection, row: &ProfileHistoryRow) -> Result<(), rusqlite::Error> {
+pub fn upsert_profile_history(
+    conn: &Connection,
+    row: &ProfileHistoryRow,
+) -> Result<(), rusqlite::Error> {
     conn.execute(
         "INSERT INTO profile_history (uid, screen_name, avatar, timestamp) VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT(uid) DO UPDATE SET screen_name=excluded.screen_name, avatar=excluded.avatar, timestamp=excluded.timestamp",
@@ -227,9 +228,9 @@ pub fn list_places(
 #[tauri::command]
 pub fn search_place(state: tauri::State<'_, DbState>, query: &str) -> Result<Vec<Place>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let pattern = format!("%{}%", query);
+    let pattern = format!("%{query}%");
     let mut stmt = conn
-        .prepare("SELECT  lat, lon, name FROM places WHERE name LIKE ?1")
+        .prepare("SELECT lat, lon, name FROM places WHERE name LIKE ?1")
         .map_err(|e| e.to_string())?;
 
     let place_iter = stmt
@@ -331,32 +332,47 @@ pub fn remove_blog_place(
 
 #[allow(dead_code)]
 #[tauri::command]
-pub fn get_settings(state: tauri::State<'_, DbState>, key: String) -> Result<Option<String>, String> {
+pub fn get_settings(
+    state: tauri::State<'_, DbState>,
+    key: String,
+) -> Result<Option<String>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     get_setting(&conn, &key).map_err(|e| e.to_string())
 }
 
 #[allow(dead_code)]
 #[tauri::command]
-pub fn save_settings(state: tauri::State<'_, DbState>, key: String, value: String) -> Result<(), String> {
+pub fn save_settings(
+    state: tauri::State<'_, DbState>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     set_setting(&conn, &key, &value).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn list_profile_history_cmd(state: tauri::State<'_, DbState>) -> Result<Vec<ProfileHistoryRow>, String> {
+pub fn list_profile_history_cmd(
+    state: tauri::State<'_, DbState>,
+) -> Result<Vec<ProfileHistoryRow>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     list_profile_history(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn upsert_profile_history_cmd(state: tauri::State<'_, DbState>, row: ProfileHistoryRow) -> Result<(), String> {
+pub fn upsert_profile_history_cmd(
+    state: tauri::State<'_, DbState>,
+    row: ProfileHistoryRow,
+) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     upsert_profile_history(&conn, &row).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn delete_profile_history_cmd(state: tauri::State<'_, DbState>, uid: String) -> Result<(), String> {
+pub fn delete_profile_history_cmd(
+    state: tauri::State<'_, DbState>,
+    uid: String,
+) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     delete_profile_history(&conn, &uid).map_err(|e| e.to_string())
 }
@@ -395,7 +411,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("weilens_test_{}", rand::random::<u32>()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("weipoint.db");
-        let conn = init_db_at_path(path.clone()).unwrap();
+        let conn = init_db_at_path(&path).unwrap();
         let mut stmt = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             .unwrap();

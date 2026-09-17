@@ -69,6 +69,7 @@ async fn read_log_tail(lines: usize) -> String {
         return "(no log)".to_string();
     };
     let mut buf = String::new();
+    // Best effort, startup failure text is advisory only.
     let _ = f.read_to_string(&mut buf).await;
     buf.lines()
         .rev()

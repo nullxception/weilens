@@ -1,10 +1,14 @@
 pub fn get_no_watermark_url(url: &str) -> Option<String> {
-    let parts: Vec<&str> = url.split('/').collect();
-    if parts.len() > 3 {
-        let size_segment = parts[3];
-        let target = format!("{}/", size_segment);
-        Some(url.replace(&target, "oslarge/"))
-    } else {
-        None
+    let size_segment = url.split('/').nth(3)?;
+    if size_segment.is_empty() {
+        return None;
     }
+    let mut target = String::with_capacity(size_segment.len() + 1);
+    target.push_str(size_segment);
+    target.push('/');
+    let replaced = url.replace(&target, "oslarge/");
+    if replaced == url {
+        return None;
+    }
+    Some(replaced)
 }

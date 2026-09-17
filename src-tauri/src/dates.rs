@@ -14,13 +14,13 @@ pub fn parse_date(date_str: &str) -> Option<DateTime<Utc>> {
 }
 
 pub fn get_formatted_date(dt: &DateTime<Utc>, index_offset: i64) -> String {
-    let offset_dt = *dt + chrono::Duration::seconds(index_offset);
-    offset_dt.format("%Y%m%d_%H%M%S").to_string()
+    let offset = chrono::Duration::try_seconds(index_offset).unwrap_or_default();
+    (*dt + offset).format("%Y%m%d_%H%M%S").to_string()
 }
 
 pub fn get_exif_date_string(dt: &DateTime<Utc>, index_offset: i64) -> String {
-    let offset_dt = *dt + chrono::Duration::seconds(index_offset);
-    offset_dt.format("%Y:%m:%d %H:%M:%S").to_string()
+    let offset = chrono::Duration::try_seconds(index_offset).unwrap_or_default();
+    (*dt + offset).format("%Y:%m:%d %H:%M:%S").to_string()
 }
 
 pub fn get_date_folder(dt: &DateTime<Utc>) -> String {

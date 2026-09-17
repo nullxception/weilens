@@ -40,8 +40,12 @@ pub fn mux(image_bytes: &[u8], video_bytes: &[u8], mime: &str) -> Result<Vec<u8>
         },
     ];
 
-    let mut tag_data = Vec::new();
-    let mut tag_lengths = Vec::new();
+    let mut tag_data = Vec::with_capacity(
+        tags.iter()
+            .map(|tag| tag.payload.len() + tag.name.len() + 8)
+            .sum(),
+    );
+    let mut tag_lengths = Vec::with_capacity(tags.len());
     let mut video_padstart: usize = 0;
 
     for (i, tag) in tags.iter().enumerate() {
@@ -60,10 +64,10 @@ pub fn mux(image_bytes: &[u8], video_bytes: &[u8], mime: &str) -> Result<Vec<u8>
     }
 
     let mut offsets = vec![0u32; tags.len()];
-    for (i, len) in tag_lengths.iter().enumerate() {
-        for offset in offsets.iter_mut().take(i + 1) {
-            *offset += len;
-        }
+    let mut trailing = 0u32;
+    for (offset, &len) in offsets.iter_mut().zip(&tag_lengths).rev() {
+        trailing = trailing.saturating_add(len);
+        *offset = trailing;
     }
 
     let mut sefh = Vec::new();
@@ -145,7 +149,7 @@ pub fn mux(image_bytes: &[u8], video_bytes: &[u8], mime: &str) -> Result<Vec<u8>
     let xmp_segment = JpegSegment::new_with_contents(0xE1, Bytes::from(payload));
     jpeg.segments_mut().insert(1, xmp_segment);
 
-    let mut motion_bytes = Vec::new();
+    let mut motion_bytes = Vec::with_capacity(tag_data.len() + sefh.len());
     jpeg.encoder()
         .write_to(&mut motion_bytes)
         .map_err(|e| MotionError::Jpeg(e.to_string()))?;

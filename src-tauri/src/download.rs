@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{broadcast, Semaphore};
 use tokio::task::spawn_blocking;
-use tokio::time::{Duration, sleep};
+use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
@@ -16,9 +16,7 @@ use crate::exif;
 use crate::image;
 use crate::image::WmPosition;
 use crate::motion;
-use crate::types::{
-    DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData,
-};
+use crate::types::{DownloadConfig, DownloadError, DownloadItem, DownloadProgressPayload, GpsData};
 use crate::util;
 
 #[derive(Deserialize)]
@@ -68,15 +66,116 @@ fn emit_cancelled(
     });
 }
 
-fn emit_progress(tx: &broadcast::Sender<DownloadProgressPayload>, payload: DownloadProgressPayload) {
+fn emit_progress(
+    tx: &broadcast::Sender<DownloadProgressPayload>,
+    payload: DownloadProgressPayload,
+) {
     let _ = tx.send(payload);
+}
+async fn cancellable_send(
+    request: reqwest::RequestBuilder,
+    token: &CancellationToken,
+) -> Result<reqwest::Response, DownloadError> {
+    tokio::select! {
+        res = request.send() => res.map_err(|e| DownloadError::Request(format!("request failed: {e}"))),
+        _ = token.cancelled() => Err(DownloadError::Cancelled),
+    }
+}
+
+async fn cancellable_bytes(
+    response: reqwest::Response,
+    token: &CancellationToken,
+) -> Result<Vec<u8>, DownloadError> {
+    tokio::select! {
+        bytes = response.bytes() => bytes.map(|b| b.to_vec()).map_err(|e| DownloadError::Request(format!("failed to read response bytes: {e}"))),
+        _ = token.cancelled() => Err(DownloadError::Cancelled),
+    }
+}
+fn log_download_error(task: &DownloadTask, err: &DownloadError) {
+    log::error!(
+        "[{}/{}] Post {} - {}",
+        task.index + 1,
+        task.total,
+        task.post_id,
+        err
+    );
+}
+
+fn fetch_request(task: &DownloadTask, url: &str) -> reqwest::RequestBuilder {
+    task.client
+        .get(url)
+        .timeout(Duration::from_secs(task.config.request_timeout_secs))
+        .header("Referer", &task.config.referer)
+        .header("User-Agent", &task.user_agent)
+}
+
+fn check_cancelled(token: &CancellationToken) -> Result<(), DownloadError> {
+    if token.is_cancelled() {
+        return Err(DownloadError::Cancelled);
+    }
+    Ok(())
+}
+
+async fn try_merge_watermark_free(task: &DownloadTask, buffer: &mut Vec<u8>) {
+    let Some(no_wm_url) = util::get_no_watermark_url(&task.item_url) else {
+        return;
+    };
+    if no_wm_url == task.item_url || task.item_video_url.is_some() {
+        return;
+    }
+    if check_cancelled(&task.cancellation_token).is_err() {
+        return;
+    }
+    let request = fetch_request(task, &no_wm_url);
+    let res_no_wm = match cancellable_send(request, &task.cancellation_token).await {
+        Ok(res) => res,
+        Err(DownloadError::Cancelled) => return,
+        Err(_) => {
+            log::warn!(
+                "[Post {}:{}/{}] Failed to request watermark-free image",
+                task.post_id,
+                task.index + 1,
+                task.total
+            );
+            return;
+        }
+    };
+    if !res_no_wm.status().is_success() {
+        log::warn!(
+            "[Post {}:{}/{}] Watermark-free request returned status: {}",
+            task.post_id,
+            task.index + 1,
+            task.total,
+            res_no_wm.status()
+        );
+        return;
+    }
+    let no_wm_bytes = match cancellable_bytes(res_no_wm, &task.cancellation_token).await {
+        Ok(bytes) => bytes,
+        Err(_) => return,
+    };
+    if check_cancelled(&task.cancellation_token).is_err() {
+        return;
+    }
+    let pos = WmPosition::from(task.dewatermark.as_str());
+    if image::dewatermark(buffer, &no_wm_bytes, pos)
+        .map(|merged| *buffer = merged)
+        .is_err()
+    {
+        log::warn!(
+            "[Post {}:{}/{}] Failed to merge watermark-free version",
+            task.post_id,
+            task.index + 1,
+            task.total
+        );
+    }
 }
 
 async fn process_motion(
     task: &DownloadTask,
     video_url: &str,
     image_bytes: &[u8],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, DownloadError> {
     log::info!(
         "[Post {}:{}/{}] Fetching video from {}",
         task.post_id,
@@ -85,38 +184,25 @@ async fn process_motion(
         video_url
     );
 
-    if task.cancellation_token.is_cancelled() {
-        return Err("cancelled".to_string());
-    }
-
-    let res = tokio::select! {
-        res = task
-            .client
-            .get(video_url)
-            .timeout(Duration::from_secs(task.config.request_timeout_secs))
-            .header("Referer", &task.config.referer)
-            .header("User-Agent", &task.user_agent)
-            .send() => res.map_err(|e| format!("Video request failed: {}", e)),
-        _ = task.cancellation_token.cancelled() => return Err("cancelled".to_string()),
-    }?;
+    let res = cancellable_send(fetch_request(task, video_url), &task.cancellation_token).await?;
 
     if !res.status().is_success() {
-        return Err(format!("Video HTTP error: {}", res.status()));
+        return Err(DownloadError::Http(format!(
+            "video HTTP error: {}",
+            res.status()
+        )));
     }
 
-    let video_bytes = tokio::select! {
-        bytes = res.bytes() => bytes.map_err(|e| format!("Failed to read video bytes: {}", e)),
-        _ = task.cancellation_token.cancelled() => return Err("cancelled".to_string()),
-    }?;
+    let video_bytes = cancellable_bytes(res, &task.cancellation_token).await?;
 
-    let url = Url::parse(video_url).map_err(|e| format!("Failed to parse video URL: {}", e))?;
+    let url = Url::parse(video_url).map_err(|e| DownloadError::VideoUrl(e.to_string()))?;
     let mime = match Path::new(url.path())
         .extension()
         .and_then(|ext| ext.to_str())
     {
         Some("mp4") | Some("MP4") => "video/mp4",
         Some("mov") | Some("MOV") => "video/quicktime",
-        _ => return Err("Unsupported url video format! Must be mp4 or mov".into()),
+        _ => return Err(DownloadError::VideoFormat),
     };
 
     log::info!(
@@ -127,141 +213,35 @@ async fn process_motion(
         video_bytes.len()
     );
 
-    if task.cancellation_token.is_cancelled() {
-        return Err("cancelled".to_string());
-    }
+    check_cancelled(&task.cancellation_token)?;
 
-    motion::mux(image_bytes, &video_bytes, mime).map_err(|e| format!("Mux failed: {}", e))
+    motion::mux(image_bytes, &video_bytes, mime).map_err(|e| DownloadError::Mux(e.to_string()))
 }
 
 pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>), DownloadError> {
     let mut saved_paths = Vec::new();
-    let is_motion = task.item_video_url.is_some();
-    let no_watermark_url = util::get_no_watermark_url(&task.item_url);
     let mut warning = None;
 
-    log::info!(
-        "[Post {}:{}/{}] Starting download. URL: {}",
-        task.post_id,
-        task.index + 1,
-        task.total,
-        task.item_url
-    );
+    check_cancelled(&task.cancellation_token)?;
 
-    emit_progress(
-        &task.progress_tx,
-        DownloadProgressPayload {
-            post_id: task.post_id.clone(),
-            index: task.index,
-            total: task.total,
-            status: "downloading".to_string(),
-            url: task.item_url.clone(),
-            saved_path: None,
-            warning: None,
-        },
-    );
-
-    if task.cancellation_token.is_cancelled() {
-        return Err(DownloadError::Cancelled);
-    }
-
-    let req = task
-        .client
-        .get(&task.item_url)
-        .timeout(Duration::from_secs(task.config.request_timeout_secs))
-        .header("Referer", &task.config.referer)
-        .header("User-Agent", &task.user_agent);
-    let response = tokio::select! {
-        res = req.send() => res.map_err(|e| {
-            let err = DownloadError::Request(format!("Request failed: {}", e));
-            log::error!("[{}/{}] Post {} - {}", task.index + 1, task.total, task.post_id, err);
-            err
-        })?,
-        _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
-    };
+    let response = cancellable_send(
+        fetch_request(&task, &task.item_url),
+        &task.cancellation_token,
+    )
+    .await
+    .inspect_err(|err| log_download_error(&task, err))?;
 
     if !response.status().is_success() {
         let err = DownloadError::Http(format!("HTTP error: {}", response.status()));
-        log::error!(
-            "[{}/{}] Post {} - {}",
-            task.index + 1,
-            task.total,
-            task.post_id,
-            err
-        );
+        log_download_error(&task, &err);
         return Err(err);
     }
 
-    let mut buffer = tokio::select! {
-        bytes = response.bytes() => bytes.map_err(|e| {
-            let err = DownloadError::Request(format!("Failed to read response bytes: {}", e));
-            log::error!("[{}/{}] Post {} - {}", task.index + 1, task.total, task.post_id, err);
-            err
-        })?.to_vec(),
-        _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
-    };
+    let mut buffer = cancellable_bytes(response, &task.cancellation_token)
+        .await
+        .inspect_err(|err| log_download_error(&task, err))?;
 
-    if let Some(ref no_wm_url) = no_watermark_url {
-        if no_wm_url != &task.item_url && !is_motion {
-            if task.cancellation_token.is_cancelled() {
-                return Err(DownloadError::Cancelled);
-            }
-            let req_no_wm = task
-                .client
-                .get(no_wm_url)
-                .timeout(Duration::from_secs(task.config.request_timeout_secs))
-                .header("Referer", &task.config.referer)
-                .header("User-Agent", &task.user_agent);
-            let res_no_wm = tokio::select! {
-                res = req_no_wm.send() => res,
-                _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
-            };
-            if let Ok(res_no_wm) = res_no_wm {
-                if res_no_wm.status().is_success() {
-                    let no_wm_bytes = tokio::select! {
-                        bytes = res_no_wm.bytes() => bytes,
-                        _ = task.cancellation_token.cancelled() => return Err(DownloadError::Cancelled),
-                    };
-                    if let Ok(no_wm_bytes) = no_wm_bytes {
-                        if task.cancellation_token.is_cancelled() {
-                            return Err(DownloadError::Cancelled);
-                        }
-                        let pos = match task.dewatermark.as_str() {
-                            "top" => WmPosition::Top,
-                            "center" => WmPosition::Center,
-                            "bottom" => WmPosition::Bottom,
-                            _ => WmPosition::Bottom,
-                        };
-                        if let Ok(merged) = image::dewatermark(&buffer, &no_wm_bytes, pos) {
-                            buffer = merged;
-                        } else {
-                            log::warn!(
-                                "[Post {}:{}/{}] Failed to merge watermark-free version",
-                                task.post_id,
-                                task.index + 1,
-                                task.total
-                            );
-                        }
-                    }
-                } else {
-                    log::warn!(
-                        "[Post {}:{}/{}] Watermark-free request returned status: {}",
-                        task.post_id,
-                        task.index + 1,
-                        task.total,
-                        res_no_wm.status()
-                    );
-                }
-            } else {
-                log::warn!(
-                    "[Post {}:{}/{}] Failed to request watermark-free image",
-                    task.post_id,
-                    task.index + 1,
-                    task.total
-                );
-            }
-        }
-    }
+    try_merge_watermark_free(&task, &mut buffer).await;
 
     let extension = Path::new(&task.item_url)
         .extension()
@@ -274,9 +254,7 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
     let target_path = task.target_dir.join(&image_filename);
 
     let exif_date_str = dates::get_exif_date_string(&task.created_at_dt, task.index as i64);
-    if task.cancellation_token.is_cancelled() {
-        return Err(DownloadError::Cancelled);
-    }
+    check_cancelled(&task.cancellation_token)?;
     if let Err(e) = exif::write_exif(
         &mut buffer,
         &exif_date_str,
@@ -292,42 +270,36 @@ pub async fn download(task: DownloadTask) -> Result<(Vec<String>, Option<String>
         );
     }
 
-    // For motion, mux the video into the image bytes in memory before
-    // writing to disk so we only need a single file write.
-    if is_motion {
-        if let Some(ref video_url) = task.item_video_url {
-            if task.cancellation_token.is_cancelled() {
-                return Err(DownloadError::Cancelled);
+    // Mux in memory so the later file write stays single-shot.
+    if let Some(video_url) = &task.item_video_url {
+        check_cancelled(&task.cancellation_token)?;
+        match process_motion(&task, video_url, &buffer).await {
+            Ok(muxed) => {
+                buffer = muxed;
+                log::info!(
+                    "[Post {}:{}/{}] muxed successfully, new size: {} bytes",
+                    task.post_id,
+                    task.index + 1,
+                    task.total,
+                    buffer.len()
+                );
             }
-            match process_motion(&task, video_url, &buffer).await {
-                Ok(muxed) => buffer = muxed,
-                Err(e) => {
-                    log::error!(
-                        "[Post {}:{}/{}] mux failed, writing plain image: {}",
-                        task.post_id,
-                        task.index + 1,
-                        task.total,
-                        e
-                    );
-                    warning = Some(format!(
-                        "Motion photo mux failed: {}, saved as still image",
-                        e
-                    ));
-                }
+            Err(e) => {
+                log::error!(
+                    "[Post {}:{}/{}] mux failed, writing plain image: {}",
+                    task.post_id,
+                    task.index + 1,
+                    task.total,
+                    e
+                );
+                warning = Some(format!(
+                    "motion photo mux failed: {e}, saved as still image"
+                ));
             }
-            log::info!(
-                "[Post {}:{}/{}] muxed successfully, new size: {} bytes",
-                task.post_id,
-                task.index + 1,
-                task.total,
-                buffer.len()
-            );
         }
     }
 
-    if task.cancellation_token.is_cancelled() {
-        return Err(DownloadError::Cancelled);
-    }
+    check_cancelled(&task.cancellation_token)?;
     let target_path_str = target_path.to_string_lossy().to_string();
     tokio::select! {
         result = spawn_blocking(move || -> Result<(), DownloadError> {
@@ -380,8 +352,12 @@ pub async fn download_post_core(
     cancel_map: Arc<Mutex<HashMap<String, CancellationToken>>>,
     progress_tx: broadcast::Sender<DownloadProgressPayload>,
 ) -> Result<serde_json::Value, String> {
-    let base_dir = config.effective_download_root(request.target);
-    let uid_segment = if request.uid.trim().is_empty() { "unknown_user" } else { &request.uid };
+    let base_dir = config.effective_download_root(request.target.as_deref());
+    let uid_segment = if request.uid.trim().is_empty() {
+        "unknown_user"
+    } else {
+        &request.uid
+    };
     let created_at_dt = dates::parse_date(&request.date).unwrap_or_else(chrono::Utc::now);
     let date_segment = dates::get_date_folder(&created_at_dt);
     let download_dir = base_dir.join(uid_segment).join(date_segment);
@@ -391,11 +367,11 @@ pub async fn download_post_core(
     let total = request.items.len();
     let semaphore = Arc::new(Semaphore::new(config.effective_max_concurrency()));
     let cancellation_token = CancellationToken::new();
-    {
-        let mut map = cancel_map.lock().map_err(|e| e.to_string())?;
-        map.insert(request.blog_id.clone(), cancellation_token.clone());
-    }
-    let mut handles = Vec::new();
+    cancel_map
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(request.blog_id.clone(), cancellation_token.clone());
+    let mut handles = Vec::with_capacity(total);
     for (index, item) in request.items.iter().enumerate() {
         let sem = semaphore.clone();
         let token = cancellation_token.clone();
@@ -415,12 +391,13 @@ pub async fn download_post_core(
                 emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
                 return Err(DownloadError::Cancelled);
             }
-            let _permit = tokio::select! {
-                permit = sem.acquire() => permit,
-                _ = token.cancelled() => {
-                    emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
-                    return Err(DownloadError::Cancelled);
-                }
+            let permit_result = tokio::select! {
+                permit = sem.acquire() => permit.map_err(|_| DownloadError::Cancelled),
+                _ = token.cancelled() => Err(DownloadError::Cancelled),
+            };
+            let Ok(_permit) = permit_result else {
+                emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
+                return Err(DownloadError::Cancelled);
             };
             let mut attempt = 0u32;
             loop {
@@ -450,10 +427,22 @@ pub async fn download_post_core(
                         emit_cancelled(&progress_tx_clone, &post_id, index, total, &item_url);
                         break Err(DownloadError::Cancelled);
                     }
-                    Err(ref e) if attempt < config_clone.max_retries => {
+                    Err(e) if attempt < config_clone.max_retries => {
                         attempt += 1;
-                        let delay_ms = config_clone.retry_base_delay_ms.saturating_mul(1u64 << attempt.min(10)).min(config_clone.retry_max_delay_ms);
-                        log::warn!("[Post {}:{}/{}] Attempt {}/{} failed ({}). Retrying in {}ms…", post_id, index + 1, total, attempt, config_clone.max_retries, e, delay_ms);
+                        let delay_ms = config_clone
+                            .retry_base_delay_ms
+                            .saturating_mul(1u64 << attempt.min(10))
+                            .min(config_clone.retry_max_delay_ms);
+                        log::warn!(
+                            "[Post {}:{}/{}] Attempt {}/{} failed ({}). Retrying in {}ms…",
+                            post_id,
+                            index + 1,
+                            total,
+                            attempt,
+                            config_clone.max_retries,
+                            e,
+                            delay_ms
+                        );
                         tokio::select! {
                             _ = sleep(Duration::from_millis(delay_ms)) => {},
                             _ = token.cancelled() => {
@@ -463,8 +452,26 @@ pub async fn download_post_core(
                         }
                     }
                     Err(e) => {
-                        log::error!("[Post {}:{}/{}] All {} retries exhausted: {}", post_id, index + 1, total, config_clone.max_retries, e);
-                        emit_progress(&progress_tx_clone, DownloadProgressPayload { post_id: post_id.clone(), index, total, status: "failed".to_string(), url: item_url.clone(), saved_path: None, warning: None });
+                        log::error!(
+                            "[Post {}:{}/{}] All {} retries exhausted: {}",
+                            post_id,
+                            index + 1,
+                            total,
+                            config_clone.max_retries,
+                            e
+                        );
+                        emit_progress(
+                            &progress_tx_clone,
+                            DownloadProgressPayload {
+                                post_id: post_id.clone(),
+                                index,
+                                total,
+                                status: "failed".to_string(),
+                                url: item_url.clone(),
+                                saved_path: None,
+                                warning: None,
+                            },
+                        );
                         break Err(e);
                     }
                 }
@@ -509,12 +516,17 @@ pub async fn choose_download_dir(starting_folder: Option<String>) -> Result<Stri
         }
     }
     let result = dialog.pick_folder();
-    Ok(result.map(|p| p.to_string_lossy().to_string()).unwrap_or_default())
+    Ok(result
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default())
 }
 
 #[tauri::command]
 pub fn default_download_dir() -> String {
-    DownloadConfig::default().effective_download_root(None).to_string_lossy().into()
+    DownloadConfig::default()
+        .effective_download_root(None)
+        .to_string_lossy()
+        .into()
 }
 
 #[tauri::command]
@@ -526,7 +538,12 @@ pub async fn download_post(
     use tauri::Manager;
     let config = DownloadConfig::default();
     let client = app_handle.state::<reqwest::Client>().inner().clone();
-    let user_agent = app_handle.state::<AppState>().user_agent.read().map(|s| s.clone()).unwrap_or_else(|_| FALLBACK_USER_AGENT.to_string());
+    let user_agent = app_handle
+        .state::<AppState>()
+        .user_agent
+        .read()
+        .map(|s| s.clone())
+        .unwrap_or_else(|_| FALLBACK_USER_AGENT.to_string());
     let cancel_map = app_handle.state::<DownloadCancellationState>().0.clone();
     let (progress_tx, mut progress_rx) = broadcast::channel::<DownloadProgressPayload>(256);
     let app_for_forward = app_handle.clone();

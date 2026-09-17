@@ -6,10 +6,21 @@ use std::time::Duration;
 use tauri::{http::header::REFERER, http::Request, http::Response, UriSchemeResponder};
 use url::Url;
 
+#[derive(Debug, Clone, Copy)]
 pub enum WmPosition {
     Top,
     Center,
     Bottom,
+}
+
+impl From<&str> for WmPosition {
+    fn from(value: &str) -> Self {
+        match value {
+            "top" => WmPosition::Top,
+            "center" => WmPosition::Center,
+            _ => WmPosition::Bottom,
+        }
+    }
 }
 
 pub fn dewatermark(
@@ -25,20 +36,19 @@ pub fn dewatermark(
         .map_err(|e| format!("Failed to load no-watermark image: {}", e))?;
 
     let (width, height) = img_wm.dimensions();
-    let resized_no_wm =
-        img_no_wm.resize_exact(width, height, FilterType::Triangle);
-    let strip_height = cmp::max(1, (height as f32 * 0.03).round() as u32);
+    let resized_no_wm = img_no_wm.resize_exact(width, height, FilterType::Triangle);
+    let strip_height = cmp::max(1, (f64::from(height) * 0.03).round() as u32);
 
     let start_y = match position {
         WmPosition::Top => 0,
         WmPosition::Center => (height.saturating_sub(strip_height)) / 2,
         WmPosition::Bottom => height.saturating_sub(strip_height),
     };
-    let end_y = cmp::min(start_y + strip_height, height);
-    let strip_h = end_y - start_y;
+    let end_y = cmp::min(start_y.saturating_add(strip_height), height);
+    let strip_h = end_y.saturating_sub(start_y);
 
     let strip = resized_no_wm.view(0, start_y, width, strip_h).to_image();
-    imageops::overlay(&mut img_wm, &strip, 0, start_y as i64);
+    imageops::overlay(&mut img_wm, &strip, 0, i64::from(start_y));
 
     let mut out_bytes = io::Cursor::new(Vec::new());
     img_wm
@@ -63,19 +73,16 @@ pub async fn handle_image_proxy(
 ) {
     let uri_string = request.uri().to_string();
 
-    let parsed_uri = match Url::parse(&uri_string) {
-        Ok(u) => u,
-        Err(_) => return responder.respond(error_response(400)),
+    let Ok(parsed_uri) = Url::parse(&uri_string) else {
+        return responder.respond(error_response(400));
     };
 
-    let target_url_param = match parsed_uri.query_pairs().find(|(k, _)| k == "url") {
-        Some((_, val)) => val.into_owned(),
-        None => return responder.respond(error_response(400)),
+    let Some((_, target_url_param)) = parsed_uri.query_pairs().find(|(k, _)| k == "url") else {
+        return responder.respond(error_response(400));
     };
 
-    let target_url = match Url::parse(&target_url_param) {
-        Ok(u) => u,
-        Err(_) => return responder.respond(error_response(422)),
+    let Ok(target_url) = Url::parse(&target_url_param) else {
+        return responder.respond(error_response(422));
     };
 
     let referer_host = format!(
@@ -83,15 +90,14 @@ pub async fn handle_image_proxy(
         target_url.scheme(),
         target_url.host_str().unwrap_or("")
     );
-
-    let ua = user_agent
+    let ua: String = user_agent
         .read()
-        .map(|s| s.clone())
+        .map(|guard| guard.clone())
         .unwrap_or_else(|_| types::FALLBACK_USER_AGENT.to_string());
 
     let network_result = client
         .get(target_url.as_str())
-        .header(REFERER, &referer_host)
+        .header(REFERER, referer_host)
         .header("User-Agent", ua)
         .timeout(Duration::from_secs(30))
         .send()

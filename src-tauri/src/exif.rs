@@ -101,14 +101,12 @@ pub fn write_exif(
     metadata.set_tag(ExifTag::Model(phone_model.name.into()));
     metadata.set_tag(ExifTag::Software(("26.5.0").into()));
     metadata.set_tag(ExifTag::LensMake("Apple".into()));
-    metadata.set_tag(ExifTag::LensModel(format!(
-        "{} {}",
-        phone_model.name, phone_model.lens_model
-    )));
-    metadata.set_tag(ExifTag::ImageUniqueID(format!(
-        "{}00000000000000000",
-        phone_model.shortname
-    )));
+    metadata.set_tag(ExifTag::LensModel(
+        [phone_model.name, phone_model.lens_model].join(" "),
+    ));
+    metadata.set_tag(ExifTag::ImageUniqueID(
+        [phone_model.shortname, "00000000000000000"].concat(),
+    ));
     metadata.set_tag(ExifTag::ExifVersion(b"0232".to_vec()));
     metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
     let mut rng = rand::rng();
@@ -150,11 +148,12 @@ pub fn write_exif(
 
         let build_dms = |coord: f64| -> Vec<uR64> {
             let abs = coord.abs();
-            let deg = abs.trunc() as u32;
-            let min_f = (abs - deg as f64) * 60.0;
-            let min = min_f.trunc() as u32;
-            let sec_f = (min_f - min as f64) * 60.0;
-            vec![uR64::from(deg), uR64::from(min), uR64::from(sec_f)]
+            let deg = abs.trunc().clamp(0.0, f64::from(u32::MAX)) as u32;
+            let min_f = (abs - f64::from(deg)).mul_add(60.0, 0.0);
+            let min = min_f.trunc().clamp(0.0, 59.0) as u32;
+            let sec_f = (min_f - f64::from(min)) * 60.0;
+            let secs = sec_f.clamp(0.0, 60.0).round();
+            vec![uR64::from(deg), uR64::from(min), uR64::from(secs)]
         };
 
         let lat_components = build_dms(gps.lat);

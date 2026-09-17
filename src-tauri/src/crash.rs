@@ -20,11 +20,7 @@ fn append_crash_block(header: &str, body: &str) {
     }
     let ts = Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
     let block = format!("\n[{ts}] {header}\n{body}\n---\n");
-    if let Ok(mut f) = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-    {
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&path) {
         use std::io::Write as _;
         let _ = f.write_all(block.as_bytes());
     }
@@ -96,8 +92,9 @@ fn install_windows_handler() {
     use std::sync::OnceLock;
     use windows_sys::Win32::System::Diagnostics::Debug as Dbg;
 
-    static PREV: OnceLock<Option<unsafe extern "system" fn(*const Dbg::EXCEPTION_POINTERS) -> i32>> =
-        OnceLock::new();
+    static PREV: OnceLock<
+        Option<unsafe extern "system" fn(*const Dbg::EXCEPTION_POINTERS) -> i32>,
+    > = OnceLock::new();
 
     unsafe extern "system" fn filter(info: *const Dbg::EXCEPTION_POINTERS) -> i32 {
         const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
@@ -118,7 +115,9 @@ fn install_windows_handler() {
         let body = format!("exception: {name} 0x{code:08X}\nbacktrace:\n{bt}");
         append_crash_block("FATAL SEH", &body);
         if let Some(Some(prev)) = PREV.get() {
-            unsafe { return prev(info); }
+            unsafe {
+                return prev(info);
+            }
         }
         EXCEPTION_CONTINUE_SEARCH
     }

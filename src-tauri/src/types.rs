@@ -44,7 +44,7 @@ impl DownloadConfig {
         self.max_concurrency.max(1)
     }
 
-    pub fn effective_download_root(&self, download_dir: Option<String>) -> PathBuf {
+    pub fn effective_download_root(&self, download_dir: Option<&str>) -> PathBuf {
         match download_dir {
             Some(dir) if !dir.trim().is_empty() => PathBuf::from(dir),
             _ => dirs::download_dir()
@@ -74,6 +74,12 @@ pub enum DownloadError {
     Io(#[from] io::Error),
     #[error("failed to create directory: {0}")]
     CreateDir(String),
+    #[error("failed to parse video URL: {0}")]
+    VideoUrl(String),
+    #[error("unsupported video format, must be mp4 or mov")]
+    VideoFormat,
+    #[error("mux failed: {0}")]
+    Mux(String),
     #[error("cancelled")]
     Cancelled,
 }
